@@ -1,0 +1,305 @@
+import { signIn } from "@/lib/auth";
+import { router } from "expo-router";
+import { ArrowRight, Lock, Mail, Store } from "lucide-react-native";
+import { useState } from "react";
+import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  async function handleLogin() {
+    if (!email.trim() || !password.trim()) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await signIn(email, password);
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to login. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <KeyboardAvoidingView 
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+      >
+      {/* Hero Header */}
+      <View style={styles.header}>
+        <View style={styles.headerDecoration1} />
+        <View style={styles.headerDecoration2} />
+        <View style={styles.headerContent}>
+          <View style={styles.headerIconContainer}>
+            <View style={styles.headerIcon}>
+              <Store size={28} color="#ffffff" />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Welcome Back</Text>
+              <Text style={styles.headerSubtitle}>Sign in to continue</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Login Form */}
+        <View style={styles.formContainer}>
+          {/* Email Input */}
+          <View style={styles.inputCard}>
+            <Text style={styles.label}>Email</Text>
+            <View style={styles.inputContainer}>
+              <Mail size={20} color="#666" style={styles.inputIcon} />
+              <TextInput
+                placeholder="Enter your email"
+                value={email}
+                onChangeText={setEmail}
+                placeholderTextColor="#999"
+                style={styles.input}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
+                autoFocus
+              />
+            </View>
+          </View>
+
+          {/* Password Input */}
+          <View style={styles.inputCard}>
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.inputContainer}>
+              <Lock size={20} color="#666" style={styles.inputIcon} />
+              <TextInput
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                placeholderTextColor="#999"
+                secureTextEntry={!showPassword}
+                style={styles.input}
+                autoComplete="password"
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.eyeIconText}>{showPassword ? "Hide" : "Show"}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Login Button */}
+          <TouchableOpacity
+            onPress={handleLogin}
+            disabled={loading || !email.trim() || !password.trim()}
+            style={[styles.loginButton, (loading || !email.trim() || !password.trim()) && styles.loginButtonDisabled]}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.loginButtonText}>
+              {loading ? "Signing in..." : "Sign In"}
+            </Text>
+            {!loading && <ArrowRight size={20} color="#ffffff" style={styles.buttonIcon} />}
+          </TouchableOpacity>
+
+          {/* Register Link */}
+          <View style={styles.registerContainer}>
+            <Text style={styles.registerText}>Don't have an account? </Text>
+            <TouchableOpacity onPress={() => router.push("/Authentication/register")} activeOpacity={0.7}>
+              <Text style={styles.registerLink}>Create Account</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  container: {
+    flex: 1,
+    backgroundColor: "#f5f5f5",
+  },
+  header: {
+    backgroundColor: "#10b981",
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    position: "relative",
+    overflow: "hidden",
+  },
+  headerDecoration1: {
+    position: "absolute",
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  headerDecoration2: {
+    position: "absolute",
+    bottom: -30,
+    left: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  },
+  headerContent: {
+    zIndex: 10,
+  },
+  headerIconContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+  headerIcon: {
+    width: 64,
+    height: 64,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#ffffff",
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.9)",
+    fontWeight: "500",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  content: {
+    padding: 20,
+    paddingTop: 32,
+  },
+  formContainer: {
+    gap: 20,
+  },
+  inputCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#666",
+    marginBottom: 12,
+  },
+  inputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9fafb",
+    borderWidth: 2,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    minHeight: 56,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#333",
+    paddingVertical: 0,
+  },
+  eyeIcon: {
+    paddingLeft: 12,
+  },
+  eyeIconText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#10b981",
+  },
+  loginButton: {
+    backgroundColor: "#10b981",
+    borderRadius: 12,
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 8,
+    shadowColor: "#10b981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loginButtonDisabled: {
+    opacity: 0.6,
+  },
+  loginButtonText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  buttonIcon: {
+    marginLeft: 8,
+  },
+  registerContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 24,
+    paddingVertical: 16,
+  },
+  registerText: {
+    fontSize: 16,
+    color: "#666",
+  },
+  registerLink: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#10b981",
+  },
+});

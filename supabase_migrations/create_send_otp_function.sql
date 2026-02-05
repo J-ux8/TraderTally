@@ -1,0 +1,21 @@
+-- =====================================================
+-- Supabase Edge Function for Sending OTP Email
+-- For MobiBooks - In-App Email Verification
+-- =====================================================
+--
+-- This Edge Function sends OTP codes via email
+-- Deploy this function in Supabase Dashboard > Edge Functions
+--
+-- =====================================================
+
+-- Note: This is a template for the Edge Function
+-- You need to create this as an Edge Function in Supabase Dashboard
+-- 
+-- Steps to deploy:
+-- 1. Go to Supabase Dashboard > Edge Functions
+-- 2. Create new function named "send-otp-email"
+-- 3. Copy the code from supabase_functions/send-otp-email/index.ts
+-- 4. Deploy the function
+--
+-- =====================================================
+
