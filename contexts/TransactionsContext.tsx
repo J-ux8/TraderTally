@@ -1,6 +1,5 @@
-import { ensureLocalDb, getLocalTransactions, insertLocalTransaction, upsertLocalFromServerTransactions } from '@/lib/localTransactions';
 import { supabase } from '@/lib/supabase';
-import { getUserCategories } from '@/lib/transactions';
+import { getUserCategories, getUserTransactions, recordExpense, recordSale } from '@/lib/transactions';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 
@@ -50,7 +49,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const [page, setPage] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // Load initial data - local-first for offline support
+  // Load initial data (server-only)
   const loadInitialData = useCallback(async () => {
     try {
       setLoading(true);
@@ -62,17 +61,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         return;
       }
 
-      // Initialize local DB
-      try { await ensureLocalDb(); } catch (err) { console.error('Failed to init local DB', err); }
-
-      // Load local transactions first for instant UI
-      try {
-        const localTx = await getLocalTransactions(INITIAL_PAGE_SIZE);
-        setTransactions(localTx || []);
-      } catch (err) {
-        console.error('Error loading local transactions:', err);
-      }
-
       // Load categories from server (small, fast)
       const categoriesData = await getUserCategories(user.id).catch(err => {
         console.error('Error loading categories:', err);
@@ -80,22 +68,9 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       });
       setCategories(categoriesData || []);
 
-      // If online, fetch server transactions and merge into local DB
-      const net = await (await import('@react-native-community/netinfo')).default.fetch();
-      if (net.isConnected) {
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('transaction_date', { ascending: false })
-          .limit(INITIAL_PAGE_SIZE);
-
-        if (!error && data) {
-          await upsertLocalFromServerTransactions(data as any[]);
-          const merged = await getLocalTransactions(INITIAL_PAGE_SIZE);
-          setTransactions(merged || []);
-        }
-      }
+      // Load transactions from server
+      const txData = await getUserTransactions(INITIAL_PAGE_SIZE);
+      setTransactions(txData || []);
 
       setPage(0);
       setHasMore(true);
@@ -121,38 +96,15 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         return;
       }
 
-      // Local-first: load local transactions and refresh server data if online
-      try { await ensureLocalDb(); } catch (err) { console.error('Failed to init local DB', err); }
-
-      try {
-        const localTx = await getLocalTransactions(INITIAL_PAGE_SIZE);
-        setTransactions(localTx || []);
-      } catch (err) {
-        console.error('Error loading local transactions:', err);
-      }
-
       const categoriesData = await getUserCategories(user.id).catch(err => {
         console.error('Error loading categories:', err);
         return [];
       });
       setCategories(categoriesData || []);
 
-      const net = await (await import('@react-native-community/netinfo')).default.fetch();
-      if (net.isConnected) {
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('transaction_date', { ascending: false })
-          .limit(INITIAL_PAGE_SIZE);
-
-        if (!error && data) {
-          await upsertLocalFromServerTransactions(data as any[]);
-          const merged = await getLocalTransactions(INITIAL_PAGE_SIZE);
-          setTransactions(merged || []);
-        }
-        setHasMore(true);
-      }
+      const txData = await getUserTransactions(INITIAL_PAGE_SIZE);
+      setTransactions(txData || []);
+      setHasMore(true);
     } catch (error) {
       console.error('Error refreshing transactions:', error);
       // Set empty arrays on error
@@ -287,19 +239,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   }, [loadInitialData, isInitialized]);
 
   async function recordSaleLocal(amount: number, category: string | null, description: string | null, transaction_date?: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-    const tx = await insertLocalTransaction({ amount, category, description, transaction_date, user_id: user.id });
-    // Update in-memory state
-    addTransaction({ id: tx.id, amount: tx.amount, category: tx.category, description: tx.description, transaction_date: tx.transaction_date, created_at: tx.created_at, user_id: user.id } as any);
+    const tx = await recordSale(amount, category, description, transaction_date);
+    addTransaction(tx as any);
     return tx;
   }
 
   async function recordExpenseLocal(amount: number, category: string | null, description: string | null, transaction_date?: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-    const tx = await insertLocalTransaction({ amount: -Math.abs(amount), category, description, transaction_date, user_id: user.id });
-    addTransaction({ id: tx.id, amount: tx.amount, category: tx.category, description: tx.description, transaction_date: tx.transaction_date, created_at: tx.created_at, user_id: user.id } as any);
+    const tx = await recordExpense(amount, category, description, transaction_date);
+    addTransaction(tx as any);
     return tx;
   }
 

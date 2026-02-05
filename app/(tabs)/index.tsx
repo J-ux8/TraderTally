@@ -5,14 +5,13 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useSummary } from '@/hooks/useSummary';
-import { useSync } from '@/hooks/useSync';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { signOut } from '@/lib/auth';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
-import { Cloud, CloudOff, LogOut, RefreshCw, Store } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Animated, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Cloud, CloudOff, LogOut, Store } from 'lucide-react-native';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
@@ -23,22 +22,8 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [user, setUser] = useState<any>(null);
   const isOnline = useOnlineStatus();
-  const { isSyncing, pendingCount } = useSync();
-  const spinAnim = useRef(new Animated.Value(0)).current;
 
-  useEffect(() => {
-    if (isSyncing) {
-      Animated.loop(
-        Animated.timing(spinAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        })
-      ).start();
-    } else {
-      spinAnim.setValue(0);
-    }
-  }, [isSyncing, spinAnim]);
+
 
   useEffect(() => {
     checkSession();
@@ -172,34 +157,14 @@ export default function HomeScreen() {
             </View>
             <View style={styles.heroRight}>
               <View style={[styles.statusBadge, !isOnline && styles.statusBadgeOffline]}>
-                {isSyncing ? (
-                  <Animated.View
-                    style={{
-                      transform: [
-                        {
-                          rotate: spinAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ['0deg', '360deg'],
-                          }),
-                        },
-                      ],
-                    }}
-                  >
-                    <RefreshCw size={16} color="#ffffff" />
-                  </Animated.View>
-                ) : isOnline ? (
+                {isOnline ? (
                   <Cloud size={16} color="#ffffff" />
                 ) : (
                   <CloudOff size={16} color="#ffffff" />
                 )}
                 <Text style={styles.statusText}>
-                  {isSyncing ? 'Syncing' : isOnline ? 'Online' : 'Offline'}
+                  {isOnline ? 'Online' : 'Offline'}
                 </Text>
-                {pendingCount > 0 && (
-                  <View style={styles.pendingBadge}>
-                    <Text style={styles.pendingText}>{pendingCount} pending</Text>
-                  </View>
-                )}
       </View>
               <TouchableOpacity
                 style={styles.logoutButton}

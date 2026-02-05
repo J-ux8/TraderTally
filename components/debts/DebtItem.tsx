@@ -80,16 +80,7 @@ export function DebtItem({ debt, onSettle, onClick }: DebtItemProps) {
             {debt.note}
           </Text>
         )}
-        {((debt as any).sync_status === 'pending') && (
-          <View style={styles.syncBadge}>
-            <Text style={styles.syncBadgeText}>Saved on phone</Text>
-          </View>
-        )}
-        {((debt as any).sync_status === 'failed') && (
-          <View style={styles.syncBadgeFailed}>
-            <Text style={styles.syncBadgeText}>Backup failed</Text>
-          </View>
-        )}
+
       </View>
       {onSettle && !debt.is_settled && (
         <TouchableOpacity
@@ -228,27 +219,6 @@ const styles = StyleSheet.create({
   },
   noteSettled: {
     color: '#999',
-  },
-  syncBadge: {
-    marginTop: 8,
-    backgroundColor: 'rgba(16,185,129,0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  syncBadgeFailed: {
-    marginTop: 8,
-    backgroundColor: 'rgba(239,68,68,0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  syncBadgeText: {
-    fontSize: 12,
-    color: '#10b981',
-    fontWeight: '600',
   },
   settleButton: {
     flexDirection: 'row',

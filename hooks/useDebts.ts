@@ -1,6 +1,5 @@
-import { deleteLocalDebt, ensureLocalDb, getLocalDebts, insertLocalDebt, settleLocalDebt, updateLocalDebt, upsertLocalFromServerDebts } from '@/lib/localDebts';
+import { createDebt, getUserDebts, updateDebt } from '@/lib/debts';
 import { supabase } from '@/lib/supabase';
-import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 
 export function useDebts() {
@@ -10,28 +9,12 @@ export function useDebts() {
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      await ensureLocalDb();
-
-      const local = await getLocalDebts();
-      setDebts(local);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const net = await NetInfo.fetch();
-      if (net.isConnected) {
-        const { data, error } = await supabase
-          .from('debts')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-
-        if (!error && data) {
-          await upsertLocalFromServerDebts(data);
-          const merged = await getLocalDebts();
-          setDebts(merged);
-        }
-      }
+      const data = await getUserDebts();
+      setDebts(data || []);
     } catch (error) {
       console.error('Error loading debts:', error);
     } finally {
@@ -49,10 +32,7 @@ export function useDebts() {
     dueDate: string | null,
     note: string | null
   ) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    const newDebt = await insertLocalDebt({ customer_name: customerName, amount, due_date: dueDate, note, user_id: user.id });
+    const newDebt = await createDebt(customerName, amount, dueDate, note);
     setDebts(prev => [newDebt, ...prev]);
     return newDebt;
   }, []);
@@ -66,34 +46,25 @@ export function useDebts() {
       note: string | null;
     }
   ) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    await updateLocalDebt(id, { ...data, user_id: user.id });
+    await updateDebt(id, data);
     setDebts(prev => prev.map(d => 
       d.id === id 
-        ? { ...d, ...data, updated_at: new Date().toISOString(), sync_status: 'pending' }
+        ? { ...d, ...data, updated_at: new Date().toISOString() }
         : d
     ));
   }, []);
 
   const handleSettleDebt = useCallback(async (id: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    await settleLocalDebt(id, user.id);
+    await settleDebt(id);
     setDebts(prev => prev.map(d => 
       d.id === id 
-        ? { ...d, is_settled: true, updated_at: new Date().toISOString(), sync_status: 'pending' }
+        ? { ...d, is_settled: true, updated_at: new Date().toISOString() }
         : d
     ));
   }, []);
 
   const handleDeleteDebt = useCallback(async (id: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-
-    await deleteLocalDebt(id, user.id);
+    await deleteDebt(id);
     setDebts(prev => prev.filter(d => d.id !== id));
   }, []);
 

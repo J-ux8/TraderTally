@@ -1,7 +1,5 @@
-import { deleteLocalTransaction, ensureLocalDb, getLocalTransactions, insertLocalTransaction, updateLocalTransaction, upsertLocalFromServerTransactions } from '@/lib/localTransactions';
 import { supabase } from '@/lib/supabase';
-import { getUserCategories } from '@/lib/transactions';
-import NetInfo from '@react-native-community/netinfo';
+import { getUserCategories, getUserTransactions } from '@/lib/transactions';
 import { useCallback, useEffect, useState } from 'react';
 
 interface Transaction {
@@ -11,7 +9,6 @@ interface Transaction {
   description: string | null;
   transaction_date: string;
   created_at: string;
-  sync_status?: string;
 }
 
 interface Category {
@@ -27,34 +24,18 @@ export function useTransactions() {
   const refresh = useCallback(async () => {
     try {
       setLoading(true);
-      await ensureLocalDb();
-
-      // Load local first
-      const local = await getLocalTransactions(50);
-      setTransactions(local);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const net = await NetInfo.fetch();
-      if (net.isConnected) {
-        // fetch server and merge
-        const { data, error } = await supabase
-          .from('transactions')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('transaction_date', { ascending: false })
-          .limit(50);
+      const txData = await getUserTransactions(50);
+      setTransactions(txData || []);
 
-        if (!error && data) {
-          await upsertLocalFromServerTransactions(data);
-          const merged = await getLocalTransactions(50);
-          setTransactions(merged);
-        }
-
-        const categoriesData = await getUserCategories(user.id);
-        setCategories(categoriesData);
-      }
+      const categoriesData = await getUserCategories(user.id).catch(err => {
+        console.error('Error loading categories:', err);
+        return [];
+      });
+      setCategories(categoriesData || []);
     } catch (error) {
       console.error('Error loading transactions:', error);
     } finally {
@@ -67,27 +48,19 @@ export function useTransactions() {
   }, [refresh]);
 
   async function recordSale(amount: number, categoryName: string | null, description: string | null, date?: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-    return await insertLocalTransaction({ amount, category: categoryName, description, transaction_date: date, user_id: user.id });
+    return await serverRecordSale(amount, categoryName, description, date);
   }
 
   async function recordExpense(amount: number, categoryName: string | null, description: string | null, date?: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-    return await insertLocalTransaction({ amount: -Math.abs(amount), category: categoryName, description, transaction_date: date, user_id: user.id });
+    return await serverRecordExpense(amount, categoryName, description, date);
   }
 
   async function updateTransaction(id: string, amount: number, categoryName: string | null, description: string | null, date?: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-    await updateLocalTransaction(id, { amount, category: categoryName, description, transaction_date: date, user_id: user.id });
+    await serverUpdateTransaction(id, amount, categoryName, description, date);
   }
 
   async function deleteTransactionById(id: string) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('User not authenticated');
-    await deleteLocalTransaction(id, user.id);
+    await serverDeleteTransaction(id);
   }
 
   return { transactions, categories, loading, refresh, recordSale, recordExpense, updateTransaction, deleteTransaction: deleteTransactionById };

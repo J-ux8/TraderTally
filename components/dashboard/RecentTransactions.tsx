@@ -10,7 +10,6 @@ interface Transaction {
   description: string | null;
   transaction_date: string;
   created_at: string;
-  sync_status?: string;
 }
 
 interface Category {
@@ -59,16 +58,6 @@ export const RecentTransactions = React.memo(function RecentTransactions({ trans
           <Text style={styles.transactionDescription} numberOfLines={1}>
             {item.description}
           </Text>
-        )}
-        {item.sync_status === 'pending' && (
-          <View style={styles.syncBadge}>
-            <Text style={styles.syncBadgeText}>Saved on phone</Text>
-          </View>
-        )}
-        {item.sync_status === 'failed' && (
-          <View style={styles.syncBadgeFailed}>
-            <Text style={styles.syncBadgeText}>Backup failed</Text>
-          </View>
         )}
       </View>
       <ArrowRight size={20} color="#999" />
@@ -213,27 +202,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     textAlign: 'center',
-  },
-  syncBadge: {
-    marginTop: 6,
-    backgroundColor: 'rgba(16,185,129,0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  syncBadgeFailed: {
-    marginTop: 6,
-    backgroundColor: 'rgba(239,68,68,0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-  },
-  syncBadgeText: {
-    fontSize: 12,
-    color: '#10b981',
-    fontWeight: '600',
   },
 });
 

@@ -1,6 +1,5 @@
-import { createDebt } from "@/lib/debts";
-import { supabase } from "@/lib/supabase";
 import { useDebts } from "@/hooks/useDebts";
+import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, FileText, Plus, User } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
@@ -672,4 +671,3 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
 });
-

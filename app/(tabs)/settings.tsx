@@ -1,41 +1,38 @@
 import { useTheme } from '@/contexts/ThemeContext';
-import { useSync } from '@/hooks/useSync';
 import { signOut } from '@/lib/auth';
 import { getUserProfile, updatePassword, updateUserProfile, UserProfile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
-import { forceRetryQueueItem, getAllQueueItems, removeQueueItemById } from '@/lib/sync';
 import { router, useFocusEffect } from 'expo-router';
 import {
-    Bell,
-    Briefcase,
-    ChevronRight,
-    Info,
-    Lock,
-    LogOut,
-    Mail,
-    Moon,
-    Phone,
-    RefreshCw,
-    Settings as SettingsIcon,
-    Sun,
-    Trash2,
-    User,
-    UserCircle
+  Bell,
+  Briefcase,
+  ChevronRight,
+  Info,
+  Lock,
+  LogOut,
+  Mail,
+  Moon,
+  Phone,
+  Settings as SettingsIcon,
+  Sun,
+  Trash2,
+  User,
+  UserCircle
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Switch,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -79,12 +76,6 @@ export default function SettingsScreen() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
-
-  // Backups modal state
-  const { isSyncing, pendingCount, runSync } = useSync();
-  const [backupsModalVisible, setBackupsModalVisible] = useState(false);
-  const [pendingItems, setPendingItems] = useState<any[]>([]);
-  const [loadingPending, setLoadingPending] = useState(false);
 
   useEffect(() => {
     checkUserAndLoadProfile();
@@ -248,28 +239,6 @@ export default function SettingsScreen() {
     );
   }
 
-  // Backups modal actions
-  async function handleRetry(itemId: number) {
-    try {
-      await forceRetryQueueItem(itemId);
-      await runSync();
-      const items = await getAllQueueItems(200);
-      setPendingItems(items || []);
-    } catch (err) {
-      console.error('Retry failed', err);
-    }
-  }
-
-  async function handleDeletePending(itemId: number) {
-    try {
-      await removeQueueItemById(itemId);
-      const items = await getAllQueueItems(200);
-      setPendingItems(items || []);
-    } catch (err) {
-      console.error('Delete pending failed', err);
-    }
-  }
-
   // Show UI immediately, only block if user is not authenticated
   if (!user) {
     return (
@@ -279,214 +248,7 @@ export default function SettingsScreen() {
       </View>
     );
   }
-
-  // Change Password Modal
-  // (kept close to the original layout but restructured to avoid duplicates)
   
-  return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={["top"]}>
-      <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
-        {/* Hero Header and other content (omitted here for brevity, unchanged above) */}
-      </ScrollView>
-
-      {/* Change Password Modal */}
-      <Modal
-        visible={passwordModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setPasswordModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setPasswordModalVisible(false)}
-          />
-          <View style={dynamicStyles.modalContent}>
-            <View style={dynamicStyles.modalHeader}>
-              <Text style={dynamicStyles.modalTitle}>Change Password</Text>
-              <TouchableOpacity
-                onPress={() => setPasswordModalVisible(false)}
-                style={styles.modalCloseButton}
-                activeOpacity={0.7}
-              >
-                <Text style={dynamicStyles.modalCloseText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={dynamicStyles.modalScroll} showsVerticalScrollIndicator={false}>
-              <View style={styles.inputCard}>
-                <Text style={dynamicStyles.inputLabel}>Current Password</Text>
-                <View style={dynamicStyles.inputContainer}>
-                  <Lock size={20} color={textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={dynamicStyles.input}
-                    value={currentPassword}
-                    onChangeText={setCurrentPassword}
-                    placeholder="Enter current password"
-                    placeholderTextColor="#999"
-                    secureTextEntry={!showCurrentPassword}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowCurrentPassword(!showCurrentPassword)}
-                    style={styles.eyeButton}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.eyeButtonText}>{showCurrentPassword ? 'Hide' : 'Show'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.inputCard}>
-                <Text style={dynamicStyles.inputLabel}>New Password</Text>
-                <View style={dynamicStyles.inputContainer}>
-                  <Lock size={20} color={textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={dynamicStyles.input}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="Enter new password"
-                    placeholderTextColor="#999"
-                    secureTextEntry={!showNewPassword}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowNewPassword(!showNewPassword)}
-                    style={styles.eyeButton}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.eyeButtonText}>{showNewPassword ? 'Hide' : 'Show'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.inputCard}>
-                <Text style={dynamicStyles.inputLabel}>Confirm New Password</Text>
-                <View style={dynamicStyles.inputContainer}>
-                  <Lock size={20} color={textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={dynamicStyles.input}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="Confirm new password"
-                    placeholderTextColor="#999"
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={styles.eyeButton}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.eyeButtonText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
-
-            <View style={dynamicStyles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton, changingPassword && styles.buttonDisabled]}
-                onPress={handleChangePassword}
-                disabled={changingPassword}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.saveButtonText}>{changingPassword ? 'Changing...' : 'Change Password'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Backups Modal */}
-      <Modal
-        visible={backupsModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setBackupsModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setBackupsModalVisible(false)}
-          />
-          <View style={dynamicStyles.modalContent}>
-            <View style={dynamicStyles.modalHeader}>
-              <Text style={dynamicStyles.modalTitle}>Pending Backups</Text>
-              <TouchableOpacity
-                onPress={() => setBackupsModalVisible(false)}
-                style={styles.modalCloseButton}
-                activeOpacity={0.7}
-              >
-                <Text style={dynamicStyles.modalCloseText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={dynamicStyles.modalScroll} showsVerticalScrollIndicator={false}>
-              {loadingPending ? (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color="#10b981" />
-                </View>
-              ) : pendingItems.length === 0 ? (
-                <View style={{ padding: 20 }}>
-                  <Text style={{ color: '#666' }}>No pending backups</Text>
-                </View>
-              ) : (
-                pendingItems.map((item) => {
-                  let payload = {};
-                  try { payload = JSON.parse(item.payload || '{}'); } catch (e) { payload = {}; }
-                  return (
-                    <View key={item.id} style={styles.pendingItem}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.pendingTitle}>{item.resource} · {item.op_type}</Text>
-                        <Text style={styles.pendingMeta}>{payload.client_id || payload.id || '—'} · attempts: {item.attempts}</Text>
-                        <Text style={styles.pendingPayload}>{JSON.stringify(payload).slice(0, 120)}</Text>
-                      </View>
-                      <View style={styles.pendingActions}>
-                        <TouchableOpacity onPress={() => handleRetry(item.id)} style={styles.pendingButton} activeOpacity={0.7}>
-                          <Text style={styles.pendingButtonText}>Retry</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDeletePending(item.id)} style={[styles.pendingButton, styles.pendingDeleteButton]} activeOpacity={0.7}>
-                          <Text style={[styles.pendingButtonText, styles.pendingDeleteText]}>Delete</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </ScrollView>
-
-            <View style={dynamicStyles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={async () => {
-                  try {
-                    await runSync();
-                    const items = await getAllQueueItems(200);
-                    setPendingItems(items || []);
-                  } catch (err) {
-                    console.error('Manual sync from modal failed', err);
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.saveButtonText}>Force sync</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-    </SafeAreaView>
-  );
 
   const dynamicStyles = {
     safeArea: { ...styles.safeArea, backgroundColor },
@@ -512,52 +274,6 @@ export default function SettingsScreen() {
     dropdownPlaceholder: { ...styles.dropdownPlaceholder, color: textSecondary },
     inputLabel: { ...styles.inputLabel, color: textSecondary },
     modalActions: { ...styles.modalActions, borderTopColor: borderColor },
-    pendingItem: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 12,
-      paddingVertical: 12,
-      paddingHorizontal: 6,
-      borderBottomWidth: 1,
-      borderBottomColor: '#f1f1f1',
-    },
-    pendingTitle: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: '#333',
-      marginBottom: 4,
-    },
-    pendingMeta: {
-      fontSize: 12,
-      color: '#888',
-      marginBottom: 6,
-    },
-    pendingPayload: {
-      fontSize: 12,
-      color: '#666',
-    },
-    pendingActions: {
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    pendingButton: {
-      backgroundColor: '#eefaf5',
-      paddingHorizontal: 8,
-      paddingVertical: 6,
-      borderRadius: 8,
-      marginBottom: 6,
-    },
-    pendingButtonText: {
-      color: '#10b981',
-      fontWeight: '700',
-      fontSize: 12,
-    },
-    pendingDeleteButton: {
-      backgroundColor: 'rgba(255,235,238,0.9)'
-    },
-    pendingDeleteText: {
-      color: '#ef4444'
-    },
   };
 
   return (
@@ -636,67 +352,6 @@ export default function SettingsScreen() {
                 <Text style={dynamicStyles.settingLabel}>Change Password</Text>
               </View>
               <ChevronRight size={20} color="#999" />
-            </TouchableOpacity>
-          </View>
-
-          {/* Backups Section */}
-          <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Backups</Text>
-
-            <View style={dynamicStyles.settingItem}>
-              <View style={styles.settingLeft}>
-                <View style={styles.settingIcon}>
-                  <Briefcase size={20} color="#10b981" />
-                </View>
-                <View style={styles.settingContent}>
-                  <Text style={dynamicStyles.settingLabel}>Pending backups</Text>
-                  <Text style={dynamicStyles.settingValue}>{pendingCount} pending</Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                onPress={async () => {
-                  setBackupsModalVisible(true);
-                  setLoadingPending(true);
-                  try {
-                    const items = await getAllQueueItems(200);
-                    setPendingItems(items || []);
-                  } catch (err) {
-                    console.error('Error loading pending items', err);
-                    setPendingItems([]);
-                  } finally {
-                    setLoadingPending(false);
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <ChevronRight size={20} color="#999" />
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={[dynamicStyles.settingItem, { marginTop: 8 }]}
-              onPress={async () => {
-                try {
-                  await runSync();
-                  // refresh pending items if modal open
-                  if (backupsModalVisible) {
-                    setLoadingPending(true);
-                    const items = await getAllQueueItems(200);
-                    setPendingItems(items || []);
-                    setLoadingPending(false);
-                  }
-                } catch (err) {
-                  console.error('Force sync failed', err);
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <View style={styles.settingLeft}>
-                <View style={styles.settingIcon}>
-                  <RefreshCw size={18} color="#10b981" />
-                </View>
-                <Text style={dynamicStyles.settingLabel}>Force sync now</Text>
-              </View>
             </TouchableOpacity>
           </View>
 
@@ -1039,148 +694,6 @@ export default function SettingsScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Backups Modal */}
-      <Modal
-        visible={backupsModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setBackupsModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={() => setBackupsModalVisible(false)}
-          />
-          <View style={dynamicStyles.modalContent}>
-            <View style={dynamicStyles.modalHeader}>
-              <Text style={dynamicStyles.modalTitle}>Pending Backups</Text>
-              <TouchableOpacity
-                onPress={() => setBackupsModalVisible(false)}
-                style={styles.modalCloseButton}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.modalCloseText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={dynamicStyles.modalScroll} showsVerticalScrollIndicator={false}>
-              {loadingPending ? (
-                <View style={{ padding: 20, alignItems: 'center' }}>
-                  <ActivityIndicator size="small" color="#10b981" />
-                </View>
-              ) : pendingItems.length === 0 ? (
-                <View style={{ padding: 20 }}>
-                  <Text style={{ color: '#666' }}>No pending backups</Text>
-                </View>
-              ) : (
-                pendingItems.map((item) => {
-                  let payload = {};
-                  try { payload = JSON.parse(item.payload || '{}'); } catch (e) { payload = {}; }
-                  return (
-                    <View key={item.id} style={styles.pendingItem}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.pendingTitle}>{item.resource} · {item.op_type}</Text>
-                        <Text style={styles.pendingMeta}>{payload.client_id || payload.id || '—'} · attempts: {item.attempts}</Text>
-                        <Text style={styles.pendingPayload}>{JSON.stringify(payload).slice(0, 120)}</Text>
-                      </View>
-                      <View style={styles.pendingActions}>
-                        <TouchableOpacity onPress={() => handleRetry(item.id)} style={styles.pendingButton} activeOpacity={0.7}>
-                          <Text style={styles.pendingButtonText}>Retry</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity onPress={() => handleDeletePending(item.id)} style={[styles.pendingButton, styles.pendingDeleteButton]} activeOpacity={0.7}>
-                          <Text style={[styles.pendingButtonText, styles.pendingDeleteText]}>Delete</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })
-              )}
-            </ScrollView>
-
-            <View style={dynamicStyles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={async () => {
-                  try {
-                    await runSync();
-                    const items = await getAllQueueItems(200);
-                    setPendingItems(items || []);
-                  } catch (err) {
-                    console.error('Manual sync from modal failed', err);
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.saveButtonText}>Force sync</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-
-                  <TextInput
-                    style={dynamicStyles.input}
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    placeholder="Enter new password"
-                    placeholderTextColor="#999"
-                    secureTextEntry={!showNewPassword}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowNewPassword(!showNewPassword)}
-                    style={styles.eyeButton}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.eyeButtonText}>{showNewPassword ? 'Hide' : 'Show'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              <View style={styles.inputCard}>
-                <Text style={dynamicStyles.inputLabel}>Confirm New Password</Text>
-                <View style={dynamicStyles.inputContainer}>
-                  <Lock size={20} color={textSecondary} style={styles.inputIcon} />
-                  <TextInput
-                    style={dynamicStyles.input}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    placeholder="Confirm new password"
-                    placeholderTextColor="#999"
-                    secureTextEntry={!showConfirmPassword}
-                    autoCapitalize="none"
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={styles.eyeButton}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.eyeButtonText}>{showConfirmPassword ? 'Hide' : 'Show'}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
-
-            <View style={dynamicStyles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton, changingPassword && styles.buttonDisabled]}
-                onPress={handleChangePassword}
-                disabled={changingPassword}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.saveButtonText}>
-                  {changingPassword ? 'Changing...' : 'Change Password'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
     </SafeAreaView>
   );
 }
