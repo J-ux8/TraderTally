@@ -2,8 +2,8 @@ import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from "@/lib/supabase";
 import { deleteTransaction, updateTransaction } from "@/lib/transactions";
-import { router, useFocusEffect } from "expo-router";
-import { Calendar as CalendarIcon, Edit2, Plus, ShoppingBag, Trash2, TrendingDown, TrendingUp } from "lucide-react-native";
+import { useFocusEffect } from "expo-router";
+import { Calendar as CalendarIcon, Edit2, ShoppingBag, Trash2, TrendingDown, TrendingUp } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
@@ -19,43 +19,96 @@ interface Transaction {
   user_id: string;
 }
 
-interface UserCategory {
-  id: string;
-  name: string;
-}
-
-// Predefined expense types for micro-entrepreneurs
-const EXPENSE_TYPES = [
-  'Rent',
-  'Salaries',
-  'Transport',
-  'Stock/Inventory',
+// Predefined selection list for editing
+const CATEGORY_OPTIONS = [
+  'Sale',
+  'Stock / Inventory',
+  'Rent / Stall Fee',
+  'Salaries / Helpers',
+  'Transport / Fuel',
   'Utilities',
-  'Marketing',
-  'Office Supplies',
-  'Fuel',
-  'Maintenance',
-  'Insurance',
-  'Taxes',
+  'Maintenance / Repairs',
+  'Business Supplies',
+  'Market Levy / Tax',
   'Other'
 ];
 
+const TransactionItem = React.memo(({
+  transaction,
+  onEdit,
+  onDelete,
+  colors,
+  dynamicStyles,
+  formatDate
+}: {
+  transaction: Transaction,
+  onEdit: (t: Transaction) => void,
+  onDelete: (id: string) => void,
+  colors: any,
+  dynamicStyles: any,
+  formatDate: (d: string) => string
+}) => {
+  const sale = transaction.amount > 0;
+  return (
+    <View style={[dynamicStyles.card, styles.listItem]}>
+      <View style={styles.transactionHeader}>
+        <View style={styles.transactionLeft}>
+          <View style={[styles.typeIcon, { backgroundColor: sale ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+            {sale ? (
+              <TrendingUp size={20} color="#1e3a8a" />
+            ) : (
+              <TrendingDown size={20} color="#ef4444" />
+            )}
+          </View>
+          <View style={styles.transactionInfo}>
+            <Text style={[dynamicStyles.amount, { color: sale ? '#1e3a8a' : '#ef4444' }]}>
+              {sale ? '+' : '-'}K {Math.abs(transaction.amount).toFixed(2)}
+            </Text>
+            <Text style={dynamicStyles.date}>{formatDate(transaction.transaction_date)}</Text>
+          </View>
+        </View>
+        <View style={styles.transactionActions}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => onEdit(transaction)}
+            activeOpacity={0.7}
+          >
+            <Edit2 size={18} color="#1e3a8a" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={() => onDelete(transaction.id)}
+            activeOpacity={0.7}
+          >
+            <Trash2 size={18} color="#ef4444" />
+          </TouchableOpacity>
+        </View>
+      </View>
+      {transaction.category && (
+        <View style={styles.categoryContainer}>
+          <Text style={dynamicStyles.category}>{transaction.category}</Text>
+        </View>
+      )}
+      {transaction.description && (
+        <Text style={dynamicStyles.description}>{transaction.description}</Text>
+      )}
+    </View>
+  );
+});
+
 export default function RecordsScreen() {
   const colors = useThemeColors();
-  const { 
-    transactions, 
-    categories, 
-    loading, 
-    refreshing, 
-    hasMore,
-    refresh, 
-    loadMore,
+  const {
+    transactions,
+    loading,
+    refreshing,
+    refresh,
     updateTransaction: updateTransactionInContext,
     removeTransaction: removeTransactionFromContext
   } = useTransactionsContext();
   const [user, setUser] = useState<any>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  
+
   // Edit modal state
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -68,43 +121,23 @@ export default function RecordsScreen() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    checkSession();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+      }
+      setCheckingAuth(false);
+    });
   }, []);
 
   // Only refresh if needed, not on every focus
   useFocusEffect(
     useCallback(() => {
-      // Don't refresh on every focus - context already has data
-      // Only refresh if user just logged in or data is empty
       if (user && transactions.length === 0 && !loading) {
         refresh();
       }
     }, [user, transactions.length, loading, refresh])
   );
 
-  async function checkSession() {
-    try {
-      setCheckingAuth(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        router.replace("/Authentication/login");
-        return;
-      }
-      
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) {
-        router.replace("/Authentication/login");
-        return;
-      }
-      
-      setUser(currentUser);
-    } catch (error) {
-      console.error("Error checking session:", error);
-      router.replace("/Authentication/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }
 
   async function onRefresh() {
     await refresh();
@@ -145,7 +178,7 @@ export default function RecordsScreen() {
 
     setSaving(true);
     try {
-      const updated = await updateTransaction(
+      await updateTransaction(
         selectedTransaction.id,
         finalAmount,
         editCategory,
@@ -153,12 +186,7 @@ export default function RecordsScreen() {
         editDate.toISOString().split("T")[0]
       );
       // Update in context
-      updateTransactionInContext(selectedTransaction.id, {
-        amount: finalAmount,
-        category: editCategory,
-        description: editDescription.trim() || null,
-        transaction_date: editDate.toISOString().split("T")[0],
-      });
+      updateTransactionInContext(selectedTransaction.id, finalAmount, editCategory, editDescription.trim() || null, editDate.toISOString().split("T")[0]);
       closeEditModal();
       Alert.alert('Success', 'Transaction updated successfully! 🎉');
     } catch (error: any) {
@@ -180,7 +208,6 @@ export default function RecordsScreen() {
           onPress: async () => {
             try {
               await deleteTransaction(transactionId);
-              // Remove from context
               removeTransactionFromContext(transactionId);
               Alert.alert('Success', 'Transaction deleted successfully');
             } catch (error: any) {
@@ -202,10 +229,10 @@ export default function RecordsScreen() {
 
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric' 
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
     });
   }, []);
 
@@ -214,17 +241,11 @@ export default function RecordsScreen() {
   if (checkingAuth || !user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
-        <ActivityIndicator size="large" color="#10b981" />
+        <ActivityIndicator size="large" color="#1e3a8a" />
         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
       </View>
     );
   }
-
-  // Convert categories from context to match UserCategory interface
-  const userCategories: UserCategory[] = categories.map(cat => ({
-    id: cat.id,
-    name: cat.name,
-  }));
 
   const dynamicStyles = {
     container: { ...styles.container, backgroundColor: colors.backgroundColor },
@@ -254,7 +275,7 @@ export default function RecordsScreen() {
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>Records</Text>
               <Text style={styles.headerSubtitle}>
-                {transactions.length > 0 
+                {transactions.length > 0
                   ? `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`
                   : 'View and manage transactions'
                 }
@@ -265,66 +286,28 @@ export default function RecordsScreen() {
       </View>
 
       {loading && transactions.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#10b981" />
-            <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading transactions...</Text>
-          </View>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1e3a8a" />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading transactions...</Text>
+        </View>
       ) : (
         <FlatList
           data={transactions}
           keyExtractor={(item) => item.id}
-          renderItem={({ item: transaction }) => {
-              const sale = isSale(transaction.amount);
-              return (
-              <View style={[dynamicStyles.card, styles.listItem]}>
-                  <View style={styles.transactionHeader}>
-                    <View style={styles.transactionLeft}>
-                      <View style={[styles.typeIcon, { backgroundColor: sale ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
-                        {sale ? (
-                          <TrendingUp size={20} color="#10b981" />
-                        ) : (
-                          <TrendingDown size={20} color="#ef4444" />
-                        )}
-                      </View>
-                      <View style={styles.transactionInfo}>
-                        <Text style={[dynamicStyles.amount, { color: sale ? '#10b981' : '#ef4444' }]}>
-                          {sale ? '+' : '-'}K {Math.abs(transaction.amount).toFixed(2)}
-                        </Text>
-                        <Text style={dynamicStyles.date}>{formatDate(transaction.transaction_date)}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.transactionActions}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => openEditModal(transaction)}
-                        activeOpacity={0.7}
-                      >
-                        <Edit2 size={18} color="#10b981" />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[styles.actionButton, styles.deleteButton]}
-                        onPress={() => handleDeleteTransaction(transaction.id)}
-                        activeOpacity={0.7}
-                      >
-                        <Trash2 size={18} color="#ef4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                  {transaction.category && (
-                    <View style={styles.categoryContainer}>
-                      <Text style={dynamicStyles.category}>{transaction.category}</Text>
-                    </View>
-                  )}
-                  {transaction.description && (
-                    <Text style={dynamicStyles.description}>{transaction.description}</Text>
-                  )}
-                </View>
-              );
-          }}
+          renderItem={({ item: transaction }) => (
+            <TransactionItem
+              transaction={transaction}
+              onEdit={openEditModal}
+              onDelete={handleDeleteTransaction}
+              colors={colors}
+              dynamicStyles={dynamicStyles}
+              formatDate={formatDate}
+            />
+          )}
           contentContainerStyle={styles.scrollContent}
           style={styles.scrollView}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#10b981" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1e3a8a" />
           }
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
@@ -333,54 +316,19 @@ export default function RecordsScreen() {
               <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
                 Start by recording your first sale or expense!
               </Text>
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => router.push('./record-sale')}
-                activeOpacity={0.8}
-              >
-                <Plus size={20} color="#ffffff" />
-                <Text style={styles.addButtonText}>Record Sale</Text>
-              </TouchableOpacity>
-          </View>
+            </View>
           }
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={10}
-          updateCellsBatchingPeriod={50}
-          initialNumToRender={10}
-          windowSize={10}
-          onEndReached={() => {
-            if (hasMore && !loading && !refreshing) {
-              loadMore();
-            }
-          }}
-          onEndReachedThreshold={0.5}
         />
       )}
 
       {/* Edit Transaction Modal */}
-      <Modal
-        visible={editModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={closeEditModal}
-      >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        >
-          <TouchableOpacity
-            style={styles.modalBackdrop}
-            activeOpacity={1}
-            onPress={closeEditModal}
-          />
+      <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={closeEditModal}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeEditModal} />
           <View style={dynamicStyles.modalContent}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.borderColor }]}>
               <Text style={[styles.modalTitle, { color: colors.textColor }]}>Edit Transaction</Text>
-              <TouchableOpacity
-                onPress={closeEditModal}
-                style={styles.modalCloseButton}
-                activeOpacity={0.7}
-              >
+              <TouchableOpacity onPress={closeEditModal} style={styles.modalCloseButton} activeOpacity={0.7}>
                 <Text style={styles.modalCloseText}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -418,18 +366,18 @@ export default function RecordsScreen() {
                 {showCategoryDropdown && (
                   <View style={[styles.dropdown, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
                     <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
-                      {userCategories.map((cat) => (
+                      {CATEGORY_OPTIONS.map((cat) => (
                         <TouchableOpacity
-                          key={cat.id}
+                          key={cat}
                           style={[styles.dropdownOption, { borderBottomColor: colors.borderColor }]}
                           onPress={() => {
-                            setEditCategory(cat.name);
+                            setEditCategory(cat);
                             setShowCategoryDropdown(false);
                           }}
                           activeOpacity={0.7}
                         >
-                          <Text style={[styles.dropdownOptionText, { color: colors.textColor }]}>{cat.name}</Text>
-                          {editCategory === cat.name && (
+                          <Text style={[styles.dropdownOptionText, { color: colors.textColor }]}>{cat}</Text>
+                          {editCategory === cat && (
                             <View style={styles.checkmark}>
                               <Text style={styles.checkmarkText}>✓</Text>
                             </View>
@@ -451,26 +399,17 @@ export default function RecordsScreen() {
                     placeholder="Add a description (optional)"
                     placeholderTextColor={colors.textSecondary}
                     multiline
-                    numberOfLines={3}
                   />
                 </View>
               </View>
 
               <View style={styles.inputCard}>
                 <Text style={dynamicStyles.inputLabel}>Date</Text>
-                <TouchableOpacity
-                  style={styles.dateButton}
-                  onPress={() => setDatePickerOpen(true)}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity style={styles.dateButton} onPress={() => setDatePickerOpen(true)} activeOpacity={0.7}>
                   <View style={dynamicStyles.inputContainer}>
                     <CalendarIcon size={20} color={colors.textSecondary} style={styles.inputIcon} />
                     <Text style={[styles.dateText, { color: colors.textColor }]}>
-                      {editDate.toLocaleDateString('en-US', { 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
+                      {editDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -484,27 +423,15 @@ export default function RecordsScreen() {
                 disabled={saving}
                 activeOpacity={0.8}
               >
-                <Text style={styles.saveButtonText}>
-                  {saving ? 'Saving...' : 'Save Changes'}
-                </Text>
+                <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Date Picker Modal */}
-      <Modal
-        visible={datePickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDatePickerOpen(false)}
-      >
-        <TouchableOpacity
-          style={styles.datePickerOverlay}
-          activeOpacity={1}
-          onPress={() => setDatePickerOpen(false)}
-        >
+      <Modal visible={datePickerOpen} transparent animationType="fade" onRequestClose={() => setDatePickerOpen(false)}>
+        <TouchableOpacity style={styles.datePickerOverlay} activeOpacity={1} onPress={() => setDatePickerOpen(false)}>
           <View style={[styles.datePickerContainer, { backgroundColor: colors.cardBackground }]}>
             <Calendar
               current={editDate.toISOString().split("T")[0]}
@@ -516,19 +443,9 @@ export default function RecordsScreen() {
                 backgroundColor: colors.cardBackground,
                 calendarBackground: colors.cardBackground,
                 textSectionTitleColor: colors.textColor,
-                selectedDayBackgroundColor: '#10b981',
-                selectedDayTextColor: '#ffffff',
-                todayTextColor: '#10b981',
+                selectedDayBackgroundColor: '#1e3a8a',
                 dayTextColor: colors.textColor,
-                textDisabledColor: colors.textSecondary,
-                dotColor: '#10b981',
-                selectedDotColor: '#ffffff',
-                arrowColor: '#10b981',
                 monthTextColor: colors.textColor,
-                indicatorColor: '#10b981',
-                textDayFontWeight: '500',
-                textMonthFontWeight: '700',
-                textDayHeaderFontWeight: '600',
               }}
             />
           </View>
@@ -539,362 +456,68 @@ export default function RecordsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    backgroundColor: '#10b981',
-    paddingTop: 60,
-    paddingBottom: 32,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  headerDecoration1: {
-    position: 'absolute',
-    top: -50,
-    right: -50,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  headerDecoration2: {
-    position: 'absolute',
-    bottom: -30,
-    left: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  headerContent: {
-    zIndex: 10,
-  },
-  headerIconContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  headerIcon: {
-    width: 56,
-    height: 56,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-    paddingTop: 0,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 16,
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#10b981',
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-  },
-  addButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  listContainer: {
-    gap: 12,
-  },
-  listItem: {
-    marginBottom: 12,
-  },
-  transactionItem: {
-    backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  transactionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  transactionLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-    gap: 12,
-  },
-  typeIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  transactionInfo: {
-    flex: 1,
-  },
-  amount: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  date: {
-    fontSize: 14,
-  },
-  transactionActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  deleteButton: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-  },
-  categoryContainer: {
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  category: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  description: {
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  modalCloseButton: {
-    padding: 4,
-  },
-  modalCloseText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#10b981',
-  },
-  modalScroll: {
-    padding: 20,
-  },
-  inputCard: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f9fafb',
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    minHeight: 56,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  currencySymbol: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginRight: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-    paddingVertical: 0,
-  },
-  textArea: {
-    minHeight: 80,
-    textAlignVertical: 'top',
-    paddingVertical: 12,
-  },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  dropdownText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  dropdownPlaceholder: {
-    color: '#999',
-  },
-  dropdown: {
-    marginTop: 8,
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    overflow: 'hidden',
-    maxHeight: 200,
-  },
-  dropdownScroll: {
-    maxHeight: 200,
-  },
-  dropdownOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f5f5f5',
-  },
-  dropdownOptionText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  checkmark: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#10b981',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  checkmarkText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  dateButton: {
-    width: '100%',
-  },
-  dateText: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  modalActions: {
-    padding: 20,
-    paddingTop: 0,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
-  modalButton: {
-    height: 56,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 12,
-  },
-  saveButton: {
-    backgroundColor: '#10b981',
-    shadowColor: '#10b981',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  saveButtonText: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  datePickerOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  datePickerContainer: {
-    borderRadius: 16,
-    padding: 20,
-    width: '100%',
-    maxWidth: 400,
-  },
+  container: { flex: 1 },
+  header: { paddingTop: 60, paddingBottom: 32, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' },
+  headerDecoration1: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+  headerDecoration2: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+  headerContent: { zIndex: 10 },
+  headerIconContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  headerIcon: { width: 56, height: 56, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  headerTextContainer: { flex: 1 },
+  headerTitle: { fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
+  headerSubtitle: { fontSize: 16, color: 'rgba(255, 255, 255, 0.9)', fontWeight: '500' },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 40, paddingTop: 10 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  loadingText: { marginTop: 12, fontSize: 16 },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  emptyText: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  emptySubtext: { fontSize: 16, marginBottom: 24, textAlign: 'center' },
+  listItem: { marginBottom: 12 },
+  transactionItem: { padding: 16, borderRadius: 16, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  transactionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  transactionLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
+  typeIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  transactionInfo: { flex: 1 },
+  amount: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
+  date: { fontSize: 14 },
+  transactionActions: { flexDirection: 'row', gap: 8 },
+  actionButton: { width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  deleteButton: { backgroundColor: 'rgba(239, 68, 68, 0.1)' },
+  categoryContainer: { marginTop: 8, marginBottom: 4 },
+  category: { fontSize: 14, fontWeight: '600' },
+  description: { fontSize: 14, lineHeight: 20 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%', paddingBottom: 20 },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderBottomWidth: 1 },
+  modalTitle: { fontSize: 20, fontWeight: '700' },
+  modalCloseButton: { padding: 4 },
+  modalCloseText: { fontSize: 16, fontWeight: '600', color: '#1e3a8a' },
+  modalScroll: { padding: 20 },
+  inputCard: { marginBottom: 20 },
+  inputLabel: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', borderWidth: 2, borderRadius: 12, paddingHorizontal: 16, minHeight: 56 },
+  inputIcon: { marginRight: 12 },
+  currencySymbol: { fontSize: 16, fontWeight: '600', marginRight: 8 },
+  input: { flex: 1, fontSize: 16, fontWeight: '500' },
+  textArea: { minHeight: 80, textAlignVertical: 'top', paddingTop: 12 },
+  dropdownButton: { width: '100%' },
+  dropdownText: { flex: 1, fontSize: 16, fontWeight: '500' },
+  dropdownPlaceholder: { color: '#999' },
+  dropdown: { marginTop: 8, borderRadius: 12, borderWidth: 1, overflow: 'hidden', maxHeight: 200 },
+  dropdownScroll: { maxHeight: 200 },
+  dropdownOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1 },
+  dropdownOptionText: { fontSize: 16, fontWeight: '500' },
+  checkmark: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#1e3a8a', justifyContent: 'center', alignItems: 'center' },
+  checkmarkText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  dateButton: { width: '100%' },
+  dateText: { flex: 1, fontSize: 16, fontWeight: '500' },
+  modalActions: { padding: 20, paddingTop: 10, borderTopWidth: 1 },
+  modalButton: { height: 56, justifyContent: 'center', alignItems: 'center', borderRadius: 12 },
+  saveButton: { backgroundColor: '#1e3a8a', elevation: 4 },
+  saveButtonText: { fontSize: 18, fontWeight: '700', color: '#ffffff' },
+  buttonDisabled: { opacity: 0.6 },
+  datePickerOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  datePickerContainer: { borderRadius: 16, padding: 20, width: '100%', maxWidth: 400 },
 });

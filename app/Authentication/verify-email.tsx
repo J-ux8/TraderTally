@@ -26,7 +26,7 @@ export default function VerifyEmailScreen() {
 
   useEffect(() => {
     getEmailFromSession();
-    
+
     // Start countdown timer for resend button
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -47,7 +47,7 @@ export default function VerifyEmailScreen() {
       if (params?.email && typeof params.email === 'string') {
         setEmail(params.email);
       }
-      
+
       if (params?.userId && typeof params.userId === 'string') {
         setUserId(params.userId);
       }
@@ -62,7 +62,7 @@ export default function VerifyEmailScreen() {
       if (params?.businessType && typeof params.businessType === 'string') {
         setProfileData(prev => ({ ...prev, businessType: params.businessType as string }));
       }
-      
+
       // Fallback to session
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
@@ -112,7 +112,7 @@ export default function VerifyEmailScreen() {
       setDisplayOtp(otpCode); // Store OTP to display in UI
       setOtpSent(true);
       setCountdown(60); // 60 second cooldown
-      
+
       Alert.alert(
         "Code Generated! ✅",
         `Your verification code is displayed below in the yellow box.${"\n\n"}Enter this code to verify your email.`,
@@ -167,7 +167,7 @@ export default function VerifyEmailScreen() {
 
   async function handleVerifyOTP() {
     const code = otpCode.join("");
-    
+
     if (code.length !== 6) {
       Alert.alert("Error", "Please enter the complete 6-digit code");
       return;
@@ -233,7 +233,7 @@ export default function VerifyEmailScreen() {
           } catch (profileError: any) {
             console.error("Error creating profile:", profileError);
             const errorMsg = profileError.message || "Failed to create profile";
-            
+
             // Check if it's an RLS error
             if (errorMsg.includes("RLS") || errorMsg.includes("42501")) {
               Alert.alert(
@@ -248,7 +248,7 @@ export default function VerifyEmailScreen() {
               );
               return;
             }
-            
+
             // For other errors, show alert but allow continuation
             Alert.alert(
               "Profile Creation Failed",
@@ -281,7 +281,7 @@ export default function VerifyEmailScreen() {
         // Email is verified and profile is created, redirect to app
         Alert.alert(
           "Success! 🎉",
-          profileCreated 
+          profileCreated
             ? "Your email has been verified and profile created successfully!"
             : "Your email has been verified successfully!",
           [
@@ -311,7 +311,7 @@ export default function VerifyEmailScreen() {
   function handleOtpChange(index: number, value: string) {
     // Only allow numbers
     const numericValue = value.replace(/[^0-9]/g, "");
-    
+
     if (numericValue.length > 1) {
       // Handle paste
       const pastedCode = numericValue.slice(0, 6).split("");
@@ -322,7 +322,7 @@ export default function VerifyEmailScreen() {
         }
       });
       setOtpCode(newOtp);
-      
+
       // Focus on last filled input or next empty
       const nextIndex = Math.min(index + pastedCode.length, 5);
       inputRefs.current[nextIndex]?.focus();
@@ -367,136 +367,136 @@ export default function VerifyEmailScreen() {
         >
           {/* Header */}
           <View style={styles.header}>
-          <View style={styles.headerDecoration1} />
-          <View style={styles.headerDecoration2} />
-          <View style={styles.headerContent}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-              activeOpacity={0.7}
-            >
-              <ArrowLeft size={24} color="#ffffff" />
-            </TouchableOpacity>
-            <View style={styles.headerIconContainer}>
-              <View style={styles.headerIcon}>
-                <Mail size={28} color="#ffffff" />
-              </View>
-              <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Verify Your Email</Text>
-                <Text style={styles.headerSubtitle}>Enter the code we sent you</Text>
+            <View style={styles.headerDecoration1} />
+            <View style={styles.headerDecoration2} />
+            <View style={styles.headerContent}>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                style={styles.backButton}
+                activeOpacity={0.7}
+              >
+                <ArrowLeft size={24} color="#ffffff" />
+              </TouchableOpacity>
+              <View style={styles.headerIconContainer}>
+                <View style={styles.headerIcon}>
+                  <Mail size={28} color="#ffffff" />
+                </View>
+                <View style={styles.headerTextContainer}>
+                  <Text style={styles.headerTitle}>Verify Your Email</Text>
+                  <Text style={styles.headerSubtitle}>Enter the code we sent you</Text>
+                </View>
               </View>
             </View>
-          </View>
           </View>
 
           {/* Content */}
           <View style={styles.content}>
-          <View style={styles.iconContainer}>
-            <View style={styles.iconCircle}>
-              <Mail size={48} color="#10b981" />
-            </View>
-          </View>
-
-          <Text style={styles.title}>Enter Verification Code</Text>
-          
-          <Text style={styles.description}>
-            {displayOtp ? (
-              <>
-                Your verification code is displayed below in the yellow box.{"\n\n"}
-                Please enter the code below to verify your email.
-              </>
-            ) : (
-              <>
-                A verification code will be displayed below.{"\n\n"}
-                Please enter the code to verify your email.
-              </>
-            )}
-          </Text>
-
-          {/* Always display OTP code if available */}
-          {displayOtp && (
-            <View style={styles.otpDisplayContainer}>
-              <Text style={styles.otpDisplayLabel}>Your Verification Code:</Text>
-              <View style={styles.otpDisplayBox}>
-                <Text style={styles.otpDisplayCode}>{displayOtp}</Text>
+            <View style={styles.iconContainer}>
+              <View style={styles.iconCircle}>
+                <Mail size={48} color="#1e3a8a" />
               </View>
-              <Text style={styles.otpDisplayHint}>
-                Enter this code in the boxes below
+            </View>
+
+            <Text style={styles.title}>Enter Verification Code</Text>
+
+            <Text style={styles.description}>
+              {displayOtp ? (
+                <>
+                  Your verification code is displayed below in the yellow box.{"\n\n"}
+                  Please enter the code below to verify your email.
+                </>
+              ) : (
+                <>
+                  A verification code will be displayed below.{"\n\n"}
+                  Please enter the code to verify your email.
+                </>
+              )}
+            </Text>
+
+            {/* Always display OTP code if available */}
+            {displayOtp && (
+              <View style={styles.otpDisplayContainer}>
+                <Text style={styles.otpDisplayLabel}>Your Verification Code:</Text>
+                <View style={styles.otpDisplayBox}>
+                  <Text style={styles.otpDisplayCode}>{displayOtp}</Text>
+                </View>
+                <Text style={styles.otpDisplayHint}>
+                  Enter this code in the boxes below
+                </Text>
+              </View>
+            )}
+
+            {/* OTP Input */}
+            <View style={styles.otpContainer}>
+              {otpCode.map((digit, index) => (
+                <TextInput
+                  key={`otp-${index}`}
+                  ref={(ref) => {
+                    inputRefs.current[index] = ref;
+                  }}
+                  style={[styles.otpInput, digit && styles.otpInputFilled]}
+                  value={digit}
+                  onChangeText={(value) => handleOtpChange(index, value)}
+                  onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
+                  keyboardType="number-pad"
+                  maxLength={1}
+                  selectTextOnFocus
+                  autoFocus={index === 0 && !displayOtp}
+                  blurOnSubmit={false}
+                />
+              ))}
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.actionsContainer}>
+              <TouchableOpacity
+                onPress={handleVerifyOTP}
+                disabled={verifying || otpCode.join("").length !== 6}
+                style={[
+                  styles.primaryButton,
+                  (verifying || otpCode.join("").length !== 6) && styles.buttonDisabled
+                ]}
+                activeOpacity={0.8}
+              >
+                {verifying ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <CheckCircle size={20} color="#ffffff" />
+                    <Text style={styles.primaryButtonText}>Verify Email</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleResendOTP}
+                disabled={resending || countdown > 0}
+                style={[
+                  styles.secondaryButton,
+                  (resending || countdown > 0) && styles.buttonDisabled
+                ]}
+                activeOpacity={0.8}
+              >
+                {resending ? (
+                  <ActivityIndicator size="small" color="#1e3a8a" />
+                ) : (
+                  <>
+                    <RefreshCw size={20} color="#1e3a8a" />
+                    <Text style={styles.secondaryButtonText}>
+                      {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Help Text */}
+            <View style={styles.helpContainer}>
+              <Text style={styles.helpText}>
+                Didn&apos;t receive the code? Check your spam folder or try resending.
               </Text>
             </View>
-          )}
-
-          {/* OTP Input */}
-          <View style={styles.otpContainer}>
-            {otpCode.map((digit, index) => (
-              <TextInput
-                key={`otp-${index}`}
-                ref={(ref) => {
-                  inputRefs.current[index] = ref;
-                }}
-                style={[styles.otpInput, digit && styles.otpInputFilled]}
-                value={digit}
-                onChangeText={(value) => handleOtpChange(index, value)}
-                onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
-                keyboardType="number-pad"
-                maxLength={1}
-                selectTextOnFocus
-                autoFocus={index === 0 && !displayOtp}
-                blurOnSubmit={false}
-              />
-            ))}
           </View>
-
-          {/* Action Buttons */}
-          <View style={styles.actionsContainer}>
-            <TouchableOpacity
-              onPress={handleVerifyOTP}
-              disabled={verifying || otpCode.join("").length !== 6}
-              style={[
-                styles.primaryButton,
-                (verifying || otpCode.join("").length !== 6) && styles.buttonDisabled
-              ]}
-              activeOpacity={0.8}
-            >
-              {verifying ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <CheckCircle size={20} color="#ffffff" />
-                  <Text style={styles.primaryButtonText}>Verify Email</Text>
-                </>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={handleResendOTP}
-              disabled={resending || countdown > 0}
-              style={[
-                styles.secondaryButton,
-                (resending || countdown > 0) && styles.buttonDisabled
-              ]}
-              activeOpacity={0.8}
-            >
-              {resending ? (
-                <ActivityIndicator size="small" color="#10b981" />
-              ) : (
-                <>
-                  <RefreshCw size={20} color="#10b981" />
-                  <Text style={styles.secondaryButtonText}>
-                    {countdown > 0 ? `Resend in ${countdown}s` : "Resend Code"}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Help Text */}
-          <View style={styles.helpContainer}>
-            <Text style={styles.helpText}>
-              Didn't receive the code? Check your spam folder or try resending.
-            </Text>
-          </View>
-        </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   header: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
     paddingTop: 60,
     paddingBottom: 40,
     paddingHorizontal: 20,
@@ -600,7 +600,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 3,
-    borderColor: "#10b981",
+    borderColor: "#1e3a8a",
   },
   title: {
     fontSize: 24,
@@ -618,7 +618,7 @@ const styles = StyleSheet.create({
   },
   emailText: {
     fontWeight: "700",
-    color: "#10b981",
+    color: "#1e3a8a",
   },
   otpContainer: {
     flexDirection: "row",
@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   otpInputFilled: {
-    borderColor: "#10b981",
+    borderColor: "#1e3a8a",
     backgroundColor: "#f0fdf4",
   },
   actionsContainer: {
@@ -647,7 +647,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   primaryButton: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
     borderRadius: 12,
     paddingVertical: 18,
     paddingHorizontal: 24,
@@ -655,7 +655,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
-    shadowColor: "#10b981",
+    shadowColor: "#1e3a8a",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     borderWidth: 2,
-    borderColor: "#10b981",
+    borderColor: "#1e3a8a",
   },
   buttonDisabled: {
     opacity: 0.6,
@@ -684,7 +684,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#10b981",
+    color: "#1e3a8a",
   },
   otpDisplayContainer: {
     marginBottom: 24,

@@ -3,13 +3,13 @@ import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { SummaryCard } from '@/components/dashboard/SummaryCard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { useSummary } from '@/hooks/useSummary';
+import { SyncStatus, useSync } from '@/hooks/useSync';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { signOut } from '@/lib/auth';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
-import { Cloud, CloudOff, LogOut, Store } from 'lucide-react-native';
+import { Activity, Cloud, CloudOff, CloudRain, LogOut, RefreshCw, Store } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,28 +17,26 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function HomeScreen() {
   const { theme } = useTheme();
   const colors = useThemeColors();
-  const { transactions, categories, loading, refresh, refreshing } = useTransactionsContext();
+  const { transactions, loading, refresh, refreshing } = useTransactionsContext();
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [user, setUser] = useState<any>(null);
-  const isOnline = useOnlineStatus();
+  const { status: syncStatus, runSync, markSynced } = useSync(0);
 
 
 
   useEffect(() => {
-    checkSession();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        setUser(null);
-        router.replace("/Authentication/login");
-      }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setUser(session.user);
     });
-
-    return () => subscription.unsubscribe();
   }, []);
+
+  // Trigger sync check when transactions change (real-time update indicator)
+  useEffect(() => {
+    if (transactions.length > 0) {
+      runSync();
+    }
+  }, [transactions.length]);
 
   // Only refresh if data is stale (not on every focus)
   useFocusEffect(
@@ -51,18 +49,6 @@ export default function HomeScreen() {
     }, [user, transactions.length, loading, refresh])
   );
 
-  async function checkSession() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        router.replace("/Authentication/login");
-      }
-    } catch (error) {
-      console.error("Error checking session:", error);
-    }
-  }
 
   const handleRefresh = useCallback(async () => {
     await refresh();
@@ -78,10 +64,10 @@ export default function HomeScreen() {
           text: "Logout",
           style: "destructive",
           onPress: async () => {
-    try {
-      await signOut();
-      router.replace("/Authentication/login");
-    } catch (error: any) {
+            try {
+              await signOut();
+              router.replace("/Authentication/login");
+            } catch (error: any) {
               Alert.alert("Error", error.message || "Failed to logout");
             }
           },
@@ -103,28 +89,52 @@ export default function HomeScreen() {
     return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
   }, []);
 
+
   const tabs = useMemo(() => [
-    { id: 'daily' as const, label: 'Today', summary: daily },
-    { id: 'weekly' as const, label: 'Week', summary: weekly },
-    { id: 'monthly' as const, label: 'Month', summary: monthly },
+    { id: 'daily' as const, label: 'Today', summary: daily, title: "Today's Profit" },
+    { id: 'weekly' as const, label: 'Week', summary: weekly, title: "This Week's Profit" },
+    { id: 'monthly' as const, label: 'Month', summary: monthly, title: "This Month's Profit" },
   ], [daily, weekly, monthly]);
 
-  const activeSummary = useMemo(() => 
-    tabs.find((t) => t.id === activeTab)?.summary || daily,
-    [tabs, activeTab, daily]
+  const activeTabInfo = useMemo(() =>
+    tabs.find((t) => t.id === activeTab) || tabs[0],
+    [tabs, activeTab]
   );
 
-  // Dynamic colors based on theme
-  const backgroundColor = theme === 'dark' ? '#151718' : '#f5f5f5';
-  const cardBackground = theme === 'dark' ? '#1f2937' : '#ffffff';
-  const textColor = theme === 'dark' ? '#ECEDEE' : '#333';
-  const textSecondary = theme === 'dark' ? '#9BA1A6' : '#666';
+  const activeSummary = useMemo(() => activeTabInfo.summary, [activeTabInfo]);
+
+  const consistency = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      return d.toISOString().split('T')[0];
+    });
+    const daysWithData = last7Days.filter(date =>
+      transactions.some(t => t.transaction_date.split('T')[0] === date)
+    ).length;
+    return daysWithData;
+  }, [transactions]);
+
+  // Dynamic colors based on theme - navy blue
+  const backgroundColor = theme === 'dark' ? '#0f172a' : '#f5f5f5';
+  const cardBackground = theme === 'dark' ? '#1e293b' : '#ffffff';
+  const textColor = theme === 'dark' ? '#e2e8f0' : '#1e293b';
+  const textSecondary = theme === 'dark' ? '#94a3b8' : '#64748b';
+
+  // Sync badge config
+  const syncConfig: Record<SyncStatus, { label: string; bg: string; icon: any }> = {
+    synced: { label: 'Synced', bg: 'rgba(255,255,255,0.2)', icon: Cloud },
+    syncing: { label: 'Syncing', bg: 'rgba(255,255,255,0.15)', icon: RefreshCw },
+    pending: { label: 'Pending', bg: 'rgba(255,193,7,0.3)', icon: CloudRain },
+    offline: { label: 'Offline', bg: 'rgba(239,68,68,0.3)', icon: CloudOff },
+  };
+  const sync = syncConfig[syncStatus];
 
   // Show UI immediately with cached data, don't block on loading
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor }]}>
-        <ActivityIndicator size="large" color="#10b981" />
+        <ActivityIndicator size="large" color="#1e3a8a" />
         <Text style={[styles.loadingText, { color: textSecondary }]}>Loading...</Text>
       </View>
     );
@@ -139,91 +149,111 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-      {/* Hero Header */}
-      <View style={[styles.heroHeader, { backgroundColor: colors.headerBackground }]}>
-        <View style={styles.decorativeCircle1} />
-        <View style={styles.decorativeCircle2} />
-        
-        <View style={styles.heroContent}>
-          <View style={styles.heroTop}>
-            <View style={styles.heroLeft}>
-              <View style={styles.iconContainer}>
-                <Store size={24} color="#ffffff" />
+        {/* Hero Header */}
+        <View style={[styles.heroHeader, { backgroundColor: colors.headerBackground }]}>
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
+
+          <View style={styles.heroContent}>
+            <View style={styles.heroTop}>
+              <View style={styles.heroLeft}>
+                <View style={styles.iconContainer}>
+                  <Store size={24} color="#ffffff" />
+                </View>
+                <View>
+                  <Text style={styles.heroTitle}>MobiBooks</Text>
+                  <Text style={styles.heroDate}>{formatDate(new Date())}</Text>
+                </View>
+              </View>
+              <View style={styles.heroRight}>
+                <View style={[styles.statusBadge, { backgroundColor: sync.bg }]}>
+                  <sync.icon
+                    size={15}
+                    color="#ffffff"
+                    style={syncStatus === 'syncing' ? { opacity: 0.8 } : undefined}
+                  />
+                  <Text style={styles.statusText}>{sync.label}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.logoutButton}
+                  onPress={handleLogout}
+                  activeOpacity={0.7}
+                >
+                  <LogOut size={18} color="#ffffff" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.heroGreeting}>
+              <Text style={styles.greetingText}>{greeting} 👋</Text>
+              <Text style={styles.greetingSubtext}>
+                Ready to record your sales today?
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.mainContent}>
+          {/* Consistency Tracker */}
+          <View style={[styles.consistencyCard, { backgroundColor: cardBackground }]}>
+            <View style={styles.consistencyLeft}>
+              <View style={styles.consistencyIconContainer}>
+                <Activity size={20} color="#1e3a8a" />
               </View>
               <View>
-                <Text style={styles.heroTitle}>MobiBooks</Text>
-                <Text style={styles.heroDate}>{formatDate(new Date())}</Text>
+                <Text style={[styles.consistencyTitle, { color: textColor }]}>Consistency Score</Text>
+                <Text style={[styles.consistencyValue, { color: textSecondary }]}>
+                  {consistency}/7 days recorded
+                </Text>
               </View>
             </View>
-            <View style={styles.heroRight}>
-              <View style={[styles.statusBadge, !isOnline && styles.statusBadgeOffline]}>
-                {isOnline ? (
-                  <Cloud size={16} color="#ffffff" />
-                ) : (
-                  <CloudOff size={16} color="#ffffff" />
-                )}
-                <Text style={styles.statusText}>
-                  {isOnline ? 'Online' : 'Offline'}
-                </Text>
-      </View>
+            <View style={[styles.consistencyBadge, { backgroundColor: consistency >= 5 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)' }]}>
+              <Text style={[styles.consistencyBadgeText, { color: consistency >= 5 ? '#1e3a8a' : '#f59e0b' }]}>
+                {consistency >= 5 ? 'Strong' : 'Keep it up'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Period Tabs */}
+          <View style={[styles.tabsContainer, { backgroundColor: colors.cardBackground }]}>
+            {tabs.map((tab) => (
               <TouchableOpacity
-                style={styles.logoutButton}
-                onPress={handleLogout}
+                key={tab.id}
+                style={[
+                  styles.tab,
+                  activeTab === tab.id && { backgroundColor: '#1e3a8a' },
+                ]}
+                onPress={() => setActiveTab(tab.id)}
                 activeOpacity={0.7}
               >
-                <LogOut size={18} color="#ffffff" />
+                <Text
+                  style={[
+                    styles.tabText,
+                    activeTab === tab.id && styles.tabTextActive,
+                    { color: activeTab === tab.id ? '#ffffff' : textSecondary },
+                  ]}
+                >
+                  {tab.label}
+                </Text>
               </TouchableOpacity>
-            </View>
-      </View>
+            ))}
+          </View>
 
-          <View style={styles.heroGreeting}>
-            <Text style={styles.greetingText}>{greeting} 👋</Text>
-            <Text style={styles.greetingSubtext}>
-              Ready to record your sales today?
-            </Text>
+          {/* Summary Card */}
+          <SummaryCard
+            title={activeTabInfo.title}
+            summary={activeSummary}
+          />
+
+          {/* Removed share card from here, moved to Reports */}
+
+          {/* Quick Actions */}
+          <QuickActions />
+
+          {/* Recent Transactions */}
+          <RecentTransactions transactions={transactions} />
         </View>
-        </View>
-      </View>
-
-      <View style={styles.mainContent}>
-        {/* Period Tabs */}
-        <View style={[styles.tabsContainer, { backgroundColor: colors.cardBackground }]}>
-          {tabs.map((tab) => (
-        <TouchableOpacity 
-              key={tab.id}
-              style={[
-                styles.tab,
-                activeTab === tab.id && { backgroundColor: '#10b981' },
-              ]}
-              onPress={() => setActiveTab(tab.id)}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.tabText,
-                  activeTab === tab.id && styles.tabTextActive,
-                  { color: activeTab === tab.id ? '#ffffff' : textSecondary },
-                ]}
-              >
-                {tab.label}
-              </Text>
-        </TouchableOpacity>
-          ))}
-      </View>
-
-        {/* Summary Card */}
-        <SummaryCard
-          title={`${tabs.find((t) => t.id === activeTab)?.label}'s Summary`}
-          summary={activeSummary}
-        />
-
-        {/* Quick Actions */}
-        <QuickActions />
-
-        {/* Recent Transactions */}
-        <RecentTransactions transactions={transactions} categories={categories} />
-      </View>
-    </ScrollView>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -385,8 +415,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   tabActive: {
-    backgroundColor: "#10b981",
-    shadowColor: "#10b981",
+    backgroundColor: "#1e3a8a",
+    shadowColor: "#1e3a8a",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
@@ -398,5 +428,71 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: "#ffffff",
+  },
+  shareCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    gap: 16,
+  },
+  shareIconContainer: {
+    width: 40,
+    height: 40,
+    backgroundColor: '#1e3a8a',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareTextContainer: {
+    flex: 1,
+  },
+  shareTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  shareSubtitle: {
+    fontSize: 12,
+  },
+  consistencyCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+  },
+  consistencyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  consistencyIconContainer: {
+    width: 40,
+    height: 40,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  consistencyTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  consistencyValue: {
+    fontSize: 12,
+  },
+  consistencyBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  consistencyBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

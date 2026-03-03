@@ -44,12 +44,12 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
 
   const handleSave = () => {
     if (!debt) return;
-    
+
     if (!customerName.trim()) {
       Alert.alert('Error', 'Please enter customer name');
       return;
     }
-    
+
     const numericAmount = parseFloat(amount);
     if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
@@ -68,7 +68,7 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
 
   const handleDelete = () => {
     if (!debt) return;
-    
+
     Alert.alert(
       'Delete Debt',
       'Are you sure you want to delete this debt? This action cannot be undone.',
@@ -89,12 +89,12 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
   const formatDate = (dateToFormat: Date) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
+
     const day = days[dateToFormat.getDay()];
     const month = months[dateToFormat.getMonth()];
     const dateNum = dateToFormat.getDate();
     const year = dateToFormat.getFullYear();
-    
+
     return `${day}, ${month} ${dateNum}, ${year}`;
   };
 
@@ -268,14 +268,14 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
                     backgroundColor: '#ffffff',
                     calendarBackground: '#ffffff',
                     textSectionTitleColor: '#666',
-                    selectedDayBackgroundColor: '#10b981',
+                    selectedDayBackgroundColor: '#1e3a8a',
                     selectedDayTextColor: '#ffffff',
-                    todayTextColor: '#10b981',
+                    todayTextColor: '#1e3a8a',
                     dayTextColor: '#333',
                     textDisabledColor: '#d3d3d3',
-                    dotColor: '#10b981',
+                    dotColor: '#1e3a8a',
                     selectedDotColor: '#ffffff',
-                    arrowColor: '#10b981',
+                    arrowColor: '#1e3a8a',
                     monthTextColor: '#333',
                     textDayFontWeight: '600',
                     textMonthFontWeight: 'bold',
@@ -288,7 +288,7 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
                   markedDates={{
                     [selectedDateString]: {
                       selected: true,
-                      selectedColor: '#10b981',
+                      selectedColor: '#1e3a8a',
                       selectedTextColor: '#ffffff',
                     },
                   }}
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     marginTop: -16,
     fontSize: 20,
     fontWeight: '800',
-    color: '#10b981',
+    color: '#1e3a8a',
     zIndex: 1,
   },
   amountInput: {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     fontSize: 18,
     fontWeight: '700',
-    color: '#10b981',
+    color: '#1e3a8a',
   },
   dateButton: {
     backgroundColor: '#f9fafb',
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
-    backgroundColor: '#10b981',
+    backgroundColor: '#1e3a8a',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
     borderRadius: 12,
-    backgroundColor: '#10b981',
+    backgroundColor: '#1e3a8a',
   },
   dateConfirmText: {
     fontSize: 16,

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { CreditCard, FileText, Plus, TrendingUp } from 'lucide-react-native';
+import { BookOpen, FileText, Plus, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -25,20 +25,20 @@ export const QuickActions = React.memo(function QuickActions() {
           activeOpacity={0.8}
         >
           <View style={[styles.iconContainer, styles.secondaryIcon]}>
-            <TrendingUp size={24} color="#10b981" />
+            <TrendingUp size={24} color="#1e3a8a" />
           </View>
           <Text style={styles.secondaryButtonText}>Record Expense</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('./add-debt')}
+          onPress={() => router.push('./debts')}
           activeOpacity={0.8}
         >
           <View style={[styles.iconContainer, styles.secondaryIcon]}>
-            <CreditCard size={24} color="#10b981" />
+            <BookOpen size={24} color="#1e3a8a" />
           </View>
-          <Text style={styles.secondaryButtonText}>Add Credit</Text>
+          <Text style={styles.secondaryButtonText}>Credit Book</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -47,7 +47,7 @@ export const QuickActions = React.memo(function QuickActions() {
           activeOpacity={0.8}
         >
           <View style={[styles.iconContainer, styles.secondaryIcon]}>
-            <FileText size={24} color="#10b981" />
+            <FileText size={24} color="#1e3a8a" />
           </View>
           <Text style={styles.secondaryButtonText}>View Reports</Text>
         </TouchableOpacity>
@@ -89,8 +89,8 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
   },
   primaryButton: {
-    backgroundColor: '#10b981',
-    borderColor: '#10b981',
+    backgroundColor: '#1e3a8a',
+    borderColor: '#1e3a8a',
   },
   iconContainer: {
     width: 48,

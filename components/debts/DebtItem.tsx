@@ -1,34 +1,58 @@
 import { Debt } from '@/lib/debts';
-import { AlertCircle, Calendar, CheckCircle2, User } from 'lucide-react-native';
+import { AlertCircle, Calendar, CheckCircle2, MessageSquare, User } from 'lucide-react-native';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface DebtItemProps {
   debt: Debt;
   onSettle?: () => void;
   onClick: () => void;
+  businessName?: string;
 }
 
-export function DebtItem({ debt, onSettle, onClick }: DebtItemProps) {
+export function DebtItem({ debt, onSettle, onClick, businessName }: DebtItemProps) {
   const isOverdue = debt.due_date && !debt.is_settled && new Date(debt.due_date) < new Date();
   const dueDate = debt.due_date ? new Date(debt.due_date) : null;
-  
+
   const formatDate = (date: Date) => {
     const today = new Date();
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
-    
+
     if (date.toDateString() === today.toDateString()) {
       return 'Today';
     }
     if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     }
-    
+
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
+
     return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}`;
+  };
+
+  const handleRemind = async () => {
+    const amount = Number(debt.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const formattedDueDate = dueDate ? formatDate(dueDate) : 'soon';
+    const business = businessName || 'MobiBooks';
+
+    const message = `Hi ${debt.customer_name}, this is a friendly reminder that you have an outstanding balance of K ${amount} at ${business}. Due date: ${formattedDueDate}. Thank you! 🙏`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `whatsapp://send?text=${encodedMessage}`;
+    const smsUrl = `sms:?body=${encodedMessage}`;
+
+    try {
+      const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
+      if (canOpenWhatsApp) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Linking.openURL(smsUrl);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Could not open messaging app');
+    }
   };
 
   return (
@@ -41,7 +65,7 @@ export function DebtItem({ debt, onSettle, onClick }: DebtItemProps) {
         <View style={styles.header}>
           <View style={styles.customerInfo}>
             <View style={[styles.iconContainer, debt.is_settled && styles.iconContainerSettled]}>
-              <User size={20} color={debt.is_settled ? "#999" : "#10b981"} />
+              <User size={20} color={debt.is_settled ? "#999" : "#1e3a8a"} />
             </View>
             <View style={styles.customerDetails}>
               <Text style={[styles.customerName, debt.is_settled && styles.customerNameSettled]}>
@@ -69,7 +93,7 @@ export function DebtItem({ debt, onSettle, onClick }: DebtItemProps) {
             )}
             {debt.is_settled && (
               <View style={styles.settledBadge}>
-                <CheckCircle2 size={14} color="#10b981" />
+                <CheckCircle2 size={14} color="#1e3a8a" />
                 <Text style={styles.settledText}>Settled</Text>
               </View>
             )}
@@ -82,18 +106,34 @@ export function DebtItem({ debt, onSettle, onClick }: DebtItemProps) {
         )}
 
       </View>
-      {onSettle && !debt.is_settled && (
-        <TouchableOpacity
-          style={styles.settleButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            onSettle();
-          }}
-          activeOpacity={0.7}
-        >
-          <CheckCircle2 size={18} color="#10b981" />
-          <Text style={styles.settleButtonText}>Settle</Text>
-        </TouchableOpacity>
+      {!debt.is_settled && (
+        <View style={styles.actions}>
+          <TouchableOpacity
+            style={styles.remindButton}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleRemind();
+            }}
+            activeOpacity={0.7}
+          >
+            <MessageSquare size={18} color="#f59e0b" />
+            <Text style={styles.remindButtonText}>Remind</Text>
+          </TouchableOpacity>
+
+          {onSettle && (
+            <TouchableOpacity
+              style={styles.settleButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                onSettle();
+              }}
+              activeOpacity={0.7}
+            >
+              <CheckCircle2 size={18} color="#1e3a8a" />
+              <Text style={styles.settleButtonText}>Settle</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </TouchableOpacity>
   );
@@ -176,7 +216,7 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#10b981',
+    color: '#1e3a8a',
     marginBottom: 4,
   },
   amountSettled: {
@@ -208,7 +248,7 @@ const styles = StyleSheet.create({
   settledText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#10b981',
+    color: '#1e3a8a',
   },
   note: {
     fontSize: 14,
@@ -221,20 +261,39 @@ const styles = StyleSheet.create({
     color: '#999',
   },
   settleButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(16, 185, 129, 0.1)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 8,
-    marginTop: 12,
     gap: 6,
   },
   settleButtonText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#10b981',
+    color: '#1e3a8a',
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+  },
+  remindButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+    paddingVertical: 10,
+    borderRadius: 8,
+    gap: 6,
+  },
+  remindButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#f59e0b',
   },
 });
 

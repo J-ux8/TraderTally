@@ -4,7 +4,9 @@
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     },
     "jsx": "react-native",
     "esModuleInterop": true
@@ -16,4 +18,3 @@
     "expo-env.d.ts"
   ]
 }
-

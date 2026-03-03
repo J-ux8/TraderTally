@@ -10,6 +10,7 @@ interface Summary {
   expenses: number;
   net: number;
   transactionCount: number;
+  topExpenseCategory?: string;
 }
 
 export function useSummary(transactions: Transaction[]) {
@@ -33,7 +34,7 @@ export function useSummary(transactions: Transaction[]) {
         start.setHours(0, 0, 0, 0);
         break;
     }
-    
+
     // Ensure end date includes the full day (end of today)
     end.setHours(23, 59, 59, 999);
 
@@ -42,64 +43,52 @@ export function useSummary(transactions: Transaction[]) {
 
   const calculateSummary = (type: 'daily' | 'weekly' | 'monthly'): Summary => {
     const { start, end } = getDateRange(type);
-    
-    // Get today's date in local timezone (YYYY-MM-DD format)
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    
-    // For daily summary, compare date strings directly (simpler and timezone-safe)
-    if (type === 'daily') {
-      const filtered = transactions.filter((t) => {
-        // Get transaction date string (format: YYYY-MM-DD)
-        const transactionDateStr = t.transaction_date.split('T')[0];
-        // Compare date strings directly - no timezone issues
-        return transactionDateStr === todayStr;
-      });
-      
-      const revenue = filtered
-        .filter((t) => t.amount > 0)
-        .reduce((sum, t) => sum + Number(t.amount), 0);
 
-      const expenses = filtered
-        .filter((t) => t.amount < 0)
-        .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-
-      return {
-        revenue,
-        expenses,
-        net: revenue - expenses,
-        transactionCount: filtered.length,
-      };
-    }
-    
-    // For weekly/monthly, use date comparison
-    // Normalize dates to compare only date part (ignore time)
     const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
-    
-    const filtered = transactions.filter((t) => {
-      // Parse transaction_date (format: YYYY-MM-DD)
-      const transactionDateStr = t.transaction_date.split('T')[0]; // Remove time if present
-      const [year, month, day] = transactionDateStr.split('-').map(Number);
-      const transactionDateOnly = new Date(year, month - 1, day); // month is 0-indexed
-      
-      // Compare dates: transaction must be >= start and < end (exclusive end = includes full end day)
-      return transactionDateOnly >= startDateOnly && transactionDateOnly < endDateOnly;
+
+    let revenue = 0;
+    let expenses = 0;
+    let transactionCount = 0;
+    const catTotals: Record<string, number> = {};
+
+    transactions.forEach((t) => {
+      const transactionDateStr = t.transaction_date.split('T')[0];
+
+      let match = false;
+      if (type === 'daily') {
+        match = transactionDateStr === todayStr;
+      } else {
+        const [year, month, day] = transactionDateStr.split('-').map(Number);
+        const transactionDateOnly = new Date(year, month - 1, day);
+        match = transactionDateOnly >= startDateOnly && transactionDateOnly < endDateOnly;
+      }
+
+      if (match) {
+        const amt = Number(t.amount);
+        if (amt > 0) revenue += amt;
+        else {
+          expenses += Math.abs(amt);
+          const cat = (t as any).category;
+          if (cat) catTotals[cat] = (catTotals[cat] || 0) + Math.abs(amt);
+        }
+        transactionCount++;
+      }
     });
 
-    const revenue = filtered
-      .filter((t) => t.amount > 0)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    const expenses = filtered
-      .filter((t) => t.amount < 0)
-      .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
+    const categories = Object.entries(catTotals);
+    const topExpenseCategory = categories.length > 0
+      ? categories.sort((a, b) => b[1] - a[1])[0][0]
+      : undefined;
 
     return {
       revenue,
       expenses,
       net: revenue - expenses,
-      transactionCount: filtered.length,
+      transactionCount,
+      topExpenseCategory,
     };
   };
 

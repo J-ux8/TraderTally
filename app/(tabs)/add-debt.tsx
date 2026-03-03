@@ -1,6 +1,7 @@
+import { useTransactionsContext } from "@/contexts/TransactionsContext";
 import { useDebts } from "@/hooks/useDebts";
 import { supabase } from "@/lib/supabase";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, FileText, Plus, User } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -8,11 +9,13 @@ import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AddDebtScreen() {
+  const params = useLocalSearchParams<{ amount?: string; note?: string; isSale?: string; category?: string }>();
   const { createDebt: createDebtFromHook } = useDebts();
+  const { recordSale } = useTransactionsContext();
   const [customerName, setCustomerName] = useState("");
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(params.amount || "");
   const [dueDate, setDueDate] = useState<Date | null>(null);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(params.note || "");
   const [loading, setLoading] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
@@ -20,31 +23,20 @@ export default function AddDebtScreen() {
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    checkUser();
-  }, []);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) setUser(session.user);
+      setCheckingAuth(false);
+    });
+
+    if (params.amount) setAmount(params.amount);
+    if (params.note) setNote(params.note);
+  }, [params.amount, params.note]);
 
   useFocusEffect(
     useCallback(() => {
-      checkUser();
+      // No re-check needed, session handled in useEffect
     }, [])
   );
-
-  async function checkUser() {
-    try {
-      setCheckingAuth(true);
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) {
-        router.replace("/Authentication/login");
-        return;
-      }
-      setUser(currentUser);
-    } catch (error) {
-      console.error("Error checking user:", error);
-      router.replace("/Authentication/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }
 
   const handleAmountChange = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, '');
@@ -77,7 +69,7 @@ export default function AddDebtScreen() {
         note.trim() || null
       );
 
-      Alert.alert("Success", "Debt recorded! 💰");
+      Alert.alert("Success", "Credit added to Credit Book! 💰");
       router.back();
     } catch (error: any) {
       console.error('Error recording debt:', error);
@@ -90,12 +82,12 @@ export default function AddDebtScreen() {
   const formatDate = (dateToFormat: Date) => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
+
     const day = days[dateToFormat.getDay()];
     const month = months[dateToFormat.getMonth()];
     const dateNum = dateToFormat.getDate();
     const year = dateToFormat.getFullYear();
-    
+
     return `${day}, ${month} ${dateNum}, ${year}`;
   };
 
@@ -119,234 +111,234 @@ export default function AddDebtScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerDecoration} />
-        <View style={styles.headerContent}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <ArrowLeft size={20} color="#ffffff" />
-          </TouchableOpacity>
-          <View style={styles.headerTitleContainer}>
-            <View style={styles.headerIcon}>
-              <Plus size={20} color="#ffffff" />
-            </View>
-            <View>
-              <Text style={styles.headerTitle}>Add Debt</Text>
-              <Text style={styles.headerSubtitle}>Record money owed to you</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Customer Name */}
-        <View style={styles.card}>
-          <Text style={styles.label}>Customer Name</Text>
-          <View style={styles.inputContainer}>
-            <User size={20} color="#666" style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              value={customerName}
-              onChangeText={setCustomerName}
-              placeholder="Enter customer name"
-              placeholderTextColor="#999"
-              autoCapitalize="words"
-              autoFocus
-            />
-          </View>
-        </View>
-
-        {/* Amount */}
-        <View style={styles.card}>
-          <Text style={styles.label}>Amount (ZMW)</Text>
-          <View style={styles.amountContainer}>
-            <Text style={styles.amountPrefix}>K</Text>
-            <TextInput
-              style={styles.amountInput}
-              value={amount}
-              onChangeText={handleAmountChange}
-              placeholder="0.00"
-              keyboardType="decimal-pad"
-              placeholderTextColor="rgba(16, 185, 129, 0.4)"
-            />
-          </View>
-        </View>
-
-        {/* Due Date */}
-        <View style={styles.card}>
-          <Text style={styles.label}>Due Date (optional)</Text>
-          <TouchableOpacity
-            style={styles.dateButton}
-            onPress={() => {
-              setTempDate(dueDate || new Date());
-              setDatePickerOpen(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.dateButtonText, !dueDate && styles.dateButtonPlaceholder]}>
-              {dueDate ? formatDate(dueDate) : 'Select due date'}
-            </Text>
-            <CalendarIcon size={20} color="#666" />
-          </TouchableOpacity>
-          {dueDate && (
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerDecoration} />
+          <View style={styles.headerContent}>
             <TouchableOpacity
-              onPress={() => setDueDate(null)}
-              style={styles.clearDateButton}
+              style={styles.backButton}
+              onPress={() => router.back()}
               activeOpacity={0.7}
             >
-              <Text style={styles.clearDateText}>Clear date</Text>
+              <ArrowLeft size={20} color="#ffffff" />
             </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Note */}
-        <View style={styles.card}>
-          <Text style={styles.label}>Note (optional)</Text>
-          <View style={styles.noteContainer}>
-            <FileText size={20} color="#666" style={styles.inputIcon} />
-            <TextInput
-              style={styles.noteInput}
-              value={note}
-              onChangeText={(text) => {
-                if (text.length <= 200) {
-                  setNote(text);
-                }
-              }}
-              placeholder="Add a note..."
-              placeholderTextColor="#999"
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              maxLength={200}
-            />
-          </View>
-          <Text style={styles.charCounter}>{note.length}/200</Text>
-        </View>
-      </ScrollView>
-
-      {/* Bottom Actions */}
-      <View style={styles.bottomActions}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => router.back()}
-          disabled={loading}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.saveButton, (!customerName || !amount || loading) && styles.saveButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={!customerName || !amount || loading}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.saveButtonText}>
-            {loading ? 'Saving...' : 'Save Debt'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Date Picker Modal */}
-      {datePickerOpen && (
-        <Modal
-          visible={datePickerOpen}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setDatePickerOpen(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <TouchableOpacity
-              style={styles.modalOverlayTouchable}
-              activeOpacity={1}
-              onPress={() => setDatePickerOpen(false)}
-            />
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Select Due Date</Text>
+            <View style={styles.headerTitleContainer}>
+              <View style={styles.headerIcon}>
+                <Plus size={20} color="#ffffff" />
               </View>
-              <View style={styles.calendarContainer}>
-                <Calendar
-                  current={selectedDateString}
-                  onDayPress={(day) => {
-                    const selectedDate = new Date(day.dateString);
-                    setTempDate(selectedDate);
-                    if (Platform.OS === 'android') {
-                      setDueDate(selectedDate);
-                      setDatePickerOpen(false);
-                    }
-                  }}
-                  minDate={todayString}
-                  theme={{
-                    backgroundColor: '#ffffff',
-                    calendarBackground: '#ffffff',
-                    textSectionTitleColor: '#666',
-                    selectedDayBackgroundColor: '#10b981',
-                    selectedDayTextColor: '#ffffff',
-                    todayTextColor: '#10b981',
-                    dayTextColor: '#333',
-                    textDisabledColor: '#d3d3d3',
-                    dotColor: '#10b981',
-                    selectedDotColor: '#ffffff',
-                    arrowColor: '#10b981',
-                    monthTextColor: '#333',
-                    textDayFontWeight: '600',
-                    textMonthFontWeight: 'bold',
-                    textDayHeaderFontWeight: '600',
-                    textDayFontSize: 16,
-                    textMonthFontSize: 18,
-                    textDayHeaderFontSize: 14,
-                  }}
-                  style={styles.calendarStyle}
-                  markedDates={{
-                    [selectedDateString]: {
-                      selected: true,
-                      selectedColor: '#10b981',
-                      selectedTextColor: '#ffffff',
-                    },
-                  }}
-                  markingType="custom"
-                  enableSwipeMonths
-                  hideExtraDays
-                  firstDay={1}
-                />
-                <View style={styles.dateActions}>
-                  <TouchableOpacity
-                    style={styles.dateCancelButton}
-                    onPress={() => setDatePickerOpen(false)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.dateCancelText}>Cancel</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.dateConfirmButton}
-                    onPress={() => {
-                      setDueDate(tempDate);
-                      setDatePickerOpen(false);
+              <View>
+                <Text style={styles.headerTitle}>Add Credit</Text>
+                <Text style={styles.headerSubtitle}>Record money owed to you</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Customer Name */}
+          <View style={styles.card}>
+            <Text style={styles.label}>Customer Name</Text>
+            <View style={styles.inputContainer}>
+              <User size={20} color="#666" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                value={customerName}
+                onChangeText={setCustomerName}
+                placeholder="Enter customer name"
+                placeholderTextColor="#999"
+                autoCapitalize="words"
+                autoFocus
+              />
+            </View>
+          </View>
+
+          {/* Amount */}
+          <View style={styles.card}>
+            <Text style={styles.label}>Amount (ZMW)</Text>
+            <View style={styles.amountContainer}>
+              <Text style={styles.amountPrefix}>K</Text>
+              <TextInput
+                style={styles.amountInput}
+                value={amount}
+                onChangeText={handleAmountChange}
+                placeholder="0.00"
+                keyboardType="decimal-pad"
+                placeholderTextColor="rgba(16, 185, 129, 0.4)"
+              />
+            </View>
+          </View>
+
+          {/* Due Date */}
+          <View style={styles.card}>
+            <Text style={styles.label}>Due Date (optional)</Text>
+            <TouchableOpacity
+              style={styles.dateButton}
+              onPress={() => {
+                setTempDate(dueDate || new Date());
+                setDatePickerOpen(true);
+              }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.dateButtonText, !dueDate && styles.dateButtonPlaceholder]}>
+                {dueDate ? formatDate(dueDate) : 'Select due date'}
+              </Text>
+              <CalendarIcon size={20} color="#666" />
+            </TouchableOpacity>
+            {dueDate && (
+              <TouchableOpacity
+                onPress={() => setDueDate(null)}
+                style={styles.clearDateButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.clearDateText}>Clear date</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Note */}
+          <View style={styles.card}>
+            <Text style={styles.label}>Note (optional)</Text>
+            <View style={styles.noteContainer}>
+              <FileText size={20} color="#666" style={styles.inputIcon} />
+              <TextInput
+                style={styles.noteInput}
+                value={note}
+                onChangeText={(text) => {
+                  if (text.length <= 200) {
+                    setNote(text);
+                  }
+                }}
+                placeholder="Add a note..."
+                placeholderTextColor="#999"
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+                maxLength={200}
+              />
+            </View>
+            <Text style={styles.charCounter}>{note.length}/200</Text>
+          </View>
+        </ScrollView>
+
+        {/* Bottom Actions */}
+        <View style={styles.bottomActions}>
+          <TouchableOpacity
+            style={styles.cancelButton}
+            onPress={() => router.back()}
+            disabled={loading}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.cancelButtonText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.saveButton, (!customerName || !amount || loading) && styles.saveButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={!customerName || !amount || loading}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.saveButtonText}>
+              {loading ? 'Saving...' : 'Save Credit'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Date Picker Modal */}
+        {datePickerOpen && (
+          <Modal
+            visible={datePickerOpen}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setDatePickerOpen(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <TouchableOpacity
+                style={styles.modalOverlayTouchable}
+                activeOpacity={1}
+                onPress={() => setDatePickerOpen(false)}
+              />
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Select Due Date</Text>
+                </View>
+                <View style={styles.calendarContainer}>
+                  <Calendar
+                    current={selectedDateString}
+                    onDayPress={(day) => {
+                      const selectedDate = new Date(day.dateString);
+                      setTempDate(selectedDate);
+                      if (Platform.OS === 'android') {
+                        setDueDate(selectedDate);
+                        setDatePickerOpen(false);
+                      }
                     }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.dateConfirmText}>Done</Text>
-                  </TouchableOpacity>
+                    minDate={todayString}
+                    theme={{
+                      backgroundColor: '#ffffff',
+                      calendarBackground: '#ffffff',
+                      textSectionTitleColor: '#666',
+                      selectedDayBackgroundColor: '#10b981',
+                      selectedDayTextColor: '#ffffff',
+                      todayTextColor: '#10b981',
+                      dayTextColor: '#333',
+                      textDisabledColor: '#d3d3d3',
+                      dotColor: '#10b981',
+                      selectedDotColor: '#ffffff',
+                      arrowColor: '#10b981',
+                      monthTextColor: '#333',
+                      textDayFontWeight: '600',
+                      textMonthFontWeight: 'bold',
+                      textDayHeaderFontWeight: '600',
+                      textDayFontSize: 16,
+                      textMonthFontSize: 18,
+                      textDayHeaderFontSize: 14,
+                    }}
+                    style={styles.calendarStyle}
+                    markedDates={{
+                      [selectedDateString]: {
+                        selected: true,
+                        selectedColor: '#10b981',
+                        selectedTextColor: '#ffffff',
+                      },
+                    }}
+                    markingType="custom"
+                    enableSwipeMonths
+                    hideExtraDays
+                    firstDay={1}
+                  />
+                  <View style={styles.dateActions}>
+                    <TouchableOpacity
+                      style={styles.dateCancelButton}
+                      onPress={() => setDatePickerOpen(false)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.dateCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.dateConfirmButton}
+                      onPress={() => {
+                        setDueDate(tempDate);
+                        setDatePickerOpen(false);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.dateConfirmText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             </View>
-          </View>
-        </Modal>
-      )}
+          </Modal>
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

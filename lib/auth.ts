@@ -1,4 +1,7 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { wipeDatabase } from "./database";
 import { supabase } from "./supabase";
+
 
 export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -79,6 +82,14 @@ export async function registerWithProfile(
 
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
+
+  // Full data wipe on logout
+  try {
+    await wipeDatabase();
+    await AsyncStorage.clear();
+  } catch (e) {
+    console.error("Error wiping local data during logout:", e);
+  }
 
   if (error) {
     throw error;

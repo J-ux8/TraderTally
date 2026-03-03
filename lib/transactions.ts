@@ -1,54 +1,42 @@
+import * as Crypto from 'expo-crypto';
+import { getDatabase } from "./database";
 import { supabase } from "./supabase";
+import { pushPendingChanges } from "./sync";
 
-// Get user's categories
-export async function getUserCategories(userId: string) {
-  const { data, error } = await supabase
-    .from("categories")
-    .select("id, name")
-    .eq("user_id", userId)
-    .order("name", { ascending: true });
+export const EXPENSE_CATEGORIES = [
+  "Stock / Inventory",
+  "Rent / Stall Fee",
+  "Salaries / Helpers",
+  "Transport / Fuel",
+  "Utilities",
+  "Airtime / Data",
+  "Maintenance / Repairs",
+  "Business Supplies",
+  "Market Levy / Tax",
+  "Loan Repayment",
+  "Other"
+];
 
-  if (error) {
-    throw error;
-  }
+export const INCOME_CATEGORIES = [
+  "Sales",
+  "Services",
+  "Rental Income",
+  "Other"
+];
 
-  return data || [];
-}
-
-// Create a new category
-export async function createCategory(name: string, userId: string) {
-  const { data, error } = await supabase
-    .from("categories")
-    .insert({ 
-      name: name.trim(),
-      user_id: userId
-    })
-    .select()
-    .single();
-
-  if (error) {
-    throw error;
-  }
-
-  return data;
-}
-
-// Helper function to get local date string (YYYY-MM-DD) - avoids timezone issues
+// Helper function to get local date string (YYYY-MM-DD)
 function getLocalDateString(date?: Date | string): string {
   if (typeof date === 'string') {
-    // If already a string, return as-is (assuming YYYY-MM-DD format)
     return date.split('T')[0];
   }
-  
   const d = date || new Date();
-  // Use local timezone, not UTC
   const year = d.getFullYear();
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
 }
 
-// Record a sale (transaction)
+// Record a sale locally
 export async function recordSale(
   amount: number,
   categoryName: string | null,
@@ -58,29 +46,25 @@ export async function recordSale(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  // Use local date string to avoid timezone issues
+  const db = await getDatabase();
+  const id = Crypto.randomUUID();
+  const now = new Date().toISOString();
   const dateStr = date || getLocalDateString();
 
-  const { data, error } = await supabase
-    .from("transactions")
-    .insert({
-      amount,
-      category: categoryName || null,  // Store category name as text
-      description: description || null,
-      transaction_date: dateStr,
-      user_id: user.id,
-    })
-    .select()
-    .single();
+  await db.runAsync(`
+    INSERT INTO transactions (
+      id, user_id, amount, category, description, transaction_date, 
+      created_at, updated_at, sync_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+  `, [id, user.id, Math.abs(amount), categoryName, description, dateStr, now, now]);
 
-  if (error) {
-    throw error;
-  }
+  // Trigger background sync
+  pushPendingChanges().catch(console.error);
 
-  return data;
+  return { id, amount, category: categoryName, description, transaction_date: dateStr };
 }
 
-// Record an expense (transaction with negative amount)
+// Record an expense locally
 export async function recordExpense(
   amount: number,
   categoryName: string | null,
@@ -90,66 +74,42 @@ export async function recordExpense(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  // Use local date string to avoid timezone issues
+  const db = await getDatabase();
+  const id = Crypto.randomUUID();
+  const now = new Date().toISOString();
   const dateStr = date || getLocalDateString();
 
-  // Store expense as negative amount
-  const { data, error } = await supabase
-    .from("transactions")
-    .insert({
-      amount: -Math.abs(amount), // Ensure negative amount
-      category: categoryName || null,
-      description: description || null,
-      transaction_date: dateStr,
-      user_id: user.id,
-    })
-    .select()
-    .single();
+  await db.runAsync(`
+    INSERT INTO transactions (
+      id, user_id, amount, category, description, transaction_date, 
+      created_at, updated_at, sync_status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
+  `, [id, user.id, -Math.abs(amount), categoryName, description, dateStr, now, now]);
 
-  if (error) {
-    throw error;
-  }
+  pushPendingChanges().catch(console.error);
 
-  return data;
+  return { id, amount: -Math.abs(amount), category: categoryName, description, transaction_date: dateStr };
 }
 
-// Get user's transactions
+// Get user's transactions from local SQLite
 export async function getUserTransactions(limit?: number) {
   try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      // Return empty array instead of throwing - prevents app crashes
-      return [];
-    }
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
 
-    let query = supabase
-      .from("transactions")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("transaction_date", { ascending: false })
-      .order("created_at", { ascending: false });
+    const db = await getDatabase();
+    let query = `SELECT * FROM transactions WHERE user_id = ? AND deleted = 0 ORDER BY transaction_date DESC, created_at DESC`;
+    if (limit) query += ` LIMIT ${limit}`;
 
-    if (limit) {
-      query = query.limit(limit);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      // Log error but return empty array to prevent crashes
-      console.error("Error fetching transactions:", error);
-      return [];
-    }
-
-    return data || [];
+    const results = await db.getAllAsync(query, [user.id]);
+    return results || [];
   } catch (error) {
-    // Return empty array instead of throwing
     console.error("Error in getUserTransactions:", error);
     return [];
   }
 }
 
-// Update a transaction
+// Update a transaction locally
 export async function updateTransaction(
   transactionId: string,
   amount: number,
@@ -160,57 +120,46 @@ export async function updateTransaction(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  const { data, error } = await supabase
-    .from("transactions")
-    .update({
-      amount,
-      category: categoryName || null,
-      description: description || null,
-      transaction_date: date || getLocalDateString(),
-    })
-    .eq("id", transactionId)
-    .eq("user_id", user.id)
-    .select()
-    .single();
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+  const dateStr = date || getLocalDateString();
 
-  if (error) {
-    throw error;
-  }
+  await db.runAsync(`
+    UPDATE transactions SET 
+      amount = ?, category = ?, description = ?, transaction_date = ?, 
+      updated_at = ?, sync_status = 'pending'
+    WHERE id = ? AND user_id = ?
+  `, [amount, categoryName, description, dateStr, now, transactionId, user.id]);
 
-  return data;
+  pushPendingChanges().catch(console.error);
 }
 
-// Delete a transaction
+// Delete a transaction (soft delete)
 export async function deleteTransaction(transactionId: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  const { error } = await supabase
-    .from("transactions")
-    .delete()
-    .eq("id", transactionId)
-    .eq("user_id", user.id);
+  const db = await getDatabase();
+  const now = new Date().toISOString();
 
-  if (error) {
-    throw error;
-  }
+  await db.runAsync(`
+    UPDATE transactions SET 
+      deleted = 1, updated_at = ?, sync_status = 'pending'
+    WHERE id = ? AND user_id = ?
+  `, [now, transactionId, user.id]);
+
+  pushPendingChanges().catch(console.error);
 }
 
-// Get total revenue (sum of all transactions)
-export async function getTotalRevenue() {
+// Get real-time profit
+export async function getRealTimeProfit() {
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
+  if (!user) return 0;
 
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("amount")
-    .eq("user_id", user.id);
+  const db = await getDatabase();
+  const result = await db.getFirstAsync(`
+    SELECT SUM(amount) as total FROM transactions WHERE user_id = ? AND deleted = 0
+  `, [user.id]) as { total: number };
 
-  if (error) {
-    throw error;
-  }
-
-  const total = data?.reduce((sum, transaction) => sum + Number(transaction.amount), 0) || 0;
-  return total;
+  return result?.total || 0;
 }
-

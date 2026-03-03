@@ -6,11 +6,12 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, T
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BUSINESS_TYPES = [
-  "Retail",
-  "Food & Beverage",
-  "Services",
-  "Manufacturing",
-  "E-commerce",
+  "Tutemba Shop",
+  "Market Stall Vendor",
+  "Grocery Store",
+  "Street Vendor",
+  "Service Provider",
+  "Small Trader",
   "Other",
 ];
 
@@ -52,7 +53,7 @@ export default function RegisterScreen() {
     try {
       setLoading(true);
       const result = await registerWithProfile(email, password, fullName, phoneNumber, businessType);
-      
+
       // ALWAYS navigate to OTP verification screen IMMEDIATELY
       // Use replace instead of push to prevent back navigation
       // This ensures all users go through our custom OTP flow
@@ -60,7 +61,7 @@ export default function RegisterScreen() {
         // Navigate immediately before any auth state changes can redirect
         router.replace({
           pathname: "/Authentication/verify-email",
-          params: { 
+          params: {
             email: email,
             userId: (result as any).user.id,
             fullName: fullName,
@@ -85,200 +86,200 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-      {/* Hero Header */}
-      <View style={styles.header}>
-        <View style={styles.headerDecoration1} />
-        <View style={styles.headerDecoration2} />
-        <View style={styles.headerContent}>
-          <View style={styles.headerIconContainer}>
-            <View style={styles.headerIcon}>
-              <Store size={28} color="#ffffff" />
-            </View>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Create Account</Text>
-              <Text style={styles.headerSubtitle}>Start managing your business</Text>
+        {/* Hero Header */}
+        <View style={styles.header}>
+          <View style={styles.headerDecoration1} />
+          <View style={styles.headerDecoration2} />
+          <View style={styles.headerContent}>
+            <View style={styles.headerIconContainer}>
+              <View style={styles.headerIcon}>
+                <Store size={28} color="#ffffff" />
+              </View>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Create Account</Text>
+                <Text style={styles.headerSubtitle}>Start managing your business</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Registration Form */}
-        <View style={styles.formContainer}>
-          {/* Full Name Input */}
-          <View style={styles.inputCard}>
-            <Text style={styles.label}>Full Name</Text>
-            <View style={styles.inputContainer}>
-              <User size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                placeholder="Enter your full name"
-                value={fullName}
-                onChangeText={setFullName}
-                placeholderTextColor="#999"
-                style={styles.input}
-                autoCapitalize="words"
-                autoComplete="name"
-              />
-            </View>
-          </View>
-
-          {/* Email Input */}
-          <View style={styles.inputCard}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputContainer}>
-              <Mail size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                placeholder="Enter your email"
-                value={email}
-                onChangeText={setEmail}
-                placeholderTextColor="#999"
-                style={styles.input}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoComplete="email"
-              />
-            </View>
-          </View>
-
-          {/* Phone Number Input */}
-          <View style={styles.inputCard}>
-            <Text style={styles.label}>Phone Number</Text>
-            <View style={styles.inputContainer}>
-              <Phone size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                placeholder="Enter your phone number"
-                value={phoneNumber}
-                onChangeText={setPhoneNumber}
-                placeholderTextColor="#999"
-                style={styles.input}
-                keyboardType="phone-pad"
-                autoComplete="tel"
-              />
-            </View>
-          </View>
-
-          {/* Business Type Selector */}
-          <View style={styles.inputCard}>
-            <Text style={styles.label}>Business Type</Text>
-            <View style={styles.categoryWrapper}>
-              <TouchableOpacity
-                style={styles.businessTypeButton}
-                onPress={() => setShowBusinessTypes(!showBusinessTypes)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.businessTypeButtonContent}>
-                  <Briefcase size={20} color="#666" style={styles.inputIcon} />
-                  <Text style={[styles.businessTypeText, !selectedBusinessType && styles.placeholder]}>
-                    {selectedBusinessType || "Select business type"}
-                  </Text>
-                </View>
-                <ChevronDown 
-                  size={20} 
-                  color="#666" 
-                  style={[styles.chevron, showBusinessTypes && styles.chevronRotated]} 
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Registration Form */}
+          <View style={styles.formContainer}>
+            {/* Full Name Input */}
+            <View style={styles.inputCard}>
+              <Text style={styles.label}>Full Name</Text>
+              <View style={styles.inputContainer}>
+                <User size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Enter your full name"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  autoCapitalize="words"
+                  autoComplete="name"
                 />
-              </TouchableOpacity>
+              </View>
+            </View>
 
-              {showBusinessTypes && (
-                <Modal
-                  visible={showBusinessTypes}
-                  transparent
-                  animationType="fade"
-                  onRequestClose={() => setShowBusinessTypes(false)}
+            {/* Email Input */}
+            <View style={styles.inputCard}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputContainer}>
+                <Mail size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Enter your email"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoComplete="email"
+                />
+              </View>
+            </View>
+
+            {/* Phone Number Input */}
+            <View style={styles.inputCard}>
+              <Text style={styles.label}>Phone Number</Text>
+              <View style={styles.inputContainer}>
+                <Phone size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Enter your phone number"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  keyboardType="phone-pad"
+                  autoComplete="tel"
+                />
+              </View>
+            </View>
+
+            {/* Business Type Selector */}
+            <View style={styles.inputCard}>
+              <Text style={styles.label}>Business Type</Text>
+              <View style={styles.categoryWrapper}>
+                <TouchableOpacity
+                  style={styles.businessTypeButton}
+                  onPress={() => setShowBusinessTypes(!showBusinessTypes)}
+                  activeOpacity={0.7}
                 >
-                  <TouchableOpacity
-                    style={styles.categoryOverlay}
-                    activeOpacity={1}
-                    onPress={() => setShowBusinessTypes(false)}
-                  >
-                    <View style={styles.categoryDropdownContainer}>
-                      <View style={styles.categoryDropdown}>
-                        <ScrollView 
-                          style={styles.categoryScrollView}
-                          nestedScrollEnabled
-                          showsVerticalScrollIndicator={false}
-                        >
-                          {BUSINESS_TYPES.map((type) => (
-                            <TouchableOpacity
-                              key={type}
-                              style={styles.categoryOption}
-                              onPress={() => {
-                                setBusinessType(type);
-                                setShowBusinessTypes(false);
-                              }}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={styles.categoryOptionText}>{type}</Text>
-                              {businessType === type && (
-                                <Check size={20} color="#10b981" />
-                              )}
-                            </TouchableOpacity>
-                          ))}
-                        </ScrollView>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                </Modal>
-              )}
-            </View>
-          </View>
+                  <View style={styles.businessTypeButtonContent}>
+                    <Briefcase size={20} color="#666" style={styles.inputIcon} />
+                    <Text style={[styles.businessTypeText, !selectedBusinessType && styles.placeholder]}>
+                      {selectedBusinessType || "Select business type"}
+                    </Text>
+                  </View>
+                  <ChevronDown
+                    size={20}
+                    color="#666"
+                    style={[styles.chevron, showBusinessTypes && styles.chevronRotated]}
+                  />
+                </TouchableOpacity>
 
-          {/* Password Input */}
-          <View style={styles.inputCard}>
-            <Text style={styles.label}>PIN / Password</Text>
-            <View style={styles.inputContainer}>
-              <Lock size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                placeholder="Enter your password"
-                value={password}
-                onChangeText={setPassword}
-                placeholderTextColor="#999"
-                secureTextEntry={!showPassword}
-                style={styles.input}
-                autoComplete="password"
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.eyeIconText}>{showPassword ? "Hide" : "Show"}</Text>
+                {showBusinessTypes && (
+                  <Modal
+                    visible={showBusinessTypes}
+                    transparent
+                    animationType="fade"
+                    onRequestClose={() => setShowBusinessTypes(false)}
+                  >
+                    <TouchableOpacity
+                      style={styles.categoryOverlay}
+                      activeOpacity={1}
+                      onPress={() => setShowBusinessTypes(false)}
+                    >
+                      <View style={styles.categoryDropdownContainer}>
+                        <View style={styles.categoryDropdown}>
+                          <ScrollView
+                            style={styles.categoryScrollView}
+                            nestedScrollEnabled
+                            showsVerticalScrollIndicator={false}
+                          >
+                            {BUSINESS_TYPES.map((type) => (
+                              <TouchableOpacity
+                                key={type}
+                                style={styles.categoryOption}
+                                onPress={() => {
+                                  setBusinessType(type);
+                                  setShowBusinessTypes(false);
+                                }}
+                                activeOpacity={0.7}
+                              >
+                                <Text style={styles.categoryOptionText}>{type}</Text>
+                                {businessType === type && (
+                                  <Check size={20} color="#1e3a8a" />
+                                )}
+                              </TouchableOpacity>
+                            ))}
+                          </ScrollView>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  </Modal>
+                )}
+              </View>
+            </View>
+
+            {/* Password Input */}
+            <View style={styles.inputCard}>
+              <Text style={styles.label}>PIN / Password</Text>
+              <View style={styles.inputContainer}>
+                <Lock size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholderTextColor="#999"
+                  secureTextEntry={!showPassword}
+                  style={styles.input}
+                  autoComplete="password"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.eyeIconText}>{showPassword ? "Hide" : "Show"}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Register Button */}
+            <TouchableOpacity
+              onPress={handleRegister}
+              disabled={loading || !fullName.trim() || !email.trim() || !phoneNumber.trim() || !businessType.trim() || !password.trim()}
+              style={[styles.registerButton, (loading || !fullName.trim() || !email.trim() || !phoneNumber.trim() || !businessType.trim() || !password.trim()) && styles.registerButtonDisabled]}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.registerButtonText}>
+                {loading ? "Creating Account..." : "Create Account"}
+              </Text>
+              {!loading && <ArrowRight size={20} color="#ffffff" style={styles.buttonIcon} />}
+            </TouchableOpacity>
+
+            {/* Login Link */}
+            <View style={styles.loginContainer}>
+              <Text style={styles.loginText}>Already have an account? </Text>
+              <TouchableOpacity onPress={() => router.push("/Authentication/login")} activeOpacity={0.7}>
+                <Text style={styles.loginLink}>Sign In</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Register Button */}
-          <TouchableOpacity
-            onPress={handleRegister}
-            disabled={loading || !fullName.trim() || !email.trim() || !phoneNumber.trim() || !businessType.trim() || !password.trim()}
-            style={[styles.registerButton, (loading || !fullName.trim() || !email.trim() || !phoneNumber.trim() || !businessType.trim() || !password.trim()) && styles.registerButtonDisabled]}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.registerButtonText}>
-              {loading ? "Creating Account..." : "Create Account"}
-            </Text>
-            {!loading && <ArrowRight size={20} color="#ffffff" style={styles.buttonIcon} />}
-          </TouchableOpacity>
-
-          {/* Login Link */}
-          <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>Already have an account? </Text>
-            <TouchableOpacity onPress={() => router.push("/Authentication/login")} activeOpacity={0.7}>
-              <Text style={styles.loginLink}>Sign In</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -294,7 +295,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
     paddingTop: 60,
     paddingBottom: 40,
     paddingHorizontal: 20,
@@ -406,7 +407,7 @@ const styles = StyleSheet.create({
   eyeIconText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#10b981",
+    color: "#1e3a8a",
   },
   categoryWrapper: {
     position: "relative",
@@ -484,7 +485,7 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   registerButton: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
     borderRadius: 12,
     paddingVertical: 18,
     paddingHorizontal: 24,
@@ -492,7 +493,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
-    shadowColor: "#10b981",
+    shadowColor: "#1e3a8a",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -523,6 +524,6 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#10b981",
+    color: "#1e3a8a",
   },
 });

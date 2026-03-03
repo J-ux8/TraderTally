@@ -37,101 +37,101 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-      {/* Hero Header */}
-      <View style={styles.header}>
-        <View style={styles.headerDecoration1} />
-        <View style={styles.headerDecoration2} />
-        <View style={styles.headerContent}>
-          <View style={styles.headerIconContainer}>
-            <View style={styles.headerIcon}>
-              <Store size={28} color="#ffffff" />
-            </View>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Welcome Back</Text>
-              <Text style={styles.headerSubtitle}>Sign in to continue</Text>
+        {/* Hero Header */}
+        <View style={styles.header}>
+          <View style={styles.headerDecoration1} />
+          <View style={styles.headerDecoration2} />
+          <View style={styles.headerContent}>
+            <View style={styles.headerIconContainer}>
+              <View style={styles.headerIcon}>
+                <Store size={28} color="#ffffff" />
+              </View>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Welcome Back</Text>
+                <Text style={styles.headerSubtitle}>Sign in to continue</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
 
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-      >
-        {/* Login Form */}
-        <View style={styles.formContainer}>
-          {/* Email Input */}
-          <View style={styles.inputCard}>
-            <Text style={styles.label}>Email</Text>
-            <View style={styles.inputContainer}>
-              <Mail size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                placeholder="Enter your email"
-                value={email}
-                onChangeText={setEmail}
-                placeholderTextColor="#999"
-                style={styles.input}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                autoComplete="email"
-                autoFocus
-              />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Login Form */}
+          <View style={styles.formContainer}>
+            {/* Email Input */}
+            <View style={styles.inputCard}>
+              <Text style={styles.label}>Email</Text>
+              <View style={styles.inputContainer}>
+                <Mail size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Enter your email"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholderTextColor="#999"
+                  style={styles.input}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  autoComplete="email"
+                  autoFocus
+                />
+              </View>
             </View>
-          </View>
 
-          {/* Password Input */}
-          <View style={styles.inputCard}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.inputContainer}>
-              <Lock size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                placeholder="Enter your password"
-                value={password}
-                onChangeText={setPassword}
-                placeholderTextColor="#999"
-                secureTextEntry={!showPassword}
-                style={styles.input}
-                autoComplete="password"
-              />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.eyeIconText}>{showPassword ? "Hide" : "Show"}</Text>
+            {/* Password Input */}
+            <View style={styles.inputCard}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputContainer}>
+                <Lock size={20} color="#666" style={styles.inputIcon} />
+                <TextInput
+                  placeholder="Enter your password"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholderTextColor="#999"
+                  secureTextEntry={!showPassword}
+                  style={styles.input}
+                  autoComplete="password"
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeIcon}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.eyeIconText}>{showPassword ? "Hide" : "Show"}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Login Button */}
+            <TouchableOpacity
+              onPress={handleLogin}
+              disabled={loading || !email.trim() || !password.trim()}
+              style={[styles.loginButton, (loading || !email.trim() || !password.trim()) && styles.loginButtonDisabled]}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.loginButtonText}>
+                {loading ? "Signing in..." : "Sign In"}
+              </Text>
+              {!loading && <ArrowRight size={20} color="#ffffff" style={styles.buttonIcon} />}
+            </TouchableOpacity>
+
+            {/* Register Link */}
+            <View style={styles.registerContainer}>
+              <Text style={styles.registerText}>Don&apos;t have an account? </Text>
+              <TouchableOpacity onPress={() => router.push("/Authentication/register")} activeOpacity={0.7}>
+                <Text style={styles.registerLink}>Create Account</Text>
               </TouchableOpacity>
             </View>
           </View>
-
-          {/* Login Button */}
-          <TouchableOpacity
-            onPress={handleLogin}
-            disabled={loading || !email.trim() || !password.trim()}
-            style={[styles.loginButton, (loading || !email.trim() || !password.trim()) && styles.loginButtonDisabled]}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.loginButtonText}>
-              {loading ? "Signing in..." : "Sign In"}
-            </Text>
-            {!loading && <ArrowRight size={20} color="#ffffff" style={styles.buttonIcon} />}
-          </TouchableOpacity>
-
-          {/* Register Link */}
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Don't have an account? </Text>
-            <TouchableOpacity onPress={() => router.push("/Authentication/register")} activeOpacity={0.7}>
-              <Text style={styles.registerLink}>Create Account</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
     paddingTop: 60,
     paddingBottom: 40,
     paddingHorizontal: 20,
@@ -258,10 +258,10 @@ const styles = StyleSheet.create({
   eyeIconText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#10b981",
+    color: "#1e3a8a",
   },
   loginButton: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
     borderRadius: 12,
     paddingVertical: 18,
     paddingHorizontal: 24,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
-    shadowColor: "#10b981",
+    shadowColor: "#1e3a8a",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -300,6 +300,6 @@ const styles = StyleSheet.create({
   registerLink: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#10b981",
+    color: "#1e3a8a",
   },
 });

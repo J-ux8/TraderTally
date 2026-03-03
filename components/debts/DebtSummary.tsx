@@ -16,7 +16,7 @@ export function DebtSummary({ debts }: DebtSummaryProps) {
     <View style={styles.container}>
       <View style={styles.card}>
         <View style={styles.iconContainer}>
-          <TrendingUp size={24} color="#10b981" />
+          <TrendingUp size={24} color="#1e3a8a" />
         </View>
         <View style={styles.content}>
           <Text style={styles.label}>Total Active Debts</Text>
@@ -67,7 +67,7 @@ const styles = StyleSheet.create({
   amount: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#10b981',
+    color: '#1e3a8a',
     marginBottom: 2,
   },
   count: {

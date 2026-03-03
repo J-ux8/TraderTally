@@ -1,10 +1,12 @@
-import { createDebt, getUserDebts, updateDebt } from '@/lib/debts';
+import { useTransactionsContext } from '@/contexts/TransactionsContext';
+import { createDebt, deleteDebt, getUserDebts, settleDebt, updateDebt } from '@/lib/debts';
 import { supabase } from '@/lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
 
 export function useDebts() {
   const [debts, setDebts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { recordSale } = useTransactionsContext();
 
   const refresh = useCallback(async () => {
     try {
@@ -47,21 +49,37 @@ export function useDebts() {
     }
   ) => {
     await updateDebt(id, data);
-    setDebts(prev => prev.map(d => 
-      d.id === id 
+    setDebts(prev => prev.map(d =>
+      d.id === id
         ? { ...d, ...data, updated_at: new Date().toISOString() }
         : d
     ));
   }, []);
 
   const handleSettleDebt = useCallback(async (id: string) => {
+    const debtToSettle = debts.find(d => d.id === id);
+    if (!debtToSettle) return;
+
     await settleDebt(id);
-    setDebts(prev => prev.map(d => 
-      d.id === id 
+
+    // Recording the sale as a transaction ONLY when settled (paid)
+    try {
+      await recordSale(
+        debtToSettle.amount,
+        'Debt Payment',
+        `Settled: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
+        new Date().toISOString().split('T')[0]
+      );
+    } catch (txError) {
+      console.error('Error recording transaction for settled debt:', txError);
+    }
+
+    setDebts(prev => prev.map(d =>
+      d.id === id
         ? { ...d, is_settled: true, updated_at: new Date().toISOString() }
         : d
     ));
-  }, []);
+  }, [debts, recordSale]);
 
   const handleDeleteDebt = useCallback(async (id: string) => {
     await deleteDebt(id);
@@ -78,4 +96,3 @@ export function useDebts() {
     deleteDebt: handleDeleteDebt,
   };
 }
-

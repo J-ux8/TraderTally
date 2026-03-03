@@ -4,6 +4,7 @@ import { EditDebtSheet } from '@/components/debts/EditDebtSheet';
 import { useDebts } from '@/hooks/useDebts';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { Debt } from '@/lib/debts';
+import { getUserProfile, UserProfile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import { router, useFocusEffect } from 'expo-router';
 import { Plus, Store } from 'lucide-react-native';
@@ -18,36 +19,26 @@ export default function DebtsScreen() {
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    checkSession();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        getUserProfile().then(setProfile);
+      }
+      setCheckingAuth(false);
+    });
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      checkSession();
-      // Refresh debts when screen comes into focus (e.g., after adding a debt)
+      // Refresh debts when screen comes into focus
       refresh();
     }, [refresh])
   );
 
-  async function checkSession() {
-    try {
-      setCheckingAuth(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-      } else {
-        router.replace("/Authentication/login");
-      }
-    } catch (error) {
-      console.error("Error checking session:", error);
-      router.replace("/Authentication/login");
-    } finally {
-      setCheckingAuth(false);
-    }
-  }
 
   const activeDebts = debts.filter(d => !d.is_settled);
   const settledDebts = debts.filter(d => d.is_settled);
@@ -78,114 +69,116 @@ export default function DebtsScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
       <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
-      {/* Hero Header */}
-      <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
-        <View style={styles.headerDecoration1} />
-        <View style={styles.headerDecoration2} />
-        <View style={styles.headerContent}>
-          <View style={styles.headerIconContainer}>
-            <View style={styles.headerIcon}>
-              <Store size={24} color="#ffffff" />
-            </View>
-            <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Debts</Text>
-              <Text style={styles.headerSubtitle}>Tap any record to edit</Text>
+        {/* Hero Header */}
+        <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
+          <View style={styles.headerDecoration1} />
+          <View style={styles.headerDecoration2} />
+          <View style={styles.headerContent}>
+            <View style={styles.headerIconContainer}>
+              <View style={styles.headerIcon}>
+                <Store size={24} color="#ffffff" />
+              </View>
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Credit Book</Text>
+                <Text style={styles.headerSubtitle}>People who owe you money</Text>
+              </View>
             </View>
           </View>
         </View>
-      </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
-        }
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Debt Summary */}
-        <DebtSummary debts={debts} />
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Debt Summary */}
+          <DebtSummary debts={debts} />
 
-        {/* Tabs */}
-        <View style={[styles.tabsContainer, { backgroundColor: colors.cardBackground }]}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'active' && { backgroundColor: '#10b981' }]}
-            onPress={() => setActiveTab('active')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.tabText, activeTab === 'active' && styles.tabTextActive, { color: activeTab === 'active' ? '#ffffff' : colors.textSecondary }]}>
-              Active ({activeDebts.length})
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'settled' && { backgroundColor: '#10b981' }]}
-            onPress={() => setActiveTab('settled')}
-            activeOpacity={0.7}
-          >
-            <Text style={[styles.tabText, activeTab === 'settled' && styles.tabTextActive, { color: activeTab === 'settled' ? '#ffffff' : colors.textSecondary }]}>
-              Settled ({settledDebts.length})
-            </Text>
-          </TouchableOpacity>
-        </View>
+          {/* Tabs */}
+          <View style={[styles.tabsContainer, { backgroundColor: colors.cardBackground }]}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'active' && { backgroundColor: '#1e3a8a' }]}
+              onPress={() => setActiveTab('active')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabText, activeTab === 'active' && styles.tabTextActive, { color: activeTab === 'active' ? '#ffffff' : colors.textSecondary }]}>
+                Active ({activeDebts.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'settled' && { backgroundColor: '#1e3a8a' }]}
+              onPress={() => setActiveTab('settled')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabText, activeTab === 'settled' && styles.tabTextActive, { color: activeTab === 'settled' ? '#ffffff' : colors.textSecondary }]}>
+                Settled ({settledDebts.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-        {/* Content */}
-        {activeTab === 'active' ? (
-          activeDebts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <View style={styles.emptyIconContainer}>
-                <Text style={styles.emptyIcon}>🤝</Text>
+          {/* Content */}
+          {activeTab === 'active' ? (
+            activeDebts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <View style={styles.emptyIconContainer}>
+                  <Text style={styles.emptyIcon}>🤝</Text>
+                </View>
+                <Text style={[styles.emptyTitle, { color: colors.textColor }]}>No active debts</Text>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>That&apos;s great!</Text>
               </View>
-              <Text style={[styles.emptyTitle, { color: colors.textColor }]}>No active debts</Text>
-              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>That's great!</Text>
-            </View>
+            ) : (
+              <View style={styles.debtsList}>
+                {activeDebts.map(d => (
+                  <DebtItem
+                    key={d.id}
+                    debt={d}
+                    onSettle={() => settleDebt(d.id)}
+                    onClick={() => setEditingDebt(d)}
+                    businessName={profile?.full_name}
+                  />
+                ))}
+              </View>
+            )
           ) : (
-            <View style={styles.debtsList}>
-              {activeDebts.map(d => (
-                <DebtItem
-                  key={d.id}
-                  debt={d}
-                  onSettle={() => settleDebt(d.id)}
-                  onClick={() => setEditingDebt(d)}
-                />
-              ))}
-            </View>
-          )
-        ) : (
-          settledDebts.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>No settled debts</Text>
-            </View>
-          ) : (
-            <View style={styles.debtsList}>
-              {settledDebts.map(d => (
-                <DebtItem
-                  key={d.id}
-                  debt={d}
-                  onClick={() => setEditingDebt(d)}
-                />
-              ))}
-            </View>
-          )
-        )}
-      </ScrollView>
+            settledDebts.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>No settled debts</Text>
+              </View>
+            ) : (
+              <View style={styles.debtsList}>
+                {settledDebts.map(d => (
+                  <DebtItem
+                    key={d.id}
+                    debt={d}
+                    onClick={() => setEditingDebt(d)}
+                    businessName={profile?.full_name}
+                  />
+                ))}
+              </View>
+            )
+          )}
+        </ScrollView>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('./add-debt')}
-        activeOpacity={0.8}
-      >
-        <Plus size={28} color="#ffffff" />
-      </TouchableOpacity>
+        {/* Floating Action Button */}
+        <TouchableOpacity
+          style={styles.fab}
+          onPress={() => router.push('./add-debt')}
+          activeOpacity={0.8}
+        >
+          <Plus size={28} color="#ffffff" />
+        </TouchableOpacity>
 
-      {/* Edit Sheet */}
-      <EditDebtSheet
-        debt={editingDebt}
-        open={!!editingDebt}
-        onOpenChange={(open) => !open && setEditingDebt(null)}
-        onSave={handleSave}
-        onDelete={deleteDebt}
-      />
+        {/* Edit Sheet */}
+        <EditDebtSheet
+          debt={editingDebt}
+          open={!!editingDebt}
+          onOpenChange={(open) => !open && setEditingDebt(null)}
+          onSave={handleSave}
+          onDelete={deleteDebt}
+        />
       </View>
     </SafeAreaView>
   );
@@ -201,7 +194,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#10b981',
+    backgroundColor: '#1e3a8a',
     paddingTop: 60,
     paddingBottom: 32,
     paddingHorizontal: 20,
@@ -332,10 +325,10 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#10b981',
+    backgroundColor: '#1e3a8a',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#10b981',
+    shadowColor: '#1e3a8a',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

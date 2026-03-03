@@ -1,65 +1,40 @@
 import { supabase } from "@/lib/supabase";
-import { router } from "expo-router";
-import { useEffect, useState } from "react";
-import { ActivityIndicator, StyleSheet, View } from "react-native";
+import { Redirect } from "expo-router";
+import React, { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
 
 export default function Index() {
+  const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkAuthAndRedirect();
-  }, []);
-
-  async function checkAuthAndRedirect() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        // Check if user has a profile - if not, they need to complete registration
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("id", session.user.id)
-          .single();
-        
-        if (!profile) {
-          // User exists but no profile - might be in middle of registration
-          // Don't redirect - let them complete OTP verification
-          // If they're already on verify-email screen, stay there
-          router.replace("/Authentication/login");
-          return;
-        }
-        
-        // User is logged in and has profile, go to home
-        router.replace("/(tabs)");
-      } else {
-        // User is not logged in, go to login
-        router.replace("/Authentication/login");
-      }
-    } catch (error) {
-      console.error("Error checking auth:", error);
-      router.replace("/Authentication/login");
-    } finally {
+    // Initial check
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+      setSession(currentSession);
       setLoading(false);
-    }
-  }
+    });
+
+    // Listen for changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   if (loading) {
     return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#10b981" />
+      <View style={{ flex: 1, backgroundColor: '#1e3a8a', justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#ffffff" />
       </View>
     );
   }
 
-  return null;
+  // If we have a session, go straight to the dashboard
+  if (session) {
+    return <Redirect href="/(tabs)" />;
+  }
+
+  // Otherwise, show the welcome/onboarding screen
+  return <Redirect href="/welcome" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#f5f5f5",
-  },
-});
-

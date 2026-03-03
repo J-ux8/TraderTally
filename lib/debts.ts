@@ -1,4 +1,7 @@
+import * as Crypto from 'expo-crypto';
+import { getDatabase } from "./database";
 import { supabase } from "./supabase";
+import { pushPendingChanges } from "./sync";
 
 export interface Debt {
   id: string;
@@ -10,27 +13,34 @@ export interface Debt {
   created_at: string;
   updated_at: string;
   user_id: string;
+  deleted: number;
+  sync_status: string;
 }
 
-// Get all debts for the current user
-export async function getUserDebts() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
+// Get all debts for the current user from local SQLite
+export async function getUserDebts(): Promise<Debt[]> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
 
-  const { data, error } = await supabase
-    .from("debts")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
+    const db = await getDatabase();
+    const results = await db.getAllAsync(
+      "SELECT * FROM debts WHERE user_id = ? AND deleted = 0 ORDER BY created_at DESC",
+      [user.id]
+    );
 
-  if (error) {
-    throw error;
+    // Map SQLite boolean (0/1) to true/false
+    return (results as any[]).map(d => ({
+      ...d,
+      is_settled: d.is_settled === 1
+    })) as Debt[];
+  } catch (error) {
+    console.error("Error in getUserDebts:", error);
+    return [];
   }
-
-  return data || [];
 }
 
-// Create a new debt
+// Create a new debt locally
 export async function createDebt(
   customerName: string,
   amount: number,
@@ -40,27 +50,24 @@ export async function createDebt(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  const { data, error } = await supabase
-    .from("debts")
-    .insert({
-      customer_name: customerName.trim(),
-      amount: Math.abs(amount),
-      due_date: dueDate || null,
-      note: note?.trim() || null,
-      is_settled: false,
-      user_id: user.id,
-    })
-    .select()
-    .single();
+  const db = await getDatabase();
+  const id = Crypto.randomUUID();
+  const now = new Date().toISOString();
 
-  if (error) {
-    throw error;
-  }
+  await db.runAsync(`
+    INSERT INTO debts (
+      id, user_id, customer_name, amount, due_date, note, is_settled, 
+      created_at, updated_at, sync_status
+    ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, 'pending')
+  `, [id, user.id, customerName.trim(), Math.abs(amount), dueDate || null, note?.trim() || null, now, now]);
 
-  return data;
+  // Trigger background sync
+  pushPendingChanges().catch(console.error);
+
+  return { id, customer_name: customerName, amount: Math.abs(amount), due_date: dueDate, note, is_settled: false, created_at: now, updated_at: now, user_id: user.id };
 }
 
-// Update a debt
+// Update a debt locally
 export async function updateDebt(
   id: string,
   data: {
@@ -73,55 +80,50 @@ export async function updateDebt(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  const { error } = await supabase
-    .from("debts")
-    .update({
-      customer_name: data.customer_name.trim(),
-      amount: Math.abs(data.amount),
-      due_date: data.due_date || null,
-      note: data.note?.trim() || null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const db = await getDatabase();
+  const now = new Date().toISOString();
 
-  if (error) {
-    throw error;
-  }
+  await db.runAsync(`
+    UPDATE debts SET 
+      customer_name = ?, amount = ?, due_date = ?, note = ?, 
+      updated_at = ?, sync_status = 'pending'
+    WHERE id = ? AND user_id = ?
+  `, [data.customer_name.trim(), Math.abs(data.amount), data.due_date || null, data.note?.trim() || null, now, id, user.id]);
+
+  pushPendingChanges().catch(console.error);
 }
 
-// Settle a debt
+// Settle a debt locally
 export async function settleDebt(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  const { error } = await supabase
-    .from("debts")
-    .update({
-      is_settled: true,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const db = await getDatabase();
+  const now = new Date().toISOString();
 
-  if (error) {
-    throw error;
-  }
+  await db.runAsync(`
+    UPDATE debts SET 
+      is_settled = 1, updated_at = ?, sync_status = 'pending'
+    WHERE id = ? AND user_id = ?
+  `, [now, id, user.id]);
+
+  pushPendingChanges().catch(console.error);
 }
 
-// Delete a debt
+// Delete a debt locally (soft delete)
 export async function deleteDebt(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
-  const { error } = await supabase
-    .from("debts")
-    .delete()
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const db = await getDatabase();
+  const now = new Date().toISOString();
 
-  if (error) {
-    throw error;
-  }
+  await db.runAsync(`
+    UPDATE debts SET 
+      deleted = 1, updated_at = ?, sync_status = 'pending'
+    WHERE id = ? AND user_id = ?
+  `, [now, id, user.id]);
+
+  pushPendingChanges().catch(console.error);
 }
 

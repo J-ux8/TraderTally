@@ -19,10 +19,9 @@ interface Category {
 
 interface RecentTransactionsProps {
   transactions: Transaction[];
-  categories: Category[];
 }
 
-export const RecentTransactions = React.memo(function RecentTransactions({ transactions, categories }: RecentTransactionsProps) {
+export const RecentTransactions = React.memo(function RecentTransactions({ transactions }: RecentTransactionsProps) {
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     const today = new Date();
@@ -99,29 +98,29 @@ export const RecentTransactions = React.memo(function RecentTransactions({ trans
   // Re-render if transactions array changes
   // Return true = skip re-render (props are equal)
   // Return false = re-render (props are different)
-  
+
   // If length changed, definitely re-render
   if (prevProps.transactions.length !== nextProps.transactions.length) {
     return false; // Re-render
   }
-  
+
   // Check if any transaction IDs in the first 5 changed
   const prevIds = prevProps.transactions.slice(0, 5).map(t => t.id).join(',');
   const nextIds = nextProps.transactions.slice(0, 5).map(t => t.id).join(',');
-  
+
   // If IDs are different, re-render
   if (prevIds !== nextIds) {
     return false; // Re-render
   }
-  
+
   // Also check if amounts changed (for summary updates)
   const prevAmounts = prevProps.transactions.slice(0, 5).map(t => t.amount).join(',');
   const nextAmounts = nextProps.transactions.slice(0, 5).map(t => t.amount).join(',');
-  
+
   if (prevAmounts !== nextAmounts) {
     return false; // Re-render
   }
-  
+
   // All props are equal, skip re-render
   return true;
 });
@@ -151,7 +150,7 @@ const styles = StyleSheet.create({
   viewAll: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#10b981',
+    color: '#1e3a8a',
   },
   listContainer: {
     gap: 12,
@@ -177,7 +176,7 @@ const styles = StyleSheet.create({
   transactionAmount: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#10b981',
+    color: '#1e3a8a',
   },
   transactionDate: {
     fontSize: 12,

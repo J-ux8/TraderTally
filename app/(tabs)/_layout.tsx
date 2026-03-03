@@ -3,7 +3,6 @@ import React from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export default function TabLayout() {
@@ -12,7 +11,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: '#1e3a8a',
         headerShown: false,
         tabBarButton: HapticTab,
       }}>
@@ -33,7 +32,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="debts"
         options={{
-          title: 'Debts',
+          title: 'Credit Book',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="creditcard.fill" color={color} />,
         }}
       />
@@ -65,7 +64,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="reports"
         options={{
-          href: null, // Hide from tab bar
+          title: 'Reports',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="chart.bar.fill" color={color} />,
         }}
       />
     </Tabs>
