@@ -26,8 +26,10 @@ export function useDebts() {
       setDebts(data || []);
       setLastLoadTime(Date.now());
     } catch (error: any) {
-      console.error('Error loading debts:', error);
-      setError(error.message || 'Failed to load debts');
+      // Only set error if we already have loaded before (not initial load)
+      if (lastLoadTime > 0) {
+        setError(error.message || 'Failed to load debts');
+      }
       // Keep existing debts on error instead of clearing
     } finally {
       setLoading(false);

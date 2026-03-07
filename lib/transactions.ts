@@ -11,7 +11,7 @@ async function getUserId(): Promise<string> {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) return user.id;
   } catch (error) {
-    console.log('[transactions] Supabase auth failed, using cached session');
+    // Supabase auth failed - this is normal when offline
   }
   
   const cached = await getCachedSession();
@@ -19,8 +19,8 @@ async function getUserId(): Promise<string> {
     return cached.userId;
   }
   
-  // If no cache, this is a critical error - user needs to login
-  console.error('[transactions] No cached session available');
+  // No session available - user needs to login
+  // This is not an error during app initialization
   throw new Error("User not authenticated and no cached session");
 }
 
@@ -102,7 +102,8 @@ export async function getUserTransactions(limit?: number) {
     const userId = await getUserId();
     return await transactionRepo.findAll(userId, limit);
   } catch (error) {
-    console.error("Error in getUserTransactions:", error);
+    // Silent fail - return empty array
+    // This is normal during app initialization before login
     return [];
   }
 }

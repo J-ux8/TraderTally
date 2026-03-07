@@ -101,8 +101,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   }, [loadLocalData, isOnline, lastLoadTime, transactions.length]);
 
   useEffect(() => {
-    // Initial load
-    loadLocalData();
+    // Delay initial load slightly to allow session cache to be populated
+    const timer = setTimeout(() => {
+      loadLocalData();
+    }, 100);
 
     // Background sync cycle - Increased to 2 minutes for better performance
     const interval = setInterval(async () => {
@@ -127,7 +129,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       }
     }, 120000); // Changed from 60000 (1 min) to 120000 (2 min)
 
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [loadLocalData, isOnline]);
 
   const addTransaction = (transaction: Transaction) => {
