@@ -10,7 +10,7 @@ interface DebtItemProps {
   businessName?: string;
 }
 
-export function DebtItem({ debt, onSettle, onClick, businessName }: DebtItemProps) {
+export const DebtItem = React.memo(function DebtItem({ debt, onSettle, onClick, businessName }: DebtItemProps) {
   const isOverdue = debt.due_date && !debt.is_settled && new Date(debt.due_date) < new Date();
   const dueDate = debt.due_date ? new Date(debt.due_date) : null;
 
@@ -137,7 +137,7 @@ export function DebtItem({ debt, onSettle, onClick, businessName }: DebtItemProp
       )}
     </TouchableOpacity>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

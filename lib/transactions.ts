@@ -1,28 +1,23 @@
-import * as Crypto from 'expo-crypto';
-import { getDatabase } from "./database";
+import { transactionRepo, Transaction } from "./offline/repositories/TransactionRepository";
 import { supabase } from "./supabase";
-import { pushPendingChanges } from "./sync";
+import { SyncEngine } from "./offline/sync/SyncEngine";
+import { getCachedSession } from "./session-cache";
 
-export const EXPENSE_CATEGORIES = [
-  "Stock / Inventory",
-  "Rent / Stall Fee",
-  "Salaries / Helpers",
-  "Transport / Fuel",
-  "Utilities",
-  "Airtime / Data",
-  "Maintenance / Repairs",
-  "Business Supplies",
-  "Market Levy / Tax",
-  "Loan Repayment",
-  "Other"
-];
+export { Transaction };
 
-export const INCOME_CATEGORIES = [
-  "Sales",
-  "Services",
-  "Rental Income",
-  "Other"
-];
+// Helper function to get user ID with cache fallback for offline support
+async function getUserId(): Promise<string> {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return user.id;
+  } catch (error) {
+    console.log('[Offline Mode] Supabase auth failed, using cached session');
+  }
+  
+  const cached = await getCachedSession();
+  if (!cached) throw new Error("User not authenticated and no cached session");
+  return cached.userId;
+}
 
 // Helper function to get local date string (YYYY-MM-DD)
 function getLocalDateString(date?: Date | string): string {
@@ -43,25 +38,22 @@ export async function recordSale(
   description: string | null,
   date?: string
 ) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
+  const userId = await getUserId();
 
-  const db = await getDatabase();
-  const id = Crypto.randomUUID();
-  const now = new Date().toISOString();
+  const amountVal = Math.abs(amount);
   const dateStr = date || getLocalDateString();
 
-  await db.runAsync(`
-    INSERT INTO transactions (
-      id, user_id, amount, category, description, transaction_date, 
-      created_at, updated_at, sync_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-  `, [id, user.id, Math.abs(amount), categoryName, description, dateStr, now, now]);
+  const id = await transactionRepo.record(userId, {
+    amount: amountVal,
+    category: categoryName,
+    description,
+    transaction_date: dateStr
+  });
 
   // Trigger background sync
-  pushPendingChanges().catch(console.error);
+  SyncEngine.executeFullSync(userId).catch(console.error);
 
-  return { id, amount, category: categoryName, description, transaction_date: dateStr };
+  return { id, amount: amountVal, category: categoryName, description, transaction_date: dateStr };
 }
 
 // Record an expense locally
@@ -71,38 +63,28 @@ export async function recordExpense(
   description: string | null,
   date?: string
 ) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
+  const userId = await getUserId();
 
-  const db = await getDatabase();
-  const id = Crypto.randomUUID();
-  const now = new Date().toISOString();
+  const amountVal = -Math.abs(amount);
   const dateStr = date || getLocalDateString();
 
-  await db.runAsync(`
-    INSERT INTO transactions (
-      id, user_id, amount, category, description, transaction_date, 
-      created_at, updated_at, sync_status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
-  `, [id, user.id, -Math.abs(amount), categoryName, description, dateStr, now, now]);
+  const id = await transactionRepo.record(userId, {
+    amount: amountVal,
+    category: categoryName,
+    description,
+    transaction_date: dateStr
+  });
 
-  pushPendingChanges().catch(console.error);
+  SyncEngine.executeFullSync(userId).catch(console.error);
 
-  return { id, amount: -Math.abs(amount), category: categoryName, description, transaction_date: dateStr };
+  return { id, amount: amountVal, category: categoryName, description, transaction_date: dateStr };
 }
 
 // Get user's transactions from local SQLite
 export async function getUserTransactions(limit?: number) {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
-
-    const db = await getDatabase();
-    let query = `SELECT * FROM transactions WHERE user_id = ? AND deleted = 0 ORDER BY transaction_date DESC, created_at DESC`;
-    if (limit) query += ` LIMIT ${limit}`;
-
-    const results = await db.getAllAsync(query, [user.id]);
-    return results || [];
+    const userId = await getUserId();
+    return await transactionRepo.findAll(userId, limit);
   } catch (error) {
     console.error("Error in getUserTransactions:", error);
     return [];
@@ -117,49 +99,36 @@ export async function updateTransaction(
   description: string | null,
   date?: string
 ) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
+  const userId = await getUserId();
 
-  const db = await getDatabase();
-  const now = new Date().toISOString();
   const dateStr = date || getLocalDateString();
 
-  await db.runAsync(`
-    UPDATE transactions SET 
-      amount = ?, category = ?, description = ?, transaction_date = ?, 
-      updated_at = ?, sync_status = 'pending'
-    WHERE id = ? AND user_id = ?
-  `, [amount, categoryName, description, dateStr, now, transactionId, user.id]);
+  await transactionRepo.update(userId, transactionId, {
+    amount,
+    category: categoryName,
+    description,
+    transaction_date: dateStr
+  });
 
-  pushPendingChanges().catch(console.error);
+  SyncEngine.executeFullSync(userId).catch(console.error);
 }
 
 // Delete a transaction (soft delete)
 export async function deleteTransaction(transactionId: string) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
+  const userId = await getUserId();
 
-  const db = await getDatabase();
-  const now = new Date().toISOString();
+  await transactionRepo.softDelete(transactionId, userId);
 
-  await db.runAsync(`
-    UPDATE transactions SET 
-      deleted = 1, updated_at = ?, sync_status = 'pending'
-    WHERE id = ? AND user_id = ?
-  `, [now, transactionId, user.id]);
-
-  pushPendingChanges().catch(console.error);
+  SyncEngine.executeFullSync(userId).catch(console.error);
 }
 
 // Get real-time profit
 export async function getRealTimeProfit() {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return 0;
-
-  const db = await getDatabase();
-  const result = await db.getFirstAsync(`
-    SELECT SUM(amount) as total FROM transactions WHERE user_id = ? AND deleted = 0
-  `, [user.id]) as { total: number };
-
-  return result?.total || 0;
+  try {
+    const userId = await getUserId();
+    return await transactionRepo.getProfit(userId);
+  } catch (error) {
+    console.error("Error in getRealTimeProfit:", error);
+    return 0;
+  }
 }

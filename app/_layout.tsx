@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { TransactionsProvider } from '@/contexts/TransactionsContext';
+import { SyncProvider } from '@/context/SyncContext';
 import React from 'react';
 
 export const unstable_settings = {
@@ -76,9 +77,11 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <TransactionsProvider>
-        <RootLayoutContent />
-      </TransactionsProvider>
+      <SyncProvider>
+        <TransactionsProvider>
+          <RootLayoutContent />
+        </TransactionsProvider>
+      </SyncProvider>
     </ThemeProvider>
   );
 }

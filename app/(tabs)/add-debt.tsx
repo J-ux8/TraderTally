@@ -1,3 +1,4 @@
+import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useTransactionsContext } from "@/contexts/TransactionsContext";
 import { useDebts } from "@/hooks/useDebts";
 import { supabase } from "@/lib/supabase";
@@ -136,6 +137,7 @@ export default function AddDebtScreen() {
                 <Text style={styles.headerSubtitle}>Record money owed to you</Text>
               </View>
             </View>
+            <OfflineIndicator />
           </View>
         </View>
 
@@ -173,7 +175,7 @@ export default function AddDebtScreen() {
                 onChangeText={handleAmountChange}
                 placeholder="0.00"
                 keyboardType="decimal-pad"
-                placeholderTextColor="rgba(16, 185, 129, 0.4)"
+                placeholderTextColor="rgba(30, 58, 138, 0.4)"
               />
             </View>
           </View>
@@ -274,10 +276,10 @@ export default function AddDebtScreen() {
                   <Calendar
                     current={selectedDateString}
                     onDayPress={(day) => {
-                      const selectedDate = new Date(day.dateString);
+                      const selectedDate = new Date(day.timestamp);
                       setTempDate(selectedDate);
+                      setDueDate(selectedDate);
                       if (Platform.OS === 'android') {
-                        setDueDate(selectedDate);
                         setDatePickerOpen(false);
                       }
                     }}
@@ -286,14 +288,14 @@ export default function AddDebtScreen() {
                       backgroundColor: '#ffffff',
                       calendarBackground: '#ffffff',
                       textSectionTitleColor: '#666',
-                      selectedDayBackgroundColor: '#10b981',
+                      selectedDayBackgroundColor: '#1e3a8a',
                       selectedDayTextColor: '#ffffff',
-                      todayTextColor: '#10b981',
+                      todayTextColor: '#1e3a8a',
                       dayTextColor: '#333',
                       textDisabledColor: '#d3d3d3',
-                      dotColor: '#10b981',
+                      dotColor: '#1e3a8a',
                       selectedDotColor: '#ffffff',
-                      arrowColor: '#10b981',
+                      arrowColor: '#1e3a8a',
                       monthTextColor: '#333',
                       textDayFontWeight: '600',
                       textMonthFontWeight: 'bold',
@@ -306,7 +308,7 @@ export default function AddDebtScreen() {
                     markedDates={{
                       [selectedDateString]: {
                         selected: true,
-                        selectedColor: '#10b981',
+                        selectedColor: '#1e3a8a',
                         selectedTextColor: '#ffffff',
                       },
                     }}
@@ -354,7 +356,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
     paddingTop: 50,
     paddingBottom: 24,
     paddingHorizontal: 16,
@@ -465,7 +467,7 @@ const styles = StyleSheet.create({
     marginTop: -24,
     fontSize: 32,
     fontWeight: "800",
-    color: "#10b981",
+    color: "#1e3a8a",
     zIndex: 1,
   },
   amountInput: {
@@ -475,11 +477,11 @@ const styles = StyleSheet.create({
     paddingRight: 16,
     fontSize: 36,
     fontWeight: "800",
-    backgroundColor: "rgba(16, 185, 129, 0.05)",
+    backgroundColor: "rgba(30, 58, 138, 0.05)",
     borderWidth: 2,
-    borderColor: "rgba(16, 185, 129, 0.3)",
+    borderColor: "rgba(30, 58, 138, 0.3)",
     borderRadius: 16,
-    color: "#10b981",
+    color: "#1e3a8a",
   },
   dateButton: {
     width: "100%",
@@ -569,9 +571,9 @@ const styles = StyleSheet.create({
     height: 56,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
     borderRadius: 12,
-    shadowColor: "#10b981",
+    shadowColor: "#1e3a8a",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -649,7 +651,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: "center",
     borderRadius: 12,
-    backgroundColor: "#10b981",
+    backgroundColor: "#1e3a8a",
   },
   dateConfirmText: {
     fontSize: 16,

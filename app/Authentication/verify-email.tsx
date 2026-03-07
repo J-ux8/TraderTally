@@ -1,6 +1,6 @@
 import { createUserProfile } from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
-import { resendVerificationOTP, sendVerificationOTP, verifyOTP } from "@/lib/verification-production";
+import { resendVerificationOTP, verifyOTP } from "@/lib/verification-supabase";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, CheckCircle, Mail, RefreshCw } from "lucide-react-native";
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +11,7 @@ export default function VerifyEmailScreen() {
   const params = useLocalSearchParams();
   const [email, setEmail] = useState<string>("");
   const [userId, setUserId] = useState<string>("");
+  const [type, setType] = useState<'signup' | 'recovery' | 'email_change'>('signup');
   const [profileData, setProfileData] = useState<{
     fullName?: string;
     phoneNumber?: string;
@@ -20,8 +21,7 @@ export default function VerifyEmailScreen() {
   const [resending, setResending] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [otpSent, setOtpSent] = useState(false);
-  const [displayOtp, setDisplayOtp] = useState<string>(""); // Store OTP to always display
+  const [otpSent, setOtpSent] = useState(true); // Assume sent by signup or handled by first load
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   useEffect(() => {
@@ -34,12 +34,8 @@ export default function VerifyEmailScreen() {
     }
   }, [countdown]);
 
-  useEffect(() => {
-    // Auto-send OTP when screen loads (only if countdown is not active)
-    if (email && userId && !otpSent && countdown === 0) {
-      sendOTP();
-    }
-  }, [email, userId, countdown]);
+  // The initial OTP is sent automatically by the signUp call in RegisterScreen
+  // We don't need a separate sendOTP on mount anymore, just handle resend if needed
 
   async function getEmailFromSession() {
     try {
@@ -50,6 +46,10 @@ export default function VerifyEmailScreen() {
 
       if (params?.userId && typeof params.userId === 'string') {
         setUserId(params.userId);
+      }
+
+      if (params?.type && (params.type === 'signup' || params.type === 'recovery' || params.type === 'email_change')) {
+        setType(params.type as any);
       }
 
       // Get profile data from params
@@ -91,74 +91,30 @@ export default function VerifyEmailScreen() {
     }
   }
 
-  async function sendOTP() {
-    if (!email || !userId) {
-      Alert.alert("Error", "Email or user ID not found");
-      return;
-    }
-
-    // Prevent sending if countdown is active
-    if (countdown > 0) {
-      Alert.alert(
-        "Please Wait",
-        `Please wait ${countdown} seconds before requesting a new code.`
-      );
-      return;
-    }
-
-    try {
-      // This always returns the OTP code, even if email fails
-      const otpCode = await sendVerificationOTP(email, userId);
-      setDisplayOtp(otpCode); // Store OTP to display in UI
-      setOtpSent(true);
-      setCountdown(60); // 60 second cooldown
-
-      Alert.alert(
-        "Code Generated! ✅",
-        `Your verification code is displayed below in the yellow box.${"\n\n"}Enter this code to verify your email.`,
-        [{ text: "OK" }]
-      );
-    } catch (error: any) {
-      console.error("Error sending OTP:", error);
-      const errorMessage = error.message || "Failed to generate verification code. Please try again.";
-      Alert.alert(
-        "Error ⚠️",
-        errorMessage,
-        [{ text: "OK" }]
-      );
-    }
-  }
+  // Initial OTP is handled by supabase.auth.signUp
 
   async function handleResendOTP() {
-    if (!email || !userId) {
-      Alert.alert("Error", "Email or user ID not found");
+    if (!email) {
+      Alert.alert("Error", "Email not found");
       return;
     }
 
-    if (countdown > 0) {
-      Alert.alert(
-        "Please Wait",
-        `Please wait ${countdown} seconds before requesting a new code.`
-      );
-      return;
-    }
+    if (countdown > 0) return;
 
     try {
       setResending(true);
-      // This always returns the OTP code
-      const newOtp = await resendVerificationOTP(email, userId);
-      setDisplayOtp(newOtp); // Store new OTP to display
-      setCountdown(60); // 60 second cooldown
+      await resendVerificationOTP(email, type === 'email_change' ? 'email_change' : 'signup');
+      setCountdown(60);
       Alert.alert(
-        "New Code Generated! ✅",
-        "A new verification code is displayed below in the yellow box.",
+        "Code Sent! 📧",
+        "A new verification code has been sent to your email address.",
         [{ text: "OK" }]
       );
     } catch (error: any) {
       console.error("Error resending OTP:", error);
       Alert.alert(
         "Error",
-        error.message || "Failed to generate new verification code. Please try again."
+        error.message || "Failed to send new verification code. Please try again."
       );
     } finally {
       setResending(false);
@@ -180,129 +136,66 @@ export default function VerifyEmailScreen() {
 
     try {
       setVerifying(true);
-      const isValid = await verifyOTP(email, code, userId);
+      // Map 'email_change' internal type to Supabase 'email' type
+      const verifyType = type === 'email_change' ? 'email' : type;
+      const isVerified = await verifyOTP(email, code, verifyType as any);
 
-      if (isValid) {
-        // Code is verified, now create profile and sign in user
-        // First, check if we have a session
-        let sessionUser = null;
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          sessionUser = session?.user;
-        } catch (sessionError) {
-          console.error("Error getting session:", sessionError);
+      if (isVerified) {
+        // Email is verified, retrieve the latest user data including metadata
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+
+        if (!user) {
+          throw new Error("Session not found after verification");
         }
 
-        // If no session, try to get user from auth
-        if (!sessionUser && userId) {
-          try {
-            const { data: { user } } = await supabase.auth.getUser();
-            sessionUser = user;
-          } catch (userError) {
-            console.error("Error getting user:", userError);
-          }
-        }
+        if (type === 'signup') {
+          // Prepare profile data from current state or user metadata
+          const profile = {
+            fullName: profileData.fullName || user.user_metadata?.full_name || "",
+            phoneNumber: profileData.phoneNumber || user.user_metadata?.phone_number || "",
+            businessType: profileData.businessType || user.user_metadata?.business_type || "Other"
+          };
 
-        // Create user profile after email verification
-        let profileCreated = false;
-        if (userId && profileData.fullName && profileData.phoneNumber && profileData.businessType) {
+          // Create or update user profile after verification
           try {
-            const profile = await createUserProfile(
-              userId,
-              email,
-              profileData.fullName,
-              profileData.phoneNumber,
-              profileData.businessType
+            await createUserProfile(
+              user.id,
+              user.email || email,
+              profile.fullName,
+              profile.phoneNumber,
+              profile.businessType
             );
-            if (profile) {
-              console.log("Profile created successfully");
-              profileCreated = true;
-            } else {
-              console.warn("Profile creation returned null");
-              // Try to verify if profile exists
-              const { data: existingProfile } = await supabase
-                .from("profiles")
-                .select("*")
-                .eq("id", userId)
-                .single();
-              if (existingProfile) {
-                profileCreated = true;
-                console.log("Profile already exists");
-              }
-            }
           } catch (profileError: any) {
-            console.error("Error creating profile:", profileError);
-            const errorMsg = profileError.message || "Failed to create profile";
-
-            // Check if it's an RLS error
-            if (errorMsg.includes("RLS") || errorMsg.includes("42501")) {
-              Alert.alert(
-                "Setup Required ⚠️",
-                "Profile creation failed. Please run the SQL migration 'fix_profiles_rls.sql' in Supabase Dashboard.\n\nYou can complete your profile later in Settings.",
-                [
-                  {
-                    text: "Continue Anyway",
-                    onPress: () => router.replace("/(tabs)"),
-                  },
-                ]
-              );
-              return;
-            }
-
-            // For other errors, show alert but allow continuation
-            Alert.alert(
-              "Profile Creation Failed",
-              `Unable to create profile: ${errorMsg}\n\nYou can complete your profile later in Settings.`,
-              [
-                {
-                  text: "Continue",
-                  onPress: () => router.replace("/(tabs)"),
-                },
-              ]
-            );
-            return;
+            console.error("Non-blocking profile creation error:", profileError);
           }
-        } else {
-          // Missing profile data
-          console.warn("Missing profile data, cannot create profile");
-          Alert.alert(
-            "Incomplete Profile Data",
-            "Some profile information is missing. You can complete your profile later in Settings.",
-            [
-              {
-                text: "Continue",
-                onPress: () => router.replace("/(tabs)"),
-              },
-            ]
-          );
-          return;
-        }
 
-        // Email is verified and profile is created, redirect to app
-        Alert.alert(
-          "Success! 🎉",
-          profileCreated
-            ? "Your email has been verified and profile created successfully!"
-            : "Your email has been verified successfully!",
-          [
-            {
-              text: "Continue",
-              onPress: () => router.replace("/(tabs)"),
-            },
-          ]
-        );
-      } else {
-        Alert.alert(
-          "Invalid Code",
-          "The verification code is incorrect or has expired. Please check the code displayed above and try again, or request a new code."
-        );
-        // Clear OTP inputs
-        setOtpCode(["", "", "", "", "", ""]);
-        inputRefs.current[0]?.focus();
+          Alert.alert(
+            "Success! 🎉",
+            "Your account is verified. You can now start using MobiBooks!",
+            [{ text: "Get Started", onPress: () => router.replace("/(tabs)") }]
+          );
+        } else if (type === 'recovery') {
+          // Password reset flow
+          Alert.alert(
+            "Verified! 🔒",
+            "You can now set a new password in the your account settings.",
+            [{ text: "Continue", onPress: () => router.replace("/(tabs)") }]
+          );
+        } else {
+          router.replace("/(tabs)");
+        }
       }
     } catch (error: any) {
       console.error("Error verifying OTP:", error);
-      Alert.alert("Error", error.message || "Failed to verify code. Please try again.");
+      const msg = error.message || "";
+      if (msg.includes("invalid") || msg.includes("expired")) {
+        Alert.alert("Verification Failed", "The code is invalid or has expired. Please check your email.");
+      } else {
+        Alert.alert("Error", error.message || "Failed to verify code.");
+      }
+      setOtpCode(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
     } finally {
       setVerifying(false);
     }
@@ -382,8 +275,8 @@ export default function VerifyEmailScreen() {
                   <Mail size={28} color="#ffffff" />
                 </View>
                 <View style={styles.headerTextContainer}>
-                  <Text style={styles.headerTitle}>Verify Your Email</Text>
-                  <Text style={styles.headerSubtitle}>Enter the code we sent you</Text>
+                  <Text style={styles.headerTitle}>Account Verification</Text>
+                  <Text style={styles.headerSubtitle}>Enter the code sent to your email</Text>
                 </View>
               </View>
             </View>
@@ -400,31 +293,10 @@ export default function VerifyEmailScreen() {
             <Text style={styles.title}>Enter Verification Code</Text>
 
             <Text style={styles.description}>
-              {displayOtp ? (
-                <>
-                  Your verification code is displayed below in the yellow box.{"\n\n"}
-                  Please enter the code below to verify your email.
-                </>
-              ) : (
-                <>
-                  A verification code will be displayed below.{"\n\n"}
-                  Please enter the code to verify your email.
-                </>
-              )}
+              We've sent a 6-digit verification code to{"\n"}
+              <Text style={styles.emailText}>{email || "your email"}</Text>
+              {"\n\n"}Please enter the code below to verify your account.
             </Text>
-
-            {/* Always display OTP code if available */}
-            {displayOtp && (
-              <View style={styles.otpDisplayContainer}>
-                <Text style={styles.otpDisplayLabel}>Your Verification Code:</Text>
-                <View style={styles.otpDisplayBox}>
-                  <Text style={styles.otpDisplayCode}>{displayOtp}</Text>
-                </View>
-                <Text style={styles.otpDisplayHint}>
-                  Enter this code in the boxes below
-                </Text>
-              </View>
-            )}
 
             {/* OTP Input */}
             <View style={styles.otpContainer}>
@@ -441,7 +313,7 @@ export default function VerifyEmailScreen() {
                   keyboardType="number-pad"
                   maxLength={1}
                   selectTextOnFocus
-                  autoFocus={index === 0 && !displayOtp}
+                  autoFocus={index === 0}
                   blurOnSubmit={false}
                 />
               ))}
@@ -685,60 +557,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#1e3a8a",
-  },
-  otpDisplayContainer: {
-    marginBottom: 24,
-    padding: 20,
-    backgroundColor: "#fef3c7",
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: "#f59e0b",
-    alignItems: "center",
-  },
-  otpDisplayLabel: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#92400e",
-    marginBottom: 12,
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  otpDisplayBox: {
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderWidth: 2,
-    borderColor: "#f59e0b",
-    marginBottom: 8,
-    minWidth: 200,
-  },
-  otpDisplayCode: {
-    fontSize: 32,
-    fontWeight: "800",
-    color: "#f59e0b",
-    textAlign: "center",
-    letterSpacing: 8,
-    fontFamily: "monospace",
-  },
-  otpDisplayHint: {
-    fontSize: 12,
-    color: "#92400e",
-    textAlign: "center",
-    marginTop: 8,
-  },
-  copyButton: {
-    marginTop: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    backgroundColor: "#f59e0b",
-    borderRadius: 8,
-  },
-  copyButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ffffff",
-    textAlign: "center",
   },
   helpContainer: {
     padding: 16,

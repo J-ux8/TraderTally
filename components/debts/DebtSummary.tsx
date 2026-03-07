@@ -7,7 +7,7 @@ interface DebtSummaryProps {
   debts: Debt[];
 }
 
-export function DebtSummary({ debts }: DebtSummaryProps) {
+export const DebtSummary = React.memo(function DebtSummary({ debts }: DebtSummaryProps) {
   const activeDebts = debts.filter(d => !d.is_settled);
   const totalActive = activeDebts.reduce((sum, d) => sum + Number(d.amount), 0);
   const totalCount = activeDebts.length;
@@ -26,7 +26,7 @@ export function DebtSummary({ debts }: DebtSummaryProps) {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

@@ -3,27 +3,27 @@ import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { SummaryCard } from '@/components/dashboard/SummaryCard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
+import { useSyncContext } from '@/context/SyncContext';
 import { useSummary } from '@/hooks/useSummary';
-import { SyncStatus, useSync } from '@/hooks/useSync';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { signOut } from '@/lib/auth';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
-import { Activity, Cloud, CloudOff, CloudRain, LogOut, RefreshCw, Store } from 'lucide-react-native';
+import { SyncBadge } from '@/components/ui/SyncBadge';
+import { Activity, LogOut, Store, Activity as ActivityIcon } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const colors = useThemeColors();
-  const { transactions, loading, refresh, refreshing } = useTransactionsContext();
+  const { transactions, pendingCount, loading, refresh, refreshing } = useTransactionsContext();
+  const { syncStatus } = useSyncContext();
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [user, setUser] = useState<any>(null);
-  const { status: syncStatus, runSync, markSynced } = useSync(0);
-
-
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -31,22 +31,13 @@ export default function HomeScreen() {
     });
   }, []);
 
-  // Trigger sync check when transactions change (real-time update indicator)
-  useEffect(() => {
-    if (transactions.length > 0) {
-      runSync();
-    }
-  }, [transactions.length]);
 
   // Only refresh if data is stale (not on every focus)
   useFocusEffect(
     useCallback(() => {
-      // Don't refresh on every focus - context already has data
-      // Only refresh if user just logged in
-      if (user && transactions.length === 0 && !loading) {
-        refresh();
-      }
-    }, [user, transactions.length, loading, refresh])
+      // Don't refresh on every focus - context already manages data freshness
+      // User can pull-to-refresh if needed
+    }, [])
   );
 
 
@@ -121,27 +112,21 @@ export default function HomeScreen() {
   const textColor = theme === 'dark' ? '#e2e8f0' : '#1e293b';
   const textSecondary = theme === 'dark' ? '#94a3b8' : '#64748b';
 
-  // Sync badge config
-  const syncConfig: Record<SyncStatus, { label: string; bg: string; icon: any }> = {
-    synced: { label: 'Synced', bg: 'rgba(255,255,255,0.2)', icon: Cloud },
-    syncing: { label: 'Syncing', bg: 'rgba(255,255,255,0.15)', icon: RefreshCw },
-    pending: { label: 'Pending', bg: 'rgba(255,193,7,0.3)', icon: CloudRain },
-    offline: { label: 'Offline', bg: 'rgba(239,68,68,0.3)', icon: CloudOff },
-  };
-  const sync = syncConfig[syncStatus];
 
-  // Show UI immediately with cached data, don't block on loading
+  // Show UI immediately with session data
   if (!user) {
     return (
-      <View style={[styles.container, { backgroundColor }]}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-        <Text style={[styles.loadingText, { color: textSecondary }]}>Loading...</Text>
+      <View style={[styles.container, { backgroundColor, paddingTop: insets.top }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1e3a8a" />
+          <Text style={[styles.loadingText, { color: textSecondary }]}>Loading MobiBooks...</Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor }]} edges={['top']}>
+    <View style={[styles.container, { backgroundColor }]}>
       <ScrollView
         style={[styles.container, { backgroundColor }]}
         contentContainerStyle={styles.contentContainer}
@@ -150,7 +135,7 @@ export default function HomeScreen() {
         }
       >
         {/* Hero Header */}
-        <View style={[styles.heroHeader, { backgroundColor: colors.headerBackground }]}>
+        <View style={[styles.heroHeader, { backgroundColor: colors.headerBackground, paddingTop: Math.max(20, insets.top + 10) }]}>
           <View style={styles.decorativeCircle1} />
           <View style={styles.decorativeCircle2} />
 
@@ -166,14 +151,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <View style={styles.heroRight}>
-                <View style={[styles.statusBadge, { backgroundColor: sync.bg }]}>
-                  <sync.icon
-                    size={15}
-                    color="#ffffff"
-                    style={syncStatus === 'syncing' ? { opacity: 0.8 } : undefined}
-                  />
-                  <Text style={styles.statusText}>{sync.label}</Text>
-                </View>
+                <SyncBadge status={syncStatus} />
                 <TouchableOpacity
                   style={styles.logoutButton}
                   onPress={handleLogout}
@@ -254,7 +232,7 @@ export default function HomeScreen() {
           <RecentTransactions transactions={transactions} />
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -347,23 +325,6 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-  },
-  statusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  statusBadgeOffline: {
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#ffffff",
   },
   pendingBadge: {
     marginTop: 6,
@@ -494,5 +455,11 @@ const styles = StyleSheet.create({
   consistencyBadgeText: {
     fontSize: 11,
     fontWeight: '700',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
   },
 });

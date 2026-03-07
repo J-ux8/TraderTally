@@ -19,12 +19,8 @@ export function useSync(pendingCount: number = 0) {
   const runSync = useCallback(async () => {
     if (!isOnline) return;
     setIsSyncing(true);
-    // Simulate sync latency — real sync happens via Supabase on every write
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(() => {
-      setIsSyncing(false);
-      setLastSyncedAt(new Date());
-    }, 1200);
+    // Explicitly used to "kick" the sync if called from UI, 
+    // though TransactionsContext manages the interval.
   }, [isOnline]);
 
   const markSynced = useCallback(() => {

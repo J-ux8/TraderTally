@@ -1,4 +1,5 @@
-import { useTransactionsContext } from '@/contexts/TransactionsContext';
+import { useTransactionsContext, SyncStatus } from '@/contexts/TransactionsContext';
+import { SyncBadge } from '@/components/ui/SyncBadge';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { supabase } from "@/lib/supabase";
 import { deleteTransaction, updateTransaction } from "@/lib/transactions";
@@ -7,7 +8,7 @@ import { Calendar as CalendarIcon, Edit2, ShoppingBag, Trash2, TrendingDown, Tre
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Transaction {
   id: string;
@@ -97,12 +98,14 @@ const TransactionItem = React.memo(({
 });
 
 export default function RecordsScreen() {
+  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const {
     transactions,
     loading,
     refreshing,
     refresh,
+    syncStatus,
     updateTransaction: updateTransactionInContext,
     removeTransaction: removeTransactionFromContext
   } = useTransactionsContext();
@@ -132,10 +135,9 @@ export default function RecordsScreen() {
   // Only refresh if needed, not on every focus
   useFocusEffect(
     useCallback(() => {
-      if (user && transactions.length === 0 && !loading) {
-        refresh();
-      }
-    }, [user, transactions.length, loading, refresh])
+      // Don't auto-refresh on focus - user can pull to refresh if needed
+      // This significantly improves perceived performance
+    }, [])
   );
 
 
@@ -240,9 +242,11 @@ export default function RecordsScreen() {
 
   if (checkingAuth || !user) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+      <View style={[styles.container, { backgroundColor: colors.backgroundColor, paddingTop: insets.top }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1e3a8a" />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading Transactions...</Text>
+        </View>
       </View>
     );
   }
@@ -262,9 +266,9 @@ export default function RecordsScreen() {
   };
 
   return (
-    <SafeAreaView style={dynamicStyles.container} edges={['top']}>
+    <View style={dynamicStyles.container}>
       {/* Hero Header */}
-      <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
+      <View style={[styles.header, { backgroundColor: colors.headerBackground, paddingTop: Math.max(20, insets.top + 10) }]}>
         <View style={styles.headerDecoration1} />
         <View style={styles.headerDecoration2} />
         <View style={styles.headerContent}>
@@ -281,6 +285,9 @@ export default function RecordsScreen() {
                 }
               </Text>
             </View>
+          </View>
+          <View style={styles.headerRight}>
+            <SyncBadge status={syncStatus} />
           </View>
         </View>
       </View>
@@ -310,6 +317,11 @@ export default function RecordsScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1e3a8a" />
           }
           showsVerticalScrollIndicator={false}
+          windowSize={10}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          removeClippedSubviews={true}
+          initialNumToRender={15}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={dynamicStyles.emptyText}>No transactions yet</Text>
@@ -319,7 +331,8 @@ export default function RecordsScreen() {
             </View>
           }
         />
-      )}
+      )
+      }
 
       {/* Edit Transaction Modal */}
       <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={closeEditModal}>
@@ -451,21 +464,22 @@ export default function RecordsScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </View >
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingTop: 60, paddingBottom: 32, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' },
+  header: { paddingBottom: 32, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' },
   headerDecoration1: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
   headerDecoration2: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
   headerContent: { zIndex: 10 },
-  headerIconContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  headerIconContainer: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 16 },
   headerIcon: { width: 56, height: 56, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   headerTextContainer: { flex: 1 },
   headerTitle: { fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
   headerSubtitle: { fontSize: 16, color: 'rgba(255, 255, 255, 0.9)', fontWeight: '500' },
+  headerRight: { justifyContent: 'center', alignItems: 'flex-end' },
   scrollView: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40, paddingTop: 10 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },

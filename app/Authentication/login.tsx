@@ -1,4 +1,4 @@
-import { signIn } from "@/lib/auth";
+import { forgotPassword, signIn } from "@/lib/auth";
 import { router } from "expo-router";
 import { ArrowRight, Lock, Mail, Store } from "lucide-react-native";
 import { useState } from "react";
@@ -29,7 +29,62 @@ export default function LoginScreen() {
       await signIn(email, password);
       router.replace("/(tabs)");
     } catch (error: any) {
-      Alert.alert("Error", error.message || "Failed to login. Please try again.");
+      const message = error.message || "";
+      if (message.toLowerCase().includes("email not confirmed")) {
+        Alert.alert(
+          "Email Not Verified",
+          "Your email has not been verified yet. Would you like to verify it now?",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Verify Now",
+              onPress: () => router.push({
+                pathname: "/Authentication/verify-email",
+                params: { email }
+              })
+            }
+          ]
+        );
+      } else {
+        Alert.alert("Error", error.message || "Failed to login. Please try again.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    if (!email.trim()) {
+      Alert.alert("Email Required", "Please enter your email address first to reset your password.");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Error", "Please enter a valid email address");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await forgotPassword(email);
+      Alert.alert(
+        "Reset Code Sent 📧",
+        "If an account exists for this email, you will receive a 6-digit verification code shortly.",
+        [
+          {
+            text: "Enter Code",
+            onPress: () => router.push({
+              pathname: "/Authentication/verify-email",
+              params: { email, type: 'recovery' }
+            })
+          },
+          { text: "Cancel", style: "cancel" }
+        ]
+      );
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to send reset code.");
     } finally {
       setLoading(false);
     }
@@ -108,6 +163,13 @@ export default function LoginScreen() {
                   <Text style={styles.eyeIconText}>{showPassword ? "Hide" : "Show"}</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity
+                onPress={handleForgotPassword}
+                style={styles.forgotPasswordButton}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
             </View>
 
             {/* Login Button */}
@@ -133,7 +195,7 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -300,6 +362,15 @@ const styles = StyleSheet.create({
   registerLink: {
     fontSize: 16,
     fontWeight: "700",
+    color: "#1e3a8a",
+  },
+  forgotPasswordButton: {
+    marginTop: 12,
+    alignSelf: "flex-end",
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    fontWeight: "600",
     color: "#1e3a8a",
   },
 });

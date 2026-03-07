@@ -1,3 +1,4 @@
+import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { signOut } from '@/lib/auth';
 import { getUserProfile, updatePassword, updateUserProfile, UserProfile } from '@/lib/profile';
@@ -16,8 +17,20 @@ import {
   Sun,
   Trash2,
   User,
-  UserCircle
+  UserCircle,
+  ShieldCheck,
+  RefreshCcw,
+  Database,
+  Download,
+  AlertTriangle,
+  FileText
 } from 'lucide-react-native';
+import { useTransactionsContext } from '@/contexts/TransactionsContext';
+import { getDatabase } from '@/lib/database';
+import * as FileSystem from 'expo-file-system';
+// @ts-ignore - documentDirectory is sometimes missing from types in certain SDK versions
+const { documentDirectory } = FileSystem;
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -47,9 +60,9 @@ const BUSINESS_TYPES = [
 
 export default function SettingsScreen() {
   const { theme, themeMode, setThemeMode } = useTheme();
+  const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   // Edit Profile Modal
@@ -70,44 +83,30 @@ export default function SettingsScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
+  // Recovery Modal
+  const [recoveryModalVisible, setRecoveryModalVisible] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
+
+  const { transactions, pendingCount, syncStatus, refresh } = useTransactionsContext();
+
   useEffect(() => {
-    checkUserAndLoadProfile();
-  }, []);
+    if (user) {
+      loadProfile();
+    }
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
-      if (user) {
+      // Only reload profile if it's not already loaded
+      if (user && !profile) {
         loadProfile();
       }
-    }, [user])
+    }, [user, profile])
   );
-
-  async function checkUserAndLoadProfile() {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        router.replace("/Authentication/login");
-        return;
-      }
-
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) {
-        router.replace("/Authentication/login");
-        return;
-      }
-      setUser(currentUser);
-      setLoading(false);
-      loadProfile();
-    } catch (error) {
-      console.error("Error checking user:", error);
-      router.replace("/Authentication/login");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function loadProfile() {
     try {
+      setLoading(true);
       const profileData = await getUserProfile();
       setProfile(profileData);
       if (profileData) {
@@ -117,6 +116,8 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error("Error loading profile:", error);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -209,6 +210,76 @@ export default function SettingsScreen() {
     );
   }
 
+  async function handleForceResync() {
+    if (pendingCount > 0) {
+      Alert.alert(
+        "Pending Changes",
+        "You have unsynced changes. Please sync them before performing a full re-sync to avoid data loss."
+      );
+      return;
+    }
+
+    Alert.alert(
+      "Force Re-sync",
+      "This will clear your local sync markers and pull ALL data from the cloud. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Sync Now",
+          onPress: async () => {
+            setIsRecovering(true);
+            try {
+              const db = await getDatabase();
+              await db.runAsync('DELETE FROM sync_metadata WHERE user_id = ?', [user.id]);
+              await refresh();
+              Alert.alert("Success", "Full re-sync completed successfully! 🔄");
+              setRecoveryModalVisible(false);
+            } catch (err) {
+              Alert.alert("Error", "Re-sync failed. Please try again.");
+            } finally {
+              setIsRecovering(false);
+            }
+          }
+        }
+      ]
+    );
+  }
+
+  async function handleExportData() {
+    try {
+      const fileName = `mobibooks_export_${new Date().getTime()}.json`;
+      const filePath = `${documentDirectory}${fileName}`;
+      await FileSystem.writeAsStringAsync(filePath, JSON.stringify(transactions, null, 2));
+
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(filePath);
+      } else {
+        Alert.alert("Success", `Data exported to your device storage.\nFile: ${fileName}`);
+      }
+    } catch (err) {
+      console.error("Export error:", err);
+      Alert.alert("Error", "Failed to export data.");
+    }
+  }
+
+  async function handleDatabaseRepair() {
+    setIsRecovering(true);
+    try {
+      const db = await getDatabase();
+      const result = await db.getFirstAsync('PRAGMA integrity_check') as any;
+      if (result['integrity_check'] === 'ok') {
+        Alert.alert("Healthy", "Your local database is healthy! ✅");
+      } else {
+        Alert.alert("Issue Found", "Database integrity issue detected. Please contact support or try a full re-sync.");
+      }
+    } catch (err) {
+      Alert.alert("Error", "Integrity check failed.");
+    } finally {
+      setIsRecovering(false);
+    }
+  }
+
   // Dynamic colors
   const backgroundColor = theme === 'dark' ? '#151718' : '#f5f5f5';
   const cardBackground = theme === 'dark' ? '#1f2937' : '#ffffff';
@@ -216,11 +287,19 @@ export default function SettingsScreen() {
   const textSecondary = theme === 'dark' ? '#9BA1A6' : '#666';
   const borderColor = theme === 'dark' ? '#374151' : '#e5e7eb';
 
-  if (!user) {
+  if (authLoading) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor }]}>
         <ActivityIndicator size="large" color="#1e3a8a" />
         <Text style={[styles.loadingText, { color: textSecondary }]}>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor }]}>
+        <Text style={[styles.loadingText, { color: textSecondary }]}>Please log in</Text>
       </View>
     );
   }
@@ -369,6 +448,26 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Backup & Recovery</Text>
+            <TouchableOpacity
+              style={dynamicStyles.settingItem}
+              onPress={() => setRecoveryModalVisible(true)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIcon}>
+                  <ShieldCheck size={20} color="#1e3a8a" />
+                </View>
+                <View style={styles.settingContent}>
+                  <Text style={dynamicStyles.settingLabel}>Data Recovery</Text>
+                  <Text style={dynamicStyles.settingValue}>Fix sync or database issues</Text>
+                </View>
+              </View>
+              <ChevronRight size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
             <Text style={dynamicStyles.sectionTitle}>Danger Zone</Text>
             <TouchableOpacity
               style={[dynamicStyles.settingItem, styles.dangerItem]}
@@ -475,6 +574,62 @@ export default function SettingsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      {/* Data Recovery Modal */}
+      <Modal visible={recoveryModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => !isRecovering && setRecoveryModalVisible(false)} />
+          <View style={dynamicStyles.modalContent}>
+            <View style={dynamicStyles.modalHeader}>
+              <Text style={dynamicStyles.modalTitle}>Data Recovery</Text>
+              <TouchableOpacity onPress={() => setRecoveryModalVisible(false)} disabled={isRecovering}>
+                <Text style={styles.modalCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={dynamicStyles.modalScroll}>
+              <Text style={[styles.recoveryDesc, { color: textSecondary }]}>
+                Options to help you recover your data if you encounter issues.
+              </Text>
+
+              <TouchableOpacity style={styles.recoveryOption} onPress={handleForceResync} disabled={isRecovering}>
+                <View style={[styles.settingIcon, { backgroundColor: 'rgba(30, 58, 138, 0.1)' }]}>
+                  <RefreshCcw size={20} color="#1e3a8a" />
+                </View>
+                <View style={styles.recoveryText}>
+                  <Text style={[styles.recoveryTitle, { color: textColor }]}>Force Full Re-sync</Text>
+                  <Text style={[styles.recoverySubtitle, { color: textSecondary }]}>Ignores last sync markers and pulls everything from cloud.</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.recoveryOption} onPress={handleDatabaseRepair} disabled={isRecovering}>
+                <View style={[styles.settingIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <Database size={20} color="#10b981" />
+                </View>
+                <View style={styles.recoveryText}>
+                  <Text style={[styles.recoveryTitle, { color: textColor }]}>Database Health Check</Text>
+                  <Text style={[styles.recoverySubtitle, { color: textSecondary }]}>Checks local database for structural errors.</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.recoveryOption} onPress={handleExportData} disabled={isRecovering}>
+                <View style={[styles.settingIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+                  <Download size={20} color="#f59e0b" />
+                </View>
+                <View style={styles.recoveryText}>
+                  <Text style={[styles.recoveryTitle, { color: textColor }]}>Export as JSON</Text>
+                  <Text style={[styles.recoverySubtitle, { color: textSecondary }]}>Save a copy of your local data to your phone.</Text>
+                </View>
+              </TouchableOpacity>
+
+              {isRecovering && (
+                <View style={styles.recoveringIndicator}>
+                  <ActivityIndicator size="small" color="#1e3a8a" />
+                  <Text style={{ color: textSecondary, marginLeft: 10 }}>Processing...</Text>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -540,4 +695,10 @@ const styles = StyleSheet.create({
   buttonDisabled: { opacity: 0.6 },
   themeToggle: { width: 48, height: 48, borderRadius: 12, backgroundColor: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center', alignItems: 'center' },
   systemIcon: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  recoveryDesc: { fontSize: 14, marginBottom: 20, lineHeight: 20 },
+  recoveryOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.05)' },
+  recoveryText: { flex: 1, marginLeft: 12 },
+  recoveryTitle: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
+  recoverySubtitle: { fontSize: 12, lineHeight: 16 },
+  recoveringIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
 });

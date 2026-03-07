@@ -3,49 +3,45 @@ import { DebtSummary } from '@/components/debts/DebtSummary';
 import { EditDebtSheet } from '@/components/debts/EditDebtSheet';
 import { useDebts } from '@/hooks/useDebts';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useAuth } from '@/hooks/useAuth';
 import { Debt } from '@/lib/debts';
 import { getUserProfile, UserProfile } from '@/lib/profile';
-import { supabase } from '@/lib/supabase';
 import { router, useFocusEffect } from 'expo-router';
 import { Plus, Store } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DebtsScreen() {
   const colors = useThemeColors();
+  const { user, loading: authLoading } = useAuth();
   const { debts, updateDebt, settleDebt, deleteDebt, refresh, loading } = useDebts();
   const [activeTab, setActiveTab] = useState<'active' | 'settled'>('active');
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        getUserProfile().then(setProfile);
-      }
-      setCheckingAuth(false);
-    });
-  }, []);
+    if (user) {
+      getUserProfile().then(setProfile);
+    }
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
-      // Refresh debts when screen comes into focus
-      refresh();
-    }, [refresh])
+      // Only refresh if debts are empty - otherwise use pull-to-refresh
+      if (debts.length === 0 && !loading) {
+        refresh();
+      }
+    }, [debts.length, loading, refresh])
   );
 
-
-  const activeDebts = debts.filter(d => !d.is_settled);
-  const settledDebts = debts.filter(d => d.is_settled);
+  const activeDebts = useMemo(() => debts.filter(d => !d.is_settled), [debts]);
+  const settledDebts = useMemo(() => debts.filter(d => d.is_settled), [debts]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await refresh();
+    await refresh(true); // Force refresh
     setRefreshing(false);
   }, [refresh]);
 
@@ -58,10 +54,22 @@ export default function DebtsScreen() {
     updateDebt(id, data);
   };
 
-  if (checkingAuth || !user) {
+  // Show loading only on initial auth check
+  if (authLoading) {
     return (
       <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#1e3a8a" />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Please log in</Text>
       </View>
     );
   }
@@ -339,6 +347,12 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     marginTop: 50,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
   },
 });
 

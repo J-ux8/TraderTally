@@ -1,28 +1,34 @@
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { createDebt, deleteDebt, getUserDebts, settleDebt, updateDebt } from '@/lib/debts';
-import { supabase } from '@/lib/supabase';
 import { useCallback, useEffect, useState } from 'react';
 
 export function useDebts() {
   const [debts, setDebts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [lastLoadTime, setLastLoadTime] = useState<number>(0);
   const { recordSale } = useTransactionsContext();
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (force = false) => {
     try {
-      setLoading(true);
+      // Check if data is fresh (less than 3 minutes old)
+      const now = Date.now();
+      const threeMinutes = 3 * 60 * 1000;
+      if (!force && now - lastLoadTime < threeMinutes && debts.length > 0) {
+        console.log('[useDebts] Data is fresh, skipping refresh');
+        return;
+      }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      setLoading(true);
 
       const data = await getUserDebts();
       setDebts(data || []);
+      setLastLoadTime(Date.now());
     } catch (error) {
       console.error('Error loading debts:', error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [lastLoadTime, debts.length]);
 
   useEffect(() => {
     refresh();

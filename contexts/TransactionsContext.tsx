@@ -1,6 +1,10 @@
-import { pullCloudChanges, pushPendingChanges } from '@/lib/sync';
+import NetInfo from '@react-native-community/netinfo';
+import { SyncEngine } from '@/sync/SyncEngine';
+import { supabase } from '@/lib/supabase';
 import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib } from '@/lib/transactions';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+
+export type SyncStatus = 'synced' | 'syncing' | 'pending' | 'offline';
 
 interface Transaction {
   id: string;
@@ -15,6 +19,8 @@ interface Transaction {
 
 interface TransactionsContextType {
   transactions: Transaction[];
+  pendingCount: number;
+  syncStatus: SyncStatus;
   loading: boolean;
   refreshing: boolean;
   refresh: () => Promise<void>;
@@ -31,41 +37,90 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [lastLoadTime, setLastLoadTime] = useState<number>(0);
+
+  // Monitor connectivity
+  useEffect(() => {
+    const unsubscribe = NetInfo.addEventListener((status) => {
+      setIsOnline(status.isConnected ?? false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Load from local SQLite
   const loadLocalData = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
+
       const txData = await getUserTransactions();
       setTransactions(txData as Transaction[]);
+      setLastLoadTime(Date.now());
     } catch (error) {
       console.error('Error loading local transactions:', error);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
     }
   }, []);
 
   const refresh = useCallback(async () => {
+    // Check if data is fresh (less than 5 minutes old)
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+    if (now - lastLoadTime < fiveMinutes && transactions.length > 0) {
+      console.log('[TransactionsContext] Data is fresh, skipping refresh');
+      return;
+    }
+
+    if (!isOnline) {
+      console.log('[TransactionsContext] Offline - skipping refresh');
+      await loadLocalData(true); // Still reload local data
+      return;
+    }
     setRefreshing(true);
+    setIsSyncing(true);
     try {
-      // Background sync
-      await pushPendingChanges().catch(console.error);
-      await pullCloudChanges().catch(console.error);
-      await loadLocalData();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await SyncEngine.executeFullSync(user.id);
+      }
+      await loadLocalData(true);
     } catch (error) {
       console.error('Error refreshing:', error);
     } finally {
       setRefreshing(false);
+      setIsSyncing(false);
     }
-  }, [loadLocalData]);
+  }, [loadLocalData, isOnline, lastLoadTime, transactions.length]);
 
   useEffect(() => {
+    // Initial load
     loadLocalData();
-    const interval = setInterval(() => {
-      pushPendingChanges().catch(err => console.error('Background Push Error:', err));
-    }, 60000);
+
+    // Background sync cycle - Increased to 2 minutes for better performance
+    const interval = setInterval(async () => {
+      try {
+        const netState = await NetInfo.fetch();
+        if (!netState.isConnected) return; // Skip if offline
+        
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user && isOnline) {
+          setIsSyncing(true);
+          try {
+            await SyncEngine.executeFullSync(session.user.id);
+            await loadLocalData(true);
+          } finally {
+            setIsSyncing(false);
+          }
+        }
+      } catch (err) {
+        console.error('Background Sync Error:', err);
+      }
+    }, 120000); // Changed from 60000 (1 min) to 120000 (2 min)
+
     return () => clearInterval(interval);
-  }, [loadLocalData]);
+  }, [loadLocalData, isOnline]);
 
   const addTransaction = (transaction: Transaction) => {
     setTransactions(prev => [transaction, ...prev]);
@@ -93,10 +148,23 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     await loadLocalData(true);
   };
 
+  const pendingCount = useMemo(() =>
+    transactions.filter(t => t.sync_status === 'pending').length
+    , [transactions]);
+
+  const syncStatus = useMemo(() => {
+    if (!isOnline) return 'offline';
+    if (isSyncing) return 'syncing';
+    if (pendingCount > 0) return 'pending';
+    return 'synced';
+  }, [isOnline, isSyncing, pendingCount]);
+
   return (
     <TransactionsContext.Provider
       value={{
         transactions,
+        pendingCount,
+        syncStatus,
         loading,
         refreshing,
         refresh,

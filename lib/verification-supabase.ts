@@ -4,24 +4,24 @@ import { supabase } from "./supabase";
 // This is more reliable and doesn't require Edge Functions
 
 /**
- * Send OTP code using Supabase's built-in OTP system
- * This automatically sends a 6-digit code to the user's email
+ * Resend OTP code using Supabase's built-in resend mechanism
  */
-export async function sendVerificationOTP(email: string): Promise<{ waitTime?: number }> {
-  const { data, error } = await supabase.auth.signInWithOtp({
+export async function resendVerificationOTP(email: string, type: 'signup' | 'email_change' = 'signup'): Promise<void> {
+  const { error } = await supabase.auth.resend({
+    type: type,
     email: email,
     options: {
-      shouldCreateUser: false, // Don't create user if they don't exist
-    },
+      emailRedirectTo: undefined,
+    }
   });
 
   if (error) {
-    console.error("Error sending OTP:", error);
-    
+    console.error("Error resending OTP:", error);
+
     // Check if it's a rate limit error
     const errorMessage = error.message || "";
     const rateLimitMatch = errorMessage.match(/(\d+)\s*seconds?/i);
-    
+
     if (rateLimitMatch) {
       const waitTime = parseInt(rateLimitMatch[1], 10);
       const customError: any = new Error(`Please wait ${waitTime} seconds before requesting a new code.`);
@@ -29,47 +29,31 @@ export async function sendVerificationOTP(email: string): Promise<{ waitTime?: n
       customError.isRateLimit = true;
       throw customError;
     }
-    
-    throw new Error(`Failed to send verification code: ${error.message}`);
-  }
 
-  // Success - Supabase will send the OTP email automatically
-  console.log("OTP sent successfully via Supabase");
-  return {};
+    throw error;
+  }
 }
 
 /**
  * Verify OTP code using Supabase's built-in verification
  */
-export async function verifyOTP(email: string, token: string): Promise<boolean> {
+export async function verifyOTP(email: string, token: string, type: 'signup' | 'email' | 'recovery' | 'invite' = 'signup'): Promise<boolean> {
   try {
     const { data, error } = await supabase.auth.verifyOtp({
       email: email,
       token: token,
-      type: 'email',
+      type: type,
     });
 
     if (error) {
       console.error("Error verifying OTP:", error);
-      return false;
+      throw error;
     }
 
-    if (data?.user) {
-      // OTP verified successfully
-      return true;
-    }
-
-    return false;
+    return !!(data?.session || data?.user);
   } catch (error) {
     console.error("Error in verifyOTP:", error);
-    return false;
+    throw error;
   }
-}
-
-/**
- * Resend OTP code
- */
-export async function resendVerificationOTP(email: string): Promise<{ waitTime?: number }> {
-  return await sendVerificationOTP(email);
 }
 

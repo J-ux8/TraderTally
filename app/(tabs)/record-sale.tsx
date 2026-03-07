@@ -1,6 +1,8 @@
+import { CategorySelector } from '@/components/CategorySelector';
+import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { Category, addCategory, getUserCategories } from '@/lib/categories';
+import { recordSale } from '@/lib/transactions';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, ShoppingBag, ShoppingCart } from "lucide-react-native";
@@ -15,9 +17,7 @@ export default function RecordSaleScreen() {
   const [user, setUser] = useState<any>(null);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
-  const [savedCategories, setSavedCategories] = useState<Category[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [isCustom, setIsCustom] = useState(true);
+
   const [paymentMode, setPaymentMode] = useState<'Paid' | 'Credit'>('Paid');
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date>(new Date());
@@ -37,27 +37,12 @@ export default function RecordSaleScreen() {
     useCallback(() => {
       setAmount("");
       setCategory("");
-      setIsCustom(true);
       setPaymentMode('Paid');
       setDescription("");
       setDate(new Date());
       setDatePickerOpen(false);
-      loadCategories();
     }, [])
   );
-
-  async function loadCategories() {
-    try {
-      const cats = await getUserCategories();
-      setSavedCategories(cats);
-      if (cats.length > 0) {
-        setIsCustom(false);
-        setCategory(cats[0].name);
-      }
-    } catch (error) {
-      console.error("Error loading categories:", error);
-    }
-  }
 
   useEffect(() => {
     if (paymentMode === 'Credit') {
@@ -119,11 +104,6 @@ export default function RecordSaleScreen() {
     const dateStr = getLocalDateString(date);
 
     try {
-      // 1. If it's a new custom category, save it to the user's list
-      if (isCustom && category.trim()) {
-        await addCategory(category.trim());
-      }
-
       // 2. Record the Sale Transaction
       await recordSale(numericAmount, category.trim(), description.trim() || null, dateStr);
 
@@ -179,6 +159,7 @@ export default function RecordSaleScreen() {
                 <Text style={styles.headerSubtitle}>Add your latest sale</Text>
               </View>
             </View>
+            <OfflineIndicator />
           </View>
         </View>
 
@@ -193,7 +174,7 @@ export default function RecordSaleScreen() {
                 onChangeText={handleAmountChange}
                 placeholder="0.00"
                 keyboardType="decimal-pad"
-                placeholderTextColor="rgba(16, 185, 129, 0.4)"
+                placeholderTextColor="rgba(30, 58, 138, 0.4)"
                 autoFocus
               />
             </View>
@@ -201,60 +182,11 @@ export default function RecordSaleScreen() {
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Category / Item Name</Text>
-
-            <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor }]}>
-              <ShoppingCart size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
-              <TextInput
-                style={[styles.textInput, { color: colors.textColor }]}
-                value={category}
-                onChangeText={(text) => {
-                  setCategory(text);
-                  // If user types, we assume it's a new or specific one unless they pick a chip
-                  const exists = savedCategories.some(c => c.name.toLowerCase() === text.toLowerCase());
-                  setIsCustom(!exists);
-                }}
-                placeholder="e.g. Bread, Charcoal, Eggs"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
-
-            {savedCategories.length > 0 && (
-              <View style={{ marginTop: 12 }}>
-                <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>Your Categories:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                  {savedCategories.map((cat) => (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.categoryChip,
-                        category === cat.name ? styles.categoryChipActive : { borderColor: colors.borderColor }
-                      ]}
-                      onPress={() => {
-                        setCategory(cat.name);
-                        setIsCustom(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.categoryChipText,
-                        category === cat.name ? styles.categoryChipTextActive : { color: colors.textColor }
-                      ]}>
-                        {cat.name}
-                      </Text>
-                      {category === cat.name && <Check size={14} color="#fff" style={{ marginLeft: 4 }} />}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
-
-            {isCustom && category.trim().length > 0 && !savedCategories.some(c => c.name.toLowerCase() === category.toLowerCase()) && (
-              <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}>
-                <Plus size={14} color="#1e3a8a" />
-                <Text style={{ color: '#1e3a8a', fontSize: 12, marginLeft: 4, fontWeight: '600' }}>
-                  New category will be saved
-                </Text>
-              </View>
-            )}
+            <CategorySelector
+              selectedCategoryName={category}
+              onSelect={setCategory}
+              type="income"
+            />
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
@@ -349,7 +281,7 @@ const styles = StyleSheet.create({
   segmentedContainer: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 12, padding: 4 },
   segment: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
   segmentActive: { backgroundColor: '#1e3a8a' },
-  segmentActiveCredit: { backgroundColor: '#f59e0b' }, // Amber for credit
+  segmentActiveCredit: { backgroundColor: '#1e3a8a' }, // Changed from amber to blue as requested
   segmentText: { fontSize: 14, fontWeight: '700', color: '#666' },
   segmentTextActive: { color: '#fff' },
   inputContainer: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 2, paddingHorizontal: 16, height: 56 },

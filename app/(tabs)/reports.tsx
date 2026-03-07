@@ -1,3 +1,4 @@
+import { useAuth } from '@/hooks/useAuth';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useDebts } from '@/hooks/useDebts';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -61,25 +62,32 @@ interface AdvancedStats {
 
 export default function ReportsScreen() {
   const colors = useThemeColors();
+  const { user, loading: authLoading } = useAuth();
   const { transactions, loading, refreshing, refresh } = useTransactionsContext();
-  const [user, setUser] = useState<any>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'week' | 'month' | 'quarter' | 'year'>('month');
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-      }
-      setCheckingAuth(false);
-    });
-  }, []);
-
   async function onRefresh() {
-    await refresh();
+    await refresh(true); // Force refresh
   }
 
-  // Get date range for period
+  // Show UI immediately with cached data, don't block on loading
+  // Only show loading if we have no data and are actually loading
+  if (authLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
+        <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading analytics...</Text>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Please log in</Text>
+      </View>
+    );
+  }
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
     const start = new Date();
@@ -420,18 +428,7 @@ export default function ReportsScreen() {
     return (value / total) * 100;
   }, []);
 
-  // Show UI immediately with cached data, don't block on loading
-  // Only show loading if we have no data and are actually loading
-  if (checkingAuth && !user) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading analytics...</Text>
-      </View>
-    );
-  }
-
-  const dynamicStyles = {
+  // Get date range for period
     container: { ...styles.container, backgroundColor: colors.backgroundColor },
     card: { ...styles.card, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
     statCard: { ...styles.statCard, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },

@@ -1,9 +1,10 @@
+import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { Category, addCategory, getUserCategories } from '@/lib/categories';
+import { recordExpense } from '@/lib/transactions';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
-import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, ShoppingCart, TrendingDown } from "lucide-react-native";
+import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, TrendingDown } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
@@ -15,8 +16,6 @@ export default function RecordExpenseScreen() {
   const [user, setUser] = useState<any>(null);
   const [amount, setAmount] = useState("");
   const [expenseType, setExpenseType] = useState<string>("");
-  const [savedCategories, setSavedCategories] = useState<Category[]>([]);
-  const [isCustom, setIsCustom] = useState(true);
   const [date, setDate] = useState<Date>(new Date());
   const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -31,26 +30,11 @@ export default function RecordExpenseScreen() {
     useCallback(() => {
       setAmount("");
       setExpenseType("");
-      setIsCustom(true);
       setDate(new Date());
       setDatePickerOpen(false);
       setShowDropdown(false);
-      loadCategories();
     }, [])
   );
-
-  async function loadCategories() {
-    try {
-      const cats = await getUserCategories();
-      setSavedCategories(cats);
-      if (cats.length > 0) {
-        setIsCustom(false);
-        setExpenseType(cats[0].name);
-      }
-    } catch (error) {
-      console.error("Error loading categories:", error);
-    }
-  }
 
   async function checkUser() {
     try {
@@ -95,11 +79,6 @@ export default function RecordExpenseScreen() {
     const dateStr = getLocalDateString(date);
 
     try {
-      // 1. If it's a new custom category, save it to the user's list
-      if (isCustom && expenseType.trim()) {
-        await addCategory(expenseType.trim());
-      }
-
       await recordExpense(numericAmount, expenseType.trim(), null, dateStr);
       Alert.alert("Success", "Expense recorded! 💸");
       router.back();
@@ -153,6 +132,7 @@ export default function RecordExpenseScreen() {
                 <Text style={styles.headerSubtitle}>Track your spending</Text>
               </View>
             </View>
+            <OfflineIndicator />
           </View>
         </View>
 
@@ -167,65 +147,56 @@ export default function RecordExpenseScreen() {
                 onChangeText={handleAmountChange}
                 placeholder="0.00"
                 keyboardType="decimal-pad"
-                placeholderTextColor="rgba(16, 185, 129, 0.4)"
+                placeholderTextColor="rgba(30, 58, 138, 0.4)"
                 autoFocus
               />
             </View>
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Expense Category</Text>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Expense Type</Text>
 
-            <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor }]}>
-              <ShoppingCart size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
-              <TextInput
-                style={[styles.textInput, { color: colors.textColor }]}
-                value={expenseType}
-                onChangeText={(text) => {
-                  setExpenseType(text);
-                  const exists = savedCategories.some(c => c.name.toLowerCase() === text.toLowerCase());
-                  setIsCustom(!exists);
-                }}
-                placeholder="e.g. Rent, Transport, Electricity"
-                placeholderTextColor={colors.textSecondary}
-              />
-            </View>
+            <TouchableOpacity
+              style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor, height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 2 }]}
+              onPress={() => setShowDropdown(!showDropdown)}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TrendingDown size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
+                <Text style={[styles.dropdownButtonText, { color: expenseType ? colors.textColor : colors.textSecondary, fontSize: 16, fontWeight: '600' }]}>
+                  {expenseType || 'Select expense type'}
+                </Text>
+              </View>
+              <Plus size={20} color={colors.textSecondary} style={{ transform: [{ rotate: showDropdown ? '45deg' : '0deg' }] }} />
+            </TouchableOpacity>
 
-            {savedCategories.length > 0 && (
-              <View style={{ marginTop: 12 }}>
-                <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 8 }}>Your Categories:</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                  {savedCategories.map((cat) => (
+            {showDropdown && (
+              <View style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.borderColor, overflow: 'hidden' }}>
+                <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="always">
+                  {[
+                    'Stock / Inventory',
+                    'Rent / Stall Fee',
+                    'Salaries / Helpers',
+                    'Transport / Fuel',
+                    'Utilities',
+                    'Maintenance / Repairs',
+                    'Business Supplies',
+                    'Market Levy / Tax',
+                    'Other'
+                  ].map((type) => (
                     <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.categoryChip,
-                        expenseType === cat.name ? styles.categoryChipActive : { borderColor: colors.borderColor }
-                      ]}
+                      key={type}
+                      style={{ padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.borderColor, backgroundColor: expenseType === type ? 'rgba(30, 58, 138, 0.05)' : 'transparent' }}
                       onPress={() => {
-                        setExpenseType(cat.name);
-                        setIsCustom(false);
+                        setExpenseType(type);
+                        setShowDropdown(false);
                       }}
                     >
-                      <Text style={[
-                        styles.categoryChipText,
-                        expenseType === cat.name ? styles.categoryChipTextActive : { color: colors.textColor }
-                      ]}>
-                        {cat.name}
-                      </Text>
-                      {expenseType === cat.name && <Check size={14} color="#fff" style={{ marginLeft: 4 }} />}
+                      <Text style={{ fontSize: 16, fontWeight: '500', color: colors.textColor }}>{type}</Text>
+                      {expenseType === type && <Check size={18} color="#1e3a8a" />}
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-              </View>
-            )}
-
-            {isCustom && expenseType.trim().length > 0 && !savedCategories.some(c => c.name.toLowerCase() === expenseType.toLowerCase()) && (
-              <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center' }}>
-                <Plus size={14} color="#1e3a8a" />
-                <Text style={{ color: '#1e3a8a', fontSize: 12, marginLeft: 4, fontWeight: '600' }}>
-                  New category will be saved
-                </Text>
               </View>
             )}
           </View>
