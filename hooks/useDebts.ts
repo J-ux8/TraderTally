@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from 'react';
 export function useDebts() {
   const [debts, setDebts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [lastLoadTime, setLastLoadTime] = useState<number>(0);
   const { recordSale } = useTransactionsContext();
 
@@ -19,12 +20,15 @@ export function useDebts() {
       }
 
       setLoading(true);
+      setError(null);
 
       const data = await getUserDebts();
       setDebts(data || []);
       setLastLoadTime(Date.now());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading debts:', error);
+      setError(error.message || 'Failed to load debts');
+      // Keep existing debts on error instead of clearing
     } finally {
       setLoading(false);
     }
@@ -95,6 +99,7 @@ export function useDebts() {
   return {
     debts,
     loading,
+    error,
     refresh,
     createDebt: handleCreateDebt,
     updateDebt: handleUpdateDebt,

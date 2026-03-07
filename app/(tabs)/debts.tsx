@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function DebtsScreen() {
   const colors = useThemeColors();
   const { user, loading: authLoading } = useAuth();
-  const { debts, updateDebt, settleDebt, deleteDebt, refresh, loading } = useDebts();
+  const { debts, updateDebt, settleDebt, deleteDebt, refresh, loading, error } = useDebts();
   const [activeTab, setActiveTab] = useState<'active' | 'settled'>('active');
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,7 +23,9 @@ export default function DebtsScreen() {
 
   useEffect(() => {
     if (user) {
-      getUserProfile().then(setProfile);
+      getUserProfile().then(setProfile).catch(err => {
+        console.log('[debts] Could not load profile:', err);
+      });
     }
   }, [user]);
 
@@ -128,7 +130,22 @@ export default function DebtsScreen() {
           </View>
 
           {/* Content */}
-          {activeTab === 'active' ? (
+          {error && debts.length === 0 ? (
+            <View style={styles.emptyState}>
+              <View style={styles.emptyIconContainer}>
+                <Text style={styles.emptyIcon}>⚠️</Text>
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.textColor }]}>Unable to load debts</Text>
+              <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>{error}</Text>
+              <TouchableOpacity
+                style={[styles.retryButton, { backgroundColor: '#1e3a8a' }]}
+                onPress={() => refresh(true)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : activeTab === 'active' ? (
             activeDebts.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIconContainer}>
@@ -325,6 +342,17 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     fontSize: 16,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+  },
+  retryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
   },
   fab: {
     position: 'absolute',

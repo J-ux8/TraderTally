@@ -11,12 +11,17 @@ async function getUserId(): Promise<string> {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) return user.id;
   } catch (error) {
-    console.log('[Offline Mode] Supabase auth failed, using cached session');
+    console.log('[transactions] Supabase auth failed, using cached session');
   }
   
   const cached = await getCachedSession();
-  if (!cached) throw new Error("User not authenticated and no cached session");
-  return cached.userId;
+  if (cached) {
+    return cached.userId;
+  }
+  
+  // If no cache, this is a critical error - user needs to login
+  console.error('[transactions] No cached session available');
+  throw new Error("User not authenticated and no cached session");
 }
 
 // Helper function to get local date string (YYYY-MM-DD)
