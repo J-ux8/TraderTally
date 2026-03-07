@@ -2,7 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { wipeDatabase } from "./database";
 import { supabase } from "./supabase";
 import { cacheSession, clearSessionCache } from "./session-cache";
-import { clearProfileCache } from "./profile-cache";
+import { clearProfileCache, cacheProfile } from "./profile-cache";
 
 
 export async function signIn(email: string, password: string) {
@@ -18,6 +18,28 @@ export async function signIn(email: string, password: string) {
   // Cache session for offline access
   if (data.user && data.session) {
     await cacheSession(data.user.id, data.user.email!, data.session.access_token);
+    
+    // Load and cache profile immediately after login
+    try {
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", data.user.id)
+        .single();
+      
+      if (profileData) {
+        await cacheProfile({
+          id: profileData.id,
+          full_name: profileData.full_name,
+          email: profileData.email,
+          phone_number: profileData.phone_number,
+          business_type: profileData.business_type,
+        });
+        console.log('[Auth] Profile loaded and cached on login');
+      }
+    } catch (profileError) {
+      console.log('[Auth] Could not load profile on login (non-blocking):', profileError);
+    }
   }
 
   return data;
@@ -59,6 +81,16 @@ export async function registerWithProfile(
   const { data: { session } } = await supabase.auth.getSession();
   if (data.user && session) {
     await cacheSession(data.user.id, data.user.email!, session.access_token);
+    
+    // Cache profile data from metadata for immediate availability
+    await cacheProfile({
+      id: data.user.id,
+      full_name: fullName.trim(),
+      email: email,
+      phone_number: phoneNumber.trim(),
+      business_type: businessType,
+    });
+    console.log('[Auth] Profile metadata cached on registration');
   }
 
   return {
