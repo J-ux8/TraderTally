@@ -66,28 +66,7 @@ export default function ReportsScreen() {
   const { transactions, loading, refreshing, refresh } = useTransactionsContext();
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'week' | 'month' | 'quarter' | 'year'>('month');
 
-  async function onRefresh() {
-    await refresh(true); // Force refresh
-  }
-
-  // Show UI immediately with cached data, don't block on loading
-  // Only show loading if we have no data and are actually loading
-  if (authLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading analytics...</Text>
-      </View>
-    );
-  }
-
-  if (!user) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Please log in</Text>
-      </View>
-    );
-  }
+  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
     const start = new Date();
@@ -158,6 +137,29 @@ export default function ReportsScreen() {
 
     return { start, end };
   }, []);
+
+  async function onRefresh() {
+    await refresh(true); // Force refresh
+  }
+
+  // Show UI immediately with cached data, don't block on loading
+  // Only show loading if we have no data and are actually loading
+  if (authLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
+        <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading analytics...</Text>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Please log in</Text>
+      </View>
+    );
+  }
 
   // Filter transactions based on selected period
   const filteredTransactions = useMemo(() => {
