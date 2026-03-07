@@ -1,6 +1,7 @@
 import { useTransactionsContext, SyncStatus } from '@/contexts/TransactionsContext';
 import { SyncBadge } from '@/components/ui/SyncBadge';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { getCachedSession } from '@/lib/session-cache';
 import { supabase } from "@/lib/supabase";
 import { deleteTransaction, updateTransaction } from "@/lib/transactions";
 import { useFocusEffect } from "expo-router";
@@ -110,7 +111,6 @@ export default function RecordsScreen() {
     removeTransaction: removeTransactionFromContext
   } = useTransactionsContext();
   const [user, setUser] = useState<any>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
 
   // Edit modal state
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -124,12 +124,30 @@ export default function RecordsScreen() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
+    const initUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser(session.user);
+          return;
+        }
+      } catch (error) {
+        console.log('[records] Supabase auth failed, checking cache');
       }
-      setCheckingAuth(false);
-    });
+
+      // Fallback to cached session
+      try {
+        const cached = await getCachedSession();
+        if (cached) {
+          setUser({ id: cached.userId, email: cached.email });
+          console.log('[records] Using cached session');
+        }
+      } catch (error) {
+        console.error('[records] Failed to get cached session:', error);
+      }
+    };
+
+    initUser();
   }, []);
 
   // Only refresh if needed, not on every focus
@@ -239,17 +257,6 @@ export default function RecordsScreen() {
   }, []);
 
   const isSale = useCallback((amount: number) => amount > 0, []);
-
-  if (checkingAuth || !user) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.backgroundColor, paddingTop: insets.top }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1e3a8a" />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading Transactions...</Text>
-        </View>
-      </View>
-    );
-  }
 
   const dynamicStyles = {
     container: { ...styles.container, backgroundColor: colors.backgroundColor },
