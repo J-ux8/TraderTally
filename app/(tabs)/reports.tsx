@@ -428,7 +428,8 @@ export default function ReportsScreen() {
     return (value / total) * 100;
   }, []);
 
-  // Get date range for period
+  // Dynamic styles based on theme
+  const dynamicStyles = {
     container: { ...styles.container, backgroundColor: colors.backgroundColor },
     card: { ...styles.card, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
     statCard: { ...styles.statCard, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
