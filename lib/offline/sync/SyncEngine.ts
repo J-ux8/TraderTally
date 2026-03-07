@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { getDatabase } from '@/lib/database';
 import { ConflictResolver } from './ConflictResolver';
 import NetInfo from '@react-native-community/netinfo';
+import { notifyRLSIssueOnce } from '@/lib/rls-notification';
 
 export class SyncEngine {
     private static isSyncing = false;
@@ -143,13 +144,26 @@ export class SyncEngine {
                 });
 
                 if (error) {
+                    // Check if it's an RLS error (code 42501)
+                    if (error.code === '42501') {
+                        console.log(`[SyncEngine] RLS policy error on ${tableName} - data saved locally, will retry when policies are fixed`);
+                        // Notify user once about the setup requirement
+                        notifyRLSIssueOnce();
+                        // Don't throw - data is already saved locally
+                        // User needs to run the RLS migration in Supabase
+                        return;
+                    }
+                    
                     console.error(`[SyncEngine] Push failed on ${tableName}. Supabase Error Details:`, {
                         message: error.message,
                         details: error.details,
                         hint: error.hint,
                         code: error.code
                     });
-                    throw new Error(`Sync Push Aborted on ${tableName}: ${error.message}`);
+                    
+                    // For other errors, log but don't throw - data is saved locally
+                    console.log(`[SyncEngine] ${tableName} sync failed but data is safe locally`);
+                    return;
                 }
 
                 const ids = records.map((r: any) => r.id);
