@@ -108,9 +108,9 @@ export class SyncEngine {
     }
 
     private static readonly TABLE_COLUMNS: Record<string, string[]> = {
-        categories: ['id', 'user_id', 'name', 'normalized_name', 'created_at', 'updated_at', 'deleted'],
-        transactions: ['id', 'user_id', 'amount', 'category', 'description', 'transaction_date', 'created_at', 'updated_at', 'deleted'],
-        debts: ['id', 'user_id', 'customer_name', 'amount', 'due_date', 'note', 'is_settled', 'created_at', 'updated_at', 'deleted']
+        categories: ['id', 'user_id', 'name', 'normalized_name', 'created_at', 'updated_at', 'is_deleted'],
+        transactions: ['id', 'user_id', 'amount', 'category', 'description', 'transaction_date', 'created_at', 'updated_at', 'is_deleted'],
+        debts: ['id', 'user_id', 'customer_name', 'amount', 'due_date', 'note', 'is_settled', 'created_at', 'updated_at', 'is_deleted']
     };
 
     private static async pushTable(userId: string, tableName: string) {
