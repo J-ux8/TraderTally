@@ -47,18 +47,21 @@ export default function TabLayout() {
         name="record-sale"
         options={{
           href: null, // Hide from tab bar
+          gestureEnabled: false, // Disable swipe back gesture
         }}
       />
       <Tabs.Screen
         name="record-expense"
         options={{
           href: null, // Hide from tab bar
+          gestureEnabled: false, // Disable swipe back gesture
         }}
       />
       <Tabs.Screen
         name="add-debt"
         options={{
           href: null, // Hide from tab bar
+          gestureEnabled: false, // Disable swipe back gesture
         }}
       />
       <Tabs.Screen
