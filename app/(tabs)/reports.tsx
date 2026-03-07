@@ -61,12 +61,13 @@ interface AdvancedStats {
 }
 
 export default function ReportsScreen() {
+  // ALL HOOKS MUST BE AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
   const colors = useThemeColors();
   const { user, loading: authLoading } = useAuth();
   const { transactions, loading, refreshing, refresh } = useTransactionsContext();
+  const { debts } = useDebts();
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'week' | 'month' | 'quarter' | 'year'>('month');
 
-  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
     const start = new Date();
@@ -138,29 +139,6 @@ export default function ReportsScreen() {
     return { start, end };
   }, []);
 
-  async function onRefresh() {
-    await refresh(true); // Force refresh
-  }
-
-  // Show UI immediately with cached data, don't block on loading
-  // Only show loading if we have no data and are actually loading
-  if (authLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading analytics...</Text>
-      </View>
-    );
-  }
-
-  if (!user) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Please log in</Text>
-      </View>
-    );
-  }
-
   // Filter transactions based on selected period
   const filteredTransactions = useMemo(() => {
     if (selectedPeriod === 'all') return transactions;
@@ -206,7 +184,7 @@ export default function ReportsScreen() {
   }, [transactions, selectedPeriod, getPreviousPeriod]);
 
   // Calculate statistics for a transaction set
-  const calculateStats = (txns: Transaction[]): AdvancedStats => {
+  const calculateStats = useCallback((txns: Transaction[]): AdvancedStats => {
     // Revenue: sum of all positive amounts (sales)
     const revenue = txns
       .filter(t => t.amount > 0)
@@ -250,7 +228,7 @@ export default function ReportsScreen() {
       revenueGrowth: 0,
       expenseGrowth: 0,
     };
-  };
+  }, []);
 
   // Calculate advanced statistics with growth
   const stats = useMemo(() => {
@@ -278,7 +256,7 @@ export default function ReportsScreen() {
       revenueGrowth,
       expenseGrowth,
     };
-  }, [filteredTransactions, previousTransactions]);
+  }, [filteredTransactions, previousTransactions, calculateStats]);
 
   // Category breakdown with percentages
   const categoryBreakdown = useMemo(() => {
@@ -327,46 +305,11 @@ export default function ReportsScreen() {
   }, [filteredTransactions, stats]);
 
   // Debt statistics
-  const { debts } = useDebts();
   const debtStats = useMemo(() => {
     const active = debts.filter(d => !d.is_settled);
     const totalPending = active.reduce((sum, d) => sum + Number(d.amount), 0);
     return { count: active.length, total: totalPending };
   }, [debts]);
-
-  const handleShareReport = async () => {
-    const periodLabel = selectedPeriod === 'all' ? 'All Time' : `Last ${selectedPeriod}`;
-    let message = `📊 *MobiBooks Performance Report* (${periodLabel})\n\n`;
-    message += `💰 *Revenue:* ${formatCurrency(stats.revenue)}\n`;
-    message += `💸 *Expenses:* ${formatCurrency(stats.expenses)}\n`;
-    message += `📈 *Net Profit:* ${formatCurrency(stats.net)}\n\n`;
-
-    if (categoryBreakdown.length > 0) {
-      message += `🏆 *Top Categories:*\n`;
-      categoryBreakdown.slice(0, 3).forEach(c => {
-        message += `• ${c.category}: ${formatCurrency(c.revenue + c.expenses)}\n`;
-      });
-      message += `\n`;
-    }
-
-    if (debtStats.total > 0) {
-      message += `⚠️ *Pending Credits:* ${formatCurrency(debtStats.total)} (${debtStats.count} people)\n\n`;
-    }
-
-    message += `_This business is growing with MobiBooks!_ 🇿🇲`;
-
-    try {
-      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-      const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
-      if (canOpenWhatsApp) {
-        await Linking.openURL(whatsappUrl);
-      } else {
-        await Share.share({ message });
-      }
-    } catch (error) {
-      await Share.share({ message });
-    }
-  };
 
   // Monthly data for trends with growth
   const monthlyData = useMemo(() => {
@@ -431,7 +374,7 @@ export default function ReportsScreen() {
   }, []);
 
   // Dynamic styles based on theme
-  const dynamicStyles = {
+  const dynamicStyles = useMemo(() => ({
     container: { ...styles.container, backgroundColor: colors.backgroundColor },
     card: { ...styles.card, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
     statCard: { ...styles.statCard, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
@@ -455,7 +398,67 @@ export default function ReportsScreen() {
     totalValueMeta: { ...styles.totalValueMeta },
     healthDivider: { ...styles.healthDivider, backgroundColor: colors.borderColor },
     healthItem: { ...styles.healthItem },
+  }), [colors]);
+
+  // NOW conditional returns can happen
+  async function onRefresh() {
+    await refresh(true); // Force refresh
+  }
+
+  // Show UI immediately with cached data, don't block on loading
+  // Only show loading if we have no data and are actually loading
+  if (authLoading) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
+        <ActivityIndicator size="large" color="#1e3a8a" />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading analytics...</Text>
+      </View>
+    );
+  }
+
+  if (!user) {
+    return (
+      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Please log in</Text>
+      </View>
+    );
+  }
+
+  const handleShareReport = async () => {
+    const periodLabel = selectedPeriod === 'all' ? 'All Time' : `Last ${selectedPeriod}`;
+    let message = `📊 *MobiBooks Performance Report* (${periodLabel})\n\n`;
+    message += `💰 *Revenue:* ${formatCurrency(stats.revenue)}\n`;
+    message += `💸 *Expenses:* ${formatCurrency(stats.expenses)}\n`;
+    message += `📈 *Net Profit:* ${formatCurrency(stats.net)}\n\n`;
+
+    if (categoryBreakdown.length > 0) {
+      message += `🏆 *Top Categories:*\n`;
+      categoryBreakdown.slice(0, 3).forEach(c => {
+        message += `• ${c.category}: ${formatCurrency(c.revenue + c.expenses)}\n`;
+      });
+      message += `\n`;
+    }
+
+    if (debtStats.total > 0) {
+      message += `⚠️ *Pending Credits:* ${formatCurrency(debtStats.total)} (${debtStats.count} people)\n\n`;
+    }
+
+    message += `_This business is growing with MobiBooks!_ 🇿🇲`;
+
+    try {
+      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+      const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
+      if (canOpenWhatsApp) {
+        await Linking.openURL(whatsappUrl);
+      } else {
+        await Share.share({ message });
+      }
+    } catch (error) {
+      await Share.share({ message });
+    }
   };
+
+  // Remove all the duplicate code below this line
 
   return (
     <SafeAreaView style={dynamicStyles.container} edges={['top']}>
