@@ -1,5 +1,5 @@
 import NetInfo from '@react-native-community/netinfo';
-import { SyncEngine } from '@/sync/SyncEngine';
+import { SyncEngine } from '@/lib/offline/sync/SyncEngine';
 import { supabase } from '@/lib/supabase';
 import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib } from '@/lib/transactions';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
