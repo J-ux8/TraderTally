@@ -2,6 +2,7 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordExpense } from '@/lib/transactions';
+import { getCachedSession } from '@/lib/session-cache';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, TrendingDown } from "lucide-react-native";
@@ -39,15 +40,28 @@ export default function RecordExpenseScreen() {
   async function checkUser() {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) {
-        router.replace("/Authentication/login");
+      if (currentUser) {
+        setUser(currentUser);
         return;
       }
-      setUser(currentUser);
     } catch (error) {
-      console.error("Error checking user:", error);
-      router.replace("/Authentication/login");
+      console.log('[record-expense] Supabase auth failed, checking cache');
     }
+
+    // Fallback to cached session for offline mode
+    try {
+      const cached = await getCachedSession();
+      if (cached) {
+        setUser({ id: cached.userId, email: cached.email });
+        console.log('[record-expense] Using cached session for offline mode');
+        return;
+      }
+    } catch (error) {
+      console.error('[record-expense] Failed to get cached session:', error);
+    }
+
+    // Only redirect if we truly have no session
+    router.replace("/Authentication/login");
   }
 
   const handleAmountChange = (value: string) => {

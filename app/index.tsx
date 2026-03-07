@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { getCachedSession } from "@/lib/session-cache";
 import { Redirect } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
@@ -8,13 +9,36 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initial check
-    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
-      setSession(currentSession);
-      setLoading(false);
-    });
+    const initSession = async () => {
+      try {
+        // Try Supabase first
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+          setSession(currentSession);
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.log('[Index] Supabase auth failed, checking cache');
+      }
 
-    // Listen for changes
+      // Fallback to cached session for offline mode
+      try {
+        const cached = await getCachedSession();
+        if (cached) {
+          setSession({ user: { id: cached.userId, email: cached.email } });
+          console.log('[Index] Using cached session for offline mode');
+        }
+      } catch (error) {
+        console.error('[Index] Failed to get cached session:', error);
+      }
+
+      setLoading(false);
+    };
+
+    initSession();
+
+    // Listen for changes (only works when online)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -30,7 +54,7 @@ export default function Index() {
     );
   }
 
-  // If we have a session, go straight to the dashboard
+  // If we have a session (online or cached), go straight to the dashboard
   if (session) {
     return <Redirect href="/(tabs)" />;
   }

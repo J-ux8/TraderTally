@@ -7,6 +7,7 @@ import { useSummary } from '@/hooks/useSummary';
 import { useSync } from '@/hooks/useSync';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { signOut } from '@/lib/auth';
+import { getCachedSession } from '@/lib/session-cache';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { SyncBadge } from '@/components/ui/SyncBadge';
@@ -26,9 +27,30 @@ export default function HomeScreen() {
   const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) setUser(session.user);
-    });
+    const initUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser(session.user);
+          return;
+        }
+      } catch (error) {
+        console.log('[home] Supabase auth failed, checking cache');
+      }
+
+      // Fallback to cached session
+      try {
+        const cached = await getCachedSession();
+        if (cached) {
+          setUser({ id: cached.userId, email: cached.email });
+          console.log('[home] Using cached session');
+        }
+      } catch (error) {
+        console.error('[home] Failed to get cached session:', error);
+      }
+    };
+
+    initUser();
   }, []);
 
 
