@@ -55,8 +55,12 @@ export async function createDebt(
     note
   });
 
-  // Trigger background sync
-  SyncEngine.executeFullSync(userId).catch(console.error);
+  // Trigger background sync (silently, don't throw errors to UI)
+  try {
+    await SyncEngine.executeFullSync(userId);
+  } catch (syncError) {
+    console.log('[Offline] Debt recorded locally, sync will retry later');
+  }
 
   return { ...debt, is_settled: debt.is_settled === 1 };
 }
@@ -75,7 +79,12 @@ export async function updateDebt(
 
   await debtRepo.update(userId, id, data);
 
-  SyncEngine.executeFullSync(userId).catch(console.error);
+  // Trigger background sync (silently, don't throw errors to UI)
+  try {
+    await SyncEngine.executeFullSync(userId);
+  } catch (syncError) {
+    console.log('[Offline] Debt updated locally, sync will retry later');
+  }
 }
 
 // Settle a debt locally
@@ -84,7 +93,12 @@ export async function settleDebt(id: string) {
 
   await debtRepo.settle(userId, id);
 
-  SyncEngine.executeFullSync(userId).catch(console.error);
+  // Trigger background sync (silently, don't throw errors to UI)
+  try {
+    await SyncEngine.executeFullSync(userId);
+  } catch (syncError) {
+    console.log('[Offline] Debt settled locally, sync will retry later');
+  }
 }
 
 // Delete a debt locally (soft delete)
@@ -93,6 +107,11 @@ export async function deleteDebt(id: string) {
 
   await debtRepo.softDelete(id, userId);
 
-  SyncEngine.executeFullSync(userId).catch(console.error);
+  // Trigger background sync (silently, don't throw errors to UI)
+  try {
+    await SyncEngine.executeFullSync(userId);
+  } catch (syncError) {
+    console.log('[Offline] Debt deleted locally, sync will retry later');
+  }
 }
 

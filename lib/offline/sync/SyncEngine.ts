@@ -14,9 +14,14 @@ export class SyncEngine {
         if (this.isSyncing) return;
         
         // Check network connectivity first
-        const netState = await NetInfo.fetch();
-        if (!netState.isConnected) {
-            console.log('[SyncEngine] Offline - skipping sync');
+        try {
+            const netState = await NetInfo.fetch();
+            if (!netState.isConnected) {
+                console.log('[SyncEngine] Offline - skipping sync');
+                return;
+            }
+        } catch (error) {
+            console.log('[SyncEngine] Could not check network status, skipping sync');
             return;
         }
         
@@ -46,6 +51,7 @@ export class SyncEngine {
             console.log('[SyncEngine] Sync completed successfully.');
         } catch (error) {
             console.error('[SyncEngine] Critical sync failure:', error);
+            // Don't throw - let the error be logged but don't propagate to UI
         } finally {
             this.isSyncing = false;
         }

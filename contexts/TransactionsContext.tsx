@@ -83,11 +83,17 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        await SyncEngine.executeFullSync(user.id);
+        try {
+          await SyncEngine.executeFullSync(user.id);
+        } catch (syncError) {
+          console.log('[TransactionsContext] Sync failed, but local data is still available');
+        }
       }
       await loadLocalData(true);
     } catch (error) {
       console.error('Error refreshing:', error);
+      // Still try to load local data even if sync failed
+      await loadLocalData(true);
     } finally {
       setRefreshing(false);
       setIsSyncing(false);
@@ -110,12 +116,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
           try {
             await SyncEngine.executeFullSync(session.user.id);
             await loadLocalData(true);
+          } catch (syncError) {
+            console.log('[TransactionsContext] Background sync failed, will retry later');
           } finally {
             setIsSyncing(false);
           }
         }
       } catch (err) {
-        console.error('Background Sync Error:', err);
+        console.log('[TransactionsContext] Background sync error:', err);
       }
     }, 120000); // Changed from 60000 (1 min) to 120000 (2 min)
 
