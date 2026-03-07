@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { wipeDatabase } from "./database";
 import { supabase } from "./supabase";
 import { cacheSession, clearSessionCache } from "./session-cache";
+import { clearProfileCache } from "./profile-cache";
 
 
 export async function signIn(email: string, password: string) {
@@ -76,6 +77,7 @@ export async function signOut() {
   // Full data wipe on logout
   try {
     await clearSessionCache();
+    await clearProfileCache();
     await wipeDatabase();
     await AsyncStorage.clear();
   } catch (e) {

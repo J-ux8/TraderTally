@@ -91,22 +91,21 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     if (user) {
+      // Load profile in background, don't block UI
       loadProfile();
     }
   }, [user]);
 
   useFocusEffect(
     useCallback(() => {
-      // Only reload profile if it's not already loaded
-      if (user && !profile) {
-        loadProfile();
-      }
-    }, [user, profile])
+      // Don't reload on every focus - profile is cached
+      // User can manually refresh if needed
+    }, [])
   );
 
   async function loadProfile() {
     try {
-      setLoading(true);
+      // Don't show loading spinner - load in background
       const profileData = await getUserProfile();
       setProfile(profileData);
       if (profileData) {
@@ -116,8 +115,6 @@ export default function SettingsScreen() {
       }
     } catch (error) {
       console.error("Error loading profile:", error);
-    } finally {
-      setLoading(false);
     }
   }
 

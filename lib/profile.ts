@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { cacheProfile, getCachedProfile } from "./profile-cache";
+import NetInfo from '@react-native-community/netinfo';
 
 export interface UserProfile {
   id: string;
@@ -10,12 +12,38 @@ export interface UserProfile {
   updated_at: string;
 }
 
-// Get user profile
+// Get user profile with offline support
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
+    // Check network status
+    const netState = await NetInfo.fetch();
+    const isOnline = netState.isConnected ?? false;
+
+    if (!isOnline) {
+      // Return cached profile when offline
+      console.log('[Profile] Offline - using cached profile');
+      const cached = await getCachedProfile();
+      if (cached) {
+        return {
+          ...cached,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+      return null;
+    }
+
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      // User not authenticated - return null instead of throwing
+      // Try cached profile as fallback
+      const cached = await getCachedProfile();
+      if (cached) {
+        return {
+          ...cached,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
       return null;
     }
 
@@ -28,23 +56,67 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     if (error) {
       // If profile doesn't exist, try to create a default one
       if (error.code === 'PGRST116') {
-        // Only try to create if user is authenticated
         try {
           const defaultProfile = await createDefaultProfile(user.id, user.email || '');
+          if (defaultProfile) {
+            // Cache the profile
+            await cacheProfile({
+              id: defaultProfile.id,
+              full_name: defaultProfile.full_name,
+              email: defaultProfile.email,
+              phone_number: defaultProfile.phone_number,
+              business_type: defaultProfile.business_type,
+            });
+          }
           return defaultProfile;
         } catch (createError) {
-          // Silently fail - profile creation might fail due to RLS
-          // This is okay, user can complete profile later
+          // Return cached profile as fallback
+          const cached = await getCachedProfile();
+          if (cached) {
+            return {
+              ...cached,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+          }
           return null;
         }
       }
-      // For other errors, return null instead of throwing
+      // Return cached profile as fallback
+      const cached = await getCachedProfile();
+      if (cached) {
+        return {
+          ...cached,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
       return null;
+    }
+
+    // Cache the profile for offline use
+    if (data) {
+      await cacheProfile({
+        id: data.id,
+        full_name: data.full_name,
+        email: data.email,
+        phone_number: data.phone_number,
+        business_type: data.business_type,
+      });
     }
 
     return data;
   } catch (error) {
-    // Return null instead of throwing to prevent app crashes
+    console.log('[Profile] Error loading profile, using cache');
+    // Return cached profile as fallback
+    const cached = await getCachedProfile();
+    if (cached) {
+      return {
+        ...cached,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+    }
     return null;
   }
 }
@@ -214,6 +286,15 @@ export async function updateUserProfile(
       throw error;
     }
 
+    // Cache the new profile
+    await cacheProfile({
+      id: data.id,
+      full_name: data.full_name,
+      email: data.email,
+      phone_number: data.phone_number,
+      business_type: data.business_type,
+    });
+
     return data;
   }
 
@@ -233,6 +314,15 @@ export async function updateUserProfile(
   if (error) {
     throw error;
   }
+
+  // Cache the updated profile
+  await cacheProfile({
+    id: data.id,
+    full_name: data.full_name,
+    email: data.email,
+    phone_number: data.phone_number,
+    business_type: data.business_type,
+  });
 
   return data;
 }
