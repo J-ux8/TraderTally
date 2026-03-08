@@ -1,10 +1,10 @@
 import * as SQLite from 'expo-sqlite';
 
-const CURRENT_SCHEMA_VERSION = 3;
+const CURRENT_SCHEMA_VERSION = 4;
 
 /**
- * Robust migration that ensures all tables have the required columns.
- * If a table is too far behind, it drops and recreates it.
+ * SAFE migration that NEVER drops tables with user data.
+ * Always adds missing columns incrementally to preserve data.
  */
 export async function migrateDatabase(database: SQLite.SQLiteDatabase) {
     try {
@@ -21,42 +21,41 @@ export async function migrateDatabase(database: SQLite.SQLiteDatabase) {
         ) as { version: number } | null;
 
         const currentVersion = versionRow?.version ?? 0;
+        
+        console.log(`[Migration] Current schema version: ${currentVersion}, Target version: ${CURRENT_SCHEMA_VERSION}`);
 
         if (currentVersion >= CURRENT_SCHEMA_VERSION) {
+            console.log('[Migration] Database is up to date, no migration needed');
             return; // Already up to date
         }
 
         console.log(`[Migration] Upgrading from version ${currentVersion} to ${CURRENT_SCHEMA_VERSION}`);
 
-        // For a major schema change (v0 -> v3), it's safest to drop & recreate
-        if (currentVersion < 2) {
-            console.log('[Migration] Major schema upgrade - recreating tables...');
-            await database.execAsync('DROP TABLE IF EXISTS transactions;');
-            await database.execAsync('DROP TABLE IF EXISTS categories;');
-            await database.execAsync('DROP TABLE IF EXISTS debts;');
-            await database.execAsync('DROP TABLE IF EXISTS sync_metadata;');
-            await database.execAsync('DROP TABLE IF EXISTS sync_logs;');
-            // Don't drop security_settings - user preferences should persist
-        } else {
-            // Incremental migration: add missing columns
-            await addColumnIfMissing(database, 'transactions', 'is_deleted', 'INTEGER DEFAULT 0');
-            await addColumnIfMissing(database, 'transactions', 'sync_status', "TEXT DEFAULT 'pending'");
-            await addColumnIfMissing(database, 'transactions', 'sync_version', 'INTEGER DEFAULT 1');
-            await addColumnIfMissing(database, 'transactions', 'retry_count', 'INTEGER DEFAULT 0');
+        // ALWAYS use incremental migration to preserve user data
+        // NEVER drop tables - this was causing data loss!
+        console.log('[Migration] Adding missing columns (preserving all data)...');
+        
+        // Add missing columns to transactions
+        await addColumnIfMissing(database, 'transactions', 'is_deleted', 'INTEGER DEFAULT 0');
+        await addColumnIfMissing(database, 'transactions', 'sync_status', "TEXT DEFAULT 'pending'");
+        await addColumnIfMissing(database, 'transactions', 'sync_version', 'INTEGER DEFAULT 1');
+        await addColumnIfMissing(database, 'transactions', 'retry_count', 'INTEGER DEFAULT 0');
 
-            await addColumnIfMissing(database, 'categories', 'is_deleted', 'INTEGER DEFAULT 0');
-            await addColumnIfMissing(database, 'categories', 'sync_status', "TEXT DEFAULT 'pending'");
-            await addColumnIfMissing(database, 'categories', 'sync_version', 'INTEGER DEFAULT 1');
-            await addColumnIfMissing(database, 'categories', 'retry_count', 'INTEGER DEFAULT 0');
+        // Add missing columns to categories
+        await addColumnIfMissing(database, 'categories', 'is_deleted', 'INTEGER DEFAULT 0');
+        await addColumnIfMissing(database, 'categories', 'sync_status', "TEXT DEFAULT 'pending'");
+        await addColumnIfMissing(database, 'categories', 'sync_version', 'INTEGER DEFAULT 1');
+        await addColumnIfMissing(database, 'categories', 'retry_count', 'INTEGER DEFAULT 0');
 
-            await addColumnIfMissing(database, 'debts', 'is_deleted', 'INTEGER DEFAULT 0');
-            await addColumnIfMissing(database, 'debts', 'sync_status', "TEXT DEFAULT 'pending'");
-            await addColumnIfMissing(database, 'debts', 'sync_version', 'INTEGER DEFAULT 1');
-            await addColumnIfMissing(database, 'debts', 'retry_count', 'INTEGER DEFAULT 0');
+        // Add missing columns to debts
+        await addColumnIfMissing(database, 'debts', 'is_deleted', 'INTEGER DEFAULT 0');
+        await addColumnIfMissing(database, 'debts', 'sync_status', "TEXT DEFAULT 'pending'");
+        await addColumnIfMissing(database, 'debts', 'sync_version', 'INTEGER DEFAULT 1');
+        await addColumnIfMissing(database, 'debts', 'retry_count', 'INTEGER DEFAULT 0');
 
-            await addColumnIfMissing(database, 'sync_metadata', 'last_sync_time', 'TEXT');
-            await addColumnIfMissing(database, 'sync_metadata', 'last_push_time', 'TEXT');
-        }
+        // Add missing columns to sync_metadata
+        await addColumnIfMissing(database, 'sync_metadata', 'last_sync_time', 'TEXT');
+        await addColumnIfMissing(database, 'sync_metadata', 'last_push_time', 'TEXT');
 
         // Update version
         await database.runAsync(

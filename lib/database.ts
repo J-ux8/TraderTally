@@ -5,10 +5,17 @@ import { migrateDatabase } from '../database/migrations';
 let db: SQLite.SQLiteDatabase | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
-  if (db) return db;
+  if (db) {
+    console.log('[Database] Returning existing database connection');
+    return db;
+  }
+  console.log('[Database] Opening database: mobibooks.db');
   db = await SQLite.openDatabaseAsync('mobibooks.db');
+  console.log('[Database] Running migrations...');
   await migrateDatabase(db);
+  console.log('[Database] Setting up tables...');
   await setupDatabase(db);
+  console.log('[Database] Database ready');
   return db;
 }
 

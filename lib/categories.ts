@@ -22,7 +22,13 @@ async function getUserId(): Promise<string> {
 export async function getUserCategories(): Promise<Category[]> {
     try {
         const userId = await getUserId();
-        return await categoryRepo.findAll(userId);
+        console.log('[Categories] Loading categories for user:', userId);
+        const categories = await categoryRepo.findAll(userId);
+        console.log('[Categories] Found', categories.length, 'categories');
+        if (categories.length > 0) {
+            console.log('[Categories] Sample:', categories[0].name);
+        }
+        return categories;
     } catch (error) {
         console.error("Error in getUserCategories:", error);
         return [];
