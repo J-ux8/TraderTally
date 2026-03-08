@@ -10,7 +10,7 @@ import { signOut } from '@/lib/auth';
 import { getCachedSession } from '@/lib/session-cache';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
-import { SyncBadge } from '@/components/ui/SyncBadge';
+import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { Activity, LogOut, Store } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -173,7 +173,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <View style={styles.heroRight}>
-                <SyncBadge status={syncStatus} />
+                <OfflineIndicator alwaysShow compact />
                 <TouchableOpacity
                   style={styles.logoutButton}
                   onPress={handleLogout}

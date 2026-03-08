@@ -1,5 +1,5 @@
 import { useTransactionsContext, SyncStatus } from '@/contexts/TransactionsContext';
-import { SyncBadge } from '@/components/ui/SyncBadge';
+import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getCachedSession } from '@/lib/session-cache';
 import { supabase } from "@/lib/supabase";
@@ -294,7 +294,7 @@ export default function RecordsScreen() {
             </View>
           </View>
           <View style={styles.headerRight}>
-            <SyncBadge status={syncStatus} />
+            <OfflineIndicator alwaysShow compact />
           </View>
         </View>
       </View>

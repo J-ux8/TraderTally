@@ -1,6 +1,7 @@
 import { DebtItem } from '@/components/debts/DebtItem';
 import { DebtSummary } from '@/components/debts/DebtSummary';
 import { EditDebtSheet } from '@/components/debts/EditDebtSheet';
+import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useDebts } from '@/hooks/useDebts';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useAuth } from '@/hooks/useAuth';
@@ -92,6 +93,7 @@ export default function DebtsScreen() {
                 <Text style={styles.headerTitle}>Credit Book</Text>
                 <Text style={styles.headerSubtitle}>People who owe you money</Text>
               </View>
+              <OfflineIndicator alwaysShow compact />
             </View>
           </View>
         </View>
