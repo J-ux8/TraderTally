@@ -55,13 +55,10 @@ export async function recordSale(
     transaction_date: dateStr
   });
 
-  // Trigger background sync (silently, don't throw errors to UI)
-  try {
-    await SyncEngine.executeFullSync(userId);
-  } catch (syncError) {
-    // Sync errors should not prevent the transaction from being recorded
-    console.log('[Offline] Transaction recorded locally, sync will retry later');
-  }
+  // Trigger background sync (non-blocking, don't wait for it)
+  SyncEngine.executeFullSync(userId).catch(syncError => {
+    console.log('[Offline] Sale recorded locally, sync will retry later');
+  });
 
   return { id, amount: amountVal, category: categoryName, description, transaction_date: dateStr };
 }
@@ -85,13 +82,10 @@ export async function recordExpense(
     transaction_date: dateStr
   });
 
-  // Trigger background sync (silently, don't throw errors to UI)
-  try {
-    await SyncEngine.executeFullSync(userId);
-  } catch (syncError) {
-    // Sync errors should not prevent the transaction from being recorded
-    console.log('[Offline] Transaction recorded locally, sync will retry later');
-  }
+  // Trigger background sync (non-blocking, don't wait for it)
+  SyncEngine.executeFullSync(userId).catch(syncError => {
+    console.log('[Offline] Expense recorded locally, sync will retry later');
+  });
 
   return { id, amount: amountVal, category: categoryName, description, transaction_date: dateStr };
 }
@@ -127,12 +121,10 @@ export async function updateTransaction(
     transaction_date: dateStr
   });
 
-  // Trigger background sync (silently, don't throw errors to UI)
-  try {
-    await SyncEngine.executeFullSync(userId);
-  } catch (syncError) {
+  // Trigger background sync (non-blocking, don't wait for it)
+  SyncEngine.executeFullSync(userId).catch(syncError => {
     console.log('[Offline] Transaction updated locally, sync will retry later');
-  }
+  });
 }
 
 // Delete a transaction (soft delete)
@@ -141,12 +133,10 @@ export async function deleteTransaction(transactionId: string) {
 
   await transactionRepo.softDelete(transactionId, userId);
 
-  // Trigger background sync (silently, don't throw errors to UI)
-  try {
-    await SyncEngine.executeFullSync(userId);
-  } catch (syncError) {
+  // Trigger background sync (non-blocking, don't wait for it)
+  SyncEngine.executeFullSync(userId).catch(syncError => {
     console.log('[Offline] Transaction deleted locally, sync will retry later');
-  }
+  });
 }
 
 // Get real-time profit

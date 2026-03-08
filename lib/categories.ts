@@ -34,12 +34,10 @@ export async function addCategory(name: string): Promise<Category> {
 
     const category = await categoryRepo.createCategory(userId, name);
 
-    // Trigger background sync (silently, don't throw errors to UI)
-    try {
-        await SyncEngine.executeFullSync(userId);
-    } catch (syncError) {
+    // Trigger background sync (non-blocking, don't wait for it)
+    SyncEngine.executeFullSync(userId).catch(syncError => {
         console.log('[Offline] Category created locally, sync will retry later');
-    }
+    });
 
     return category;
 }
@@ -49,10 +47,8 @@ export async function deleteCategory(id: string) {
 
     await categoryRepo.softDelete(id, userId);
 
-    // Trigger background sync (silently, don't throw errors to UI)
-    try {
-        await SyncEngine.executeFullSync(userId);
-    } catch (syncError) {
+    // Trigger background sync (non-blocking, don't wait for it)
+    SyncEngine.executeFullSync(userId).catch(syncError => {
         console.log('[Offline] Category deleted locally, sync will retry later');
-    }
+    });
 }
