@@ -2,6 +2,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { SyncEngine } from '@/lib/offline/sync/SyncEngine';
 import { supabase } from '@/lib/supabase';
 import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib } from '@/lib/transactions';
+import { SyncToast } from '@/components/ui/SyncToast';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 export type SyncStatus = 'synced' | 'syncing' | 'pending' | 'offline';
@@ -40,6 +41,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [lastLoadTime, setLastLoadTime] = useState<number>(0);
+  const [showSyncToast, setShowSyncToast] = useState(false);
+  const [lastSyncedCount, setLastSyncedCount] = useState(0);
 
   // Monitor connectivity
   useEffect(() => {
@@ -114,10 +117,18 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user && isOnline) {
+          const currentPending = transactions.filter(t => t.sync_status === 'pending').length;
+          
           setIsSyncing(true);
           try {
             await SyncEngine.executeFullSync(session.user.id);
             await loadLocalData(true);
+            
+            // Show toast if we synced items
+            if (currentPending > 0) {
+              setLastSyncedCount(currentPending);
+              setShowSyncToast(true);
+            }
           } catch (syncError) {
             console.log('[TransactionsContext] Background sync failed, will retry later');
           } finally {
@@ -189,6 +200,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       }}
     >
       {children}
+      <SyncToast
+        visible={showSyncToast}
+        message={`✓ ${lastSyncedCount} ${lastSyncedCount === 1 ? 'item' : 'items'} synced to cloud`}
+        onHide={() => setShowSyncToast(false)}
+      />
     </TransactionsContext.Provider>
   );
 }
