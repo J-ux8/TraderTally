@@ -22,11 +22,10 @@ async function getUserId(): Promise<string> {
 export async function getUserCategories(): Promise<Category[]> {
     try {
         const userId = await getUserId();
-        console.log('[Categories] Loading categories for user:', userId);
         const categories = await categoryRepo.findAll(userId);
-        console.log('[Categories] Found', categories.length, 'categories');
+        // Only log if we have categories or if it's the first load
         if (categories.length > 0) {
-            console.log('[Categories] Sample:', categories[0].name);
+            console.log('[Categories] Loaded', categories.length, 'categories');
         }
         return categories;
     } catch (error) {

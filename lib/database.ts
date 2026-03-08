@@ -6,7 +6,7 @@ let db: SQLite.SQLiteDatabase | null = null;
 
 export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   if (db) {
-    console.log('[Database] Returning existing database connection');
+    // Connection already exists, reusing it (this is good!)
     return db;
   }
   console.log('[Database] Opening database: mobibooks.db');
