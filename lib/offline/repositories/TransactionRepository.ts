@@ -45,22 +45,28 @@ export class TransactionRepository extends BaseRepository<Partial<Transaction>> 
         description: string | null;
         transaction_date?: string;
     }): Promise<string> {
-        const db = await getDatabase();
-        const id = this.generateId();
         const now = this.currentTimestamp;
         const dateStr = data.transaction_date || now.split('T')[0];
 
-        await withTransaction(db, async () => {
+        return this.save(userId, {
+            amount: data.amount,
+            category: data.category,
+            description: data.description,
+            transaction_date: dateStr
+        } as Partial<Transaction>, async (dbObj) => {
+            const db = await getDatabase();
             await db.runAsync(
                 `INSERT INTO ${this.tableName} (
                     id, user_id, amount, category, description, transaction_date, 
                     created_at, updated_at, is_deleted, sync_status, sync_version
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'pending', 1)`,
-                [id, userId, data.amount, data.category, data.description, dateStr, now, now]
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                [
+                    dbObj.id, dbObj.user_id, dbObj.amount, dbObj.category, 
+                    dbObj.description, dbObj.transaction_date, dbObj.created_at, 
+                    dbObj.updated_at, dbObj.is_deleted, dbObj.sync_status
+                ]
             );
         });
-
-        return id;
     }
 
     async update(userId: string, transactionId: string, data: {
@@ -69,16 +75,34 @@ export class TransactionRepository extends BaseRepository<Partial<Transaction>> 
         description: string | null;
         transaction_date: string;
     }): Promise<void> {
-        const db = await getDatabase();
-        const now = this.currentTimestamp;
+        await this.save(userId, {
+            id: transactionId,
+            amount: data.amount,
+            category: data.category,
+            description: data.description,
+            transaction_date: data.transaction_date
+        } as Partial<Transaction>, async (dbObj) => {
+            const db = await getDatabase();
+            // For updates, we need to preserve created_at and increment sync_version
+            const existing = await db.getFirstAsync<{ created_at: string, sync_version: number }>(
+                `SELECT created_at, sync_version FROM ${this.tableName} WHERE id = ? AND user_id = ?`,
+                [transactionId, userId]
+            );
 
-        await withTransaction(db, async () => {
+            if (!existing) {
+                throw new Error(`Transaction ${transactionId} not found`);
+            }
+
             await db.runAsync(
                 `UPDATE ${this.tableName} SET 
                     amount = ?, category = ?, description = ?, transaction_date = ?, 
-                    updated_at = ?, sync_status = 'pending', sync_version = sync_version + 1
+                    updated_at = ?, sync_status = ?, sync_version = ?
                 WHERE id = ? AND user_id = ?`,
-                [data.amount, data.category, data.description, data.transaction_date, now, transactionId, userId]
+                [
+                    dbObj.amount, dbObj.category, dbObj.description, dbObj.transaction_date,
+                    dbObj.updated_at, dbObj.sync_status, existing.sync_version + 1,
+                    transactionId, userId
+                ]
             );
         });
     }

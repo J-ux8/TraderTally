@@ -16,6 +16,7 @@ export const SCHEMA = {
     );
     CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
     CREATE INDEX IF NOT EXISTS idx_transactions_sync_status ON transactions(sync_status) WHERE sync_status = 'pending';
+    CREATE INDEX IF NOT EXISTS idx_transactions_updated_at ON transactions(updated_at);
   `,
     categories: `
     CREATE TABLE IF NOT EXISTS categories (
@@ -32,6 +33,7 @@ export const SCHEMA = {
     );
     CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
     CREATE INDEX IF NOT EXISTS idx_categories_sync_status ON categories(sync_status) WHERE sync_status = 'pending';
+    CREATE INDEX IF NOT EXISTS idx_categories_updated_at ON categories(updated_at);
   `,
     debts: `
     CREATE TABLE IF NOT EXISTS debts (
@@ -51,12 +53,14 @@ export const SCHEMA = {
     );
     CREATE INDEX IF NOT EXISTS idx_debts_user_id ON debts(user_id);
     CREATE INDEX IF NOT EXISTS idx_debts_sync_status ON debts(sync_status) WHERE sync_status = 'pending';
+    CREATE INDEX IF NOT EXISTS idx_debts_updated_at ON debts(updated_at);
   `,
     sync_metadata: `
     CREATE TABLE IF NOT EXISTS sync_metadata (
       user_id TEXT PRIMARY KEY NOT NULL,
       last_sync_time TEXT,
-      last_push_time TEXT
+      last_push_time TEXT,
+      device_id TEXT NOT NULL
     );
   `,
     sync_logs: `

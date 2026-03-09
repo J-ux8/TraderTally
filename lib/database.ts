@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { SCHEMA } from '../database/schema';
 import { migrateDatabase } from '../database/migrations';
+import { validateSyncSchema } from '../database/schema-validator';
 
 let db: SQLite.SQLiteDatabase | null = null;
 
@@ -15,6 +16,8 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   await migrateDatabase(db);
   console.log('[Database] Setting up tables...');
   await setupDatabase(db);
+  console.log('[Database] Validating schema...');
+  await validateSyncSchema(db);
   console.log('[Database] Database ready');
   return db;
 }

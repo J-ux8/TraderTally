@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-const CURRENT_SCHEMA_VERSION = 4;
+const CURRENT_SCHEMA_VERSION = 5;
 
 /**
  * SAFE migration that NEVER drops tables with user data.
@@ -56,6 +56,13 @@ export async function migrateDatabase(database: SQLite.SQLiteDatabase) {
         // Add missing columns to sync_metadata
         await addColumnIfMissing(database, 'sync_metadata', 'last_sync_time', 'TEXT');
         await addColumnIfMissing(database, 'sync_metadata', 'last_push_time', 'TEXT');
+        await addColumnIfMissing(database, 'sync_metadata', 'device_id', 'TEXT');
+
+        // Add performance indexes for updated_at columns
+        console.log('[Migration] Adding performance indexes...');
+        await createIndexIfMissing(database, 'idx_transactions_updated_at', 'transactions', 'updated_at');
+        await createIndexIfMissing(database, 'idx_categories_updated_at', 'categories', 'updated_at');
+        await createIndexIfMissing(database, 'idx_debts_updated_at', 'debts', 'updated_at');
 
         // Update version
         await database.runAsync(
@@ -82,5 +89,15 @@ async function addColumnIfMissing(database: SQLite.SQLiteDatabase, table: string
     if (!exists) {
         console.log(`[Migration] Adding column ${column} to ${table}`);
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
+}
+
+async function createIndexIfMissing(database: SQLite.SQLiteDatabase, indexName: string, table: string, column: string) {
+    const indexExists = await database.getAllAsync(
+        `SELECT name FROM sqlite_master WHERE type='index' AND name=?`, [indexName]
+    );
+    if (indexExists.length === 0) {
+        console.log(`[Migration] Creating index ${indexName} on ${table}(${column})`);
+        await database.execAsync(`CREATE INDEX IF NOT EXISTS ${indexName} ON ${table}(${column})`);
     }
 }

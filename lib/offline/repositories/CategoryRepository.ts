@@ -44,19 +44,20 @@ export class CategoryRepository extends BaseRepository<Partial<Category>> {
         const existing = await this.findByNormalizedName(userId, normalizedName);
         if (existing) return existing;
 
-        const db = await getDatabase();
-        const id = this.generateId();
-        const now = this.currentTimestamp;
-
-        await withTransaction(db, async () => {
+        const id = await this.save(userId, {
+            name: trimmedName,
+            normalized_name: normalizedName
+        } as Partial<Category>, async (dbObj) => {
+            const db = await getDatabase();
             await db.runAsync(
                 `INSERT INTO ${this.tableName} (
                     id, user_id, name, normalized_name, created_at, updated_at, is_deleted, sync_status, sync_version
-                ) VALUES (?, ?, ?, ?, ?, ?, 0, 'pending', 1)`,
-                [id, userId, trimmedName, normalizedName, now, now]
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+                [dbObj.id, dbObj.user_id, dbObj.name, dbObj.normalized_name, dbObj.created_at, dbObj.updated_at, dbObj.is_deleted, dbObj.sync_status]
             );
         });
 
+        const now = this.currentTimestamp;
         return {
             id,
             user_id: userId,
@@ -69,6 +70,47 @@ export class CategoryRepository extends BaseRepository<Partial<Category>> {
             sync_version: 1
         };
     }
+
+    async updateCategory(userId: string, categoryId: string, name: string): Promise<void> {
+        const trimmedName = name.trim();
+        const normalizedName = trimmedName.toLowerCase();
+
+        // Check if another category with the same normalized name exists
+        const existing = await this.findByNormalizedName(userId, normalizedName);
+        if (existing && existing.id !== categoryId) {
+            throw new Error('A category with this name already exists');
+        }
+
+        await this.save(userId, {
+            id: categoryId,
+            name: trimmedName,
+            normalized_name: normalizedName
+        } as Partial<Category>, async (dbObj) => {
+            const db = await getDatabase();
+            // For updates, we need to preserve created_at and increment sync_version
+            const existingRecord = await db.getFirstAsync<{ created_at: string, sync_version: number }>(
+                `SELECT created_at, sync_version FROM ${this.tableName} WHERE id = ? AND user_id = ?`,
+                [categoryId, userId]
+            );
+
+            if (!existingRecord) {
+                throw new Error(`Category ${categoryId} not found`);
+            }
+
+            await db.runAsync(
+                `UPDATE ${this.tableName} SET 
+                    name = ?, normalized_name = ?, 
+                    updated_at = ?, sync_status = ?, sync_version = ?
+                WHERE id = ? AND user_id = ?`,
+                [
+                    dbObj.name, dbObj.normalized_name,
+                    dbObj.updated_at, dbObj.sync_status, existingRecord.sync_version + 1,
+                    categoryId, userId
+                ]
+            );
+        });
+    }
+
 
     protected async validateBeforeDelete(id: string): Promise<void> {
         const db = await getDatabase();

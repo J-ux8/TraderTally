@@ -57,5 +57,45 @@ export abstract class BaseRepository<T extends { id?: string }> {
         });
     }
 
+    /**
+     * Get records pending synchronization
+     * Returns records with sync_status = 'pending' or 'failed', ordered by updated_at (oldest first)
+     * Excludes soft-deleted records
+     */
+    async getPendingSync(userId: string): Promise<T[]> {
+        const db = await getDatabase();
+        const rows = await db.getAllAsync<T>(
+            `SELECT * FROM ${this.tableName}
+             WHERE user_id = ?
+             AND (sync_status = 'pending' OR sync_status = 'failed')
+             AND is_deleted = 0
+             ORDER BY updated_at ASC`,
+            [userId]
+        );
+        return rows;
+    }
+
+
     protected async validateBeforeDelete(id: string): Promise<void> { };
+
+
+    /**
+     * Update sync status for a given record ID
+     * Used by SyncQueue for status transitions
+     * Requirements: 8.2, 8.3, 8.4, 8.5
+     */
+    async updateSyncStatus(
+        id: string,
+        userId: string,
+        status: 'pending' | 'syncing' | 'synced' | 'failed' | 'offline'
+    ): Promise<void> {
+        const db = await getDatabase();
+        await db.runAsync(
+            `UPDATE ${this.tableName}
+             SET sync_status = ?
+             WHERE id = ? AND user_id = ?`,
+            [status, id, userId]
+        );
+    }
+
 }

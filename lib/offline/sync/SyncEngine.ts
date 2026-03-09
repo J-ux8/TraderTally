@@ -1,86 +1,189 @@
 import { supabase } from '@/lib/supabase';
 import { getDatabase } from '@/lib/database';
 import { ConflictResolver } from './ConflictResolver';
-import NetInfo from '@react-native-community/netinfo';
+import { SyncQueue } from './SyncQueue';
+import { SyncLock } from './SyncLock';
+import { SyncLogger, SyncResult } from './SyncLogger';
+import { networkMonitor } from './NetworkMonitor';
 import { notifyRLSIssueOnce } from '@/lib/rls-notification';
 
 export class SyncEngine {
-    private static isSyncing = false;
-    private static BATCH_SIZE = 100;
+    private userId: string;
+    private static readonly SYNC_TABLES = ['categories', 'transactions', 'debts'];
+
+    constructor(userId: string) {
+        this.userId = userId;
+    }
 
     /**
-     * Executes the strict deterministic offline-first sync process.
+     * Main sync orchestration method
+     * Implements Task 3.1: sync() orchestration with mutex lock, upload/download phases, and error handling
+     * Requirements: 1.2, 9.5, 17.1
      */
-    static async executeFullSync(userId: string) {
-        if (this.isSyncing) return;
-        
-        // Check network connectivity first
-        try {
-            const netState = await NetInfo.fetch();
-            if (!netState.isConnected) {
-                console.log('[SyncEngine] Offline - skipping sync');
-                return;
-            }
-        } catch (error) {
-            console.log('[SyncEngine] Could not check network status, skipping sync');
-            return;
+    async sync(): Promise<SyncResult> {
+        const startTime = Date.now();
+        let logId: string | null = null;
+
+        // Requirement 9.5: Acquire mutex lock at start (fail fast if locked)
+        const lockAcquired = await SyncLock.acquire();
+        if (!lockAcquired) {
+            console.log('[SyncEngine] Sync already in progress, skipping');
+            return {
+                success: false,
+                uploadedCount: 0,
+                downloadedCount: 0,
+                conflictsResolved: 0,
+                errors: [{ recordId: 'sync', error: 'Sync already in progress' }],
+                duration: Date.now() - startTime,
+            };
         }
-        
-        this.isSyncing = true;
-        console.log('[SyncEngine] Starting full sync for user:', userId);
 
         try {
-            // Priority 1: Push local changes to establish user intent in the cloud
-            await this.pushTable(userId, 'categories');
-            await this.pushTable(userId, 'transactions');
-            await this.pushTable(userId, 'debts');
+            // Check network connectivity before attempting sync
+            const isOnline = await networkMonitor.isOnline();
+            if (!isOnline) {
+                console.log('[SyncEngine] Offline - skipping sync');
+                // Requirement 3.1: Mark pending records as 'offline' when no connectivity
+                await SyncQueue.markAsOffline(this.userId);
+                return {
+                    success: false,
+                    uploadedCount: 0,
+                    downloadedCount: 0,
+                    conflictsResolved: 0,
+                    errors: [{ recordId: 'sync', error: 'Device is offline' }],
+                    duration: Date.now() - startTime,
+                };
+            }
 
-            // Priority 2: Pull cloud changes to sync with other devices
-            await this.pullPhase(userId, 'categories');
-            await this.pullPhase(userId, 'transactions');
-            await this.pullPhase(userId, 'debts');
+            // Requirement 12.2: Log sync operation start
+            logId = await SyncLogger.logSyncStart();
+            console.log('[SyncEngine] Starting sync for user:', this.userId);
 
-            // Update metadata after successful full pass
+            let totalUploaded = 0;
+            let totalDownloaded = 0;
+            let totalConflicts = 0;
+            const allErrors: Array<{ recordId: string; error: string }> = [];
+
+            // Requirement 1.2: Upload phase - push local changes to cloud
+            console.log('[SyncEngine] Starting upload phase');
+            for (const tableName of SyncEngine.SYNC_TABLES) {
+                const uploadResult = await this.uploadPendingRecords(tableName);
+                totalUploaded += uploadResult.uploadedCount;
+                allErrors.push(...uploadResult.errors);
+            }
+
+            // Download phase - pull cloud changes and merge
+            console.log('[SyncEngine] Starting download phase');
+            for (const tableName of SyncEngine.SYNC_TABLES) {
+                const downloadResult = await this.downloadServerUpdates(tableName);
+                totalDownloaded += downloadResult.downloadedCount;
+                totalConflicts += downloadResult.conflictsResolved;
+            }
+
+            // Update sync_metadata.last_sync_time after successful completion
             const db = await getDatabase();
             const now = new Date().toISOString();
             await db.runAsync(
-                `INSERT INTO sync_metadata (user_id, last_sync_time) VALUES (?, ?)
-                 ON CONFLICT(user_id) DO UPDATE SET last_sync_time = EXCLUDED.last_sync_time`,
-                [userId, now]
+                `INSERT INTO sync_metadata (user_id, last_sync_time, last_push_time, device_id) 
+                 VALUES (?, ?, ?, COALESCE((SELECT device_id FROM sync_metadata WHERE user_id = ?), 'unknown'))
+                 ON CONFLICT(user_id) DO UPDATE SET 
+                   last_sync_time = EXCLUDED.last_sync_time,
+                   last_push_time = EXCLUDED.last_push_time`,
+                [this.userId, now, now, this.userId]
             );
 
-            console.log('[SyncEngine] Sync completed successfully.');
+            const result: SyncResult = {
+                success: allErrors.length === 0,
+                uploadedCount: totalUploaded,
+                downloadedCount: totalDownloaded,
+                conflictsResolved: totalConflicts,
+                errors: allErrors,
+                duration: Date.now() - startTime,
+            };
+
+            // Requirement 12.3: Log sync completion
+            if (logId) {
+                await SyncLogger.logSyncComplete(logId, result);
+            }
+
+            console.log('[SyncEngine] Sync completed:', {
+                uploaded: totalUploaded,
+                downloaded: totalDownloaded,
+                conflicts: totalConflicts,
+                errors: allErrors.length,
+                duration: result.duration,
+            });
+
+            return result;
         } catch (error) {
-            console.error('[SyncEngine] Critical sync failure:', error);
-            // Don't throw - let the error be logged but don't propagate to UI
+            // Requirement 12.4: Log sync error
+            console.error('[SyncEngine] Sync failed:', error);
+            if (logId) {
+                await SyncLogger.logSyncError(logId, error as Error);
+            }
+
+            return {
+                success: false,
+                uploadedCount: 0,
+                downloadedCount: 0,
+                conflictsResolved: 0,
+                errors: [{ recordId: 'sync', error: (error as Error).message }],
+                duration: Date.now() - startTime,
+            };
         } finally {
-            this.isSyncing = false;
+            // Requirement 9.5: Release mutex lock in finally block
+            await SyncLock.release();
         }
     }
 
-    private static async pullPhase(userId: string, tableName: string) {
+    /**
+     * Legacy method for backward compatibility
+     * @deprecated Use sync() instead
+     */
+    static async executeFullSync(userId: string) {
+        const engine = new SyncEngine(userId);
+        await engine.sync();
+    }
+
+    /**
+     * Download and merge server updates for a specific table
+     * Implements Task 3.3: downloadServerUpdates() with incremental sync
+     * Requirements: 4.2, 4.3, 4.5, 6.5
+     */
+    private async downloadServerUpdates(tableName: string): Promise<{
+        downloadedCount: number;
+        conflictsResolved: number;
+    }> {
         try {
             const db = await getDatabase();
             const metadata = await db.getFirstAsync(
                 'SELECT last_sync_time FROM sync_metadata WHERE user_id = ?',
-                [userId]
+                [this.userId]
             ) as { last_sync_time: string } | null;
 
-            let query = supabase.from(tableName).select('*').eq('user_id', userId);
+            let query = supabase.from(tableName).select('*').eq('user_id', this.userId);
 
             // INCREMENTAL SYNC: Only pull what changed since last time
             if (metadata?.last_sync_time) {
                 query = query.gt('updated_at', metadata.last_sync_time);
             }
 
+            // Requirement 6.5: Fetch in batches of 50 records
+            query = query.order('updated_at', { ascending: true }).limit(50);
+
             const { data: serverRecords, error } = await query;
 
             if (error) {
-                console.error(`[SyncEngine] Pull failed for ${tableName}:`, error);
-                return;
+                console.error(`[SyncEngine] Download failed for ${tableName}:`, error);
+                return { downloadedCount: 0, conflictsResolved: 0 };
             }
 
-            if (!serverRecords || serverRecords.length === 0) return;
+            if (!serverRecords || serverRecords.length === 0) {
+                return { downloadedCount: 0, conflictsResolved: 0 };
+            }
+
+            let downloadedCount = 0;
+            let conflictsResolved = 0;
 
             for (const serverItem of serverRecords) {
                 const localItem = await db.getFirstAsync(
@@ -89,21 +192,48 @@ export class SyncEngine {
                 ) as any;
 
                 if (!localItem) {
-                    // New item from server
+                    // Requirement 4.2: New record from server - insert with sync_status = 'synced'
                     await this.applyServerRecord(db, tableName, serverItem);
+                    downloadedCount++;
                     continue;
                 }
 
-                // Conflict detected: Resolve using ConflictResolver
-                const decision = ConflictResolver.resolveUpdateConflict(localItem, serverItem);
-
-                if (decision === 'ACCEPT_SERVER') {
+                // Check if local record has pending changes
+                if (localItem.sync_status === 'synced') {
+                    // No conflict - server update for synced record
                     await this.applyServerRecord(db, tableName, serverItem);
+                    downloadedCount++;
+                } else {
+                    // Requirement 4.3, 4.5: Conflict detected - resolve using ConflictResolver
+                    const decision = ConflictResolver.resolveUpdateConflict(localItem, serverItem);
+
+                    if (decision === 'ACCEPT_SERVER') {
+                        await this.applyServerRecord(db, tableName, serverItem);
+                        conflictsResolved++;
+                        
+                        // Requirement 12.5: Log conflict resolution with both versions for debugging
+                        await SyncLogger.logConflict(serverItem.id, {
+                            winner: 'server',
+                            record: serverItem,
+                            reason: 'Server version is newer',
+                        }, localItem, serverItem);
+                    } else {
+                        conflictsResolved++;
+                        
+                        // Log that local version won with both versions for debugging
+                        await SyncLogger.logConflict(localItem.id, {
+                            winner: 'local',
+                            record: localItem,
+                            reason: 'Local version is newer',
+                        }, localItem, serverItem);
+                    }
                 }
             }
+
+            return { downloadedCount, conflictsResolved };
         } catch (networkError) {
-            console.log('[SyncEngine] Network error during pull phase:', networkError);
-            return;
+            console.log('[SyncEngine] Network error during download phase:', networkError);
+            return { downloadedCount: 0, conflictsResolved: 0 };
         }
     }
 
@@ -113,32 +243,46 @@ export class SyncEngine {
         debts: ['id', 'user_id', 'customer_name', 'amount', 'due_date', 'note', 'is_settled', 'created_at', 'updated_at', 'is_deleted']
     };
 
-    private static async pushTable(userId: string, tableName: string) {
+    /**
+     * Upload pending records for a specific table
+     * Implements Task 3.2: uploadPendingRecords() with batching
+     * Requirements: 2.1, 2.2, 2.3, 6.1, 6.2, 6.3, 8.3, 8.4
+     */
+    private async uploadPendingRecords(tableName: string): Promise<{
+        uploadedCount: number;
+        errors: Array<{ recordId: string; error: string }>;
+    }> {
         try {
-            const db = await getDatabase();
-            let offset = 0;
+            const allowedColumns = SyncEngine.TABLE_COLUMNS[tableName];
+            let totalUploaded = 0;
+            const allErrors: Array<{ recordId: string; error: string }> = [];
             let hasMore = true;
-            const allowedColumns = this.TABLE_COLUMNS[tableName];
 
             while (hasMore) {
-                const records = await db.getAllAsync(
-                    `SELECT * FROM ${tableName} WHERE sync_status = 'pending' AND user_id = ? LIMIT ? OFFSET ?`,
-                    [userId, this.BATCH_SIZE, offset]
-                );
+                // Requirement 6.1: Use SyncQueue to get next batch of pending records (max 50)
+                const batch = await SyncQueue.getNextBatch(tableName, this.userId);
 
-                if (records.length === 0) {
+                if (batch.length === 0) {
                     hasMore = false;
                     break;
                 }
 
-                const payload = records.map((r: any) => {
+                // Requirement 8.3: Mark records as syncing before upload
+                const recordIds = batch.map(r => r.id);
+                await SyncQueue.markAsSyncing(tableName, recordIds);
+
+                // Prepare payload with only allowed columns
+                const payload = batch.map(record => {
                     const cleanRecord: any = {};
                     allowedColumns.forEach(col => {
-                        if (r[col] !== undefined) cleanRecord[col] = r[col];
+                        if (record.data[col] !== undefined) {
+                            cleanRecord[col] = record.data[col];
+                        }
                     });
                     return cleanRecord;
                 });
 
+                // Requirement 2.1, 2.2: Perform batch upsert to Supabase with onConflict: 'id'
                 const { error } = await supabase.from(tableName).upsert(payload, {
                     onConflict: 'id',
                 });
@@ -149,37 +293,90 @@ export class SyncEngine {
                         console.log(`[SyncEngine] RLS policy error on ${tableName} - data saved locally, will retry when policies are fixed`);
                         // Notify user once about the setup requirement
                         notifyRLSIssueOnce();
-                        // Don't throw - data is already saved locally
-                        // User needs to run the RLS migration in Supabase
-                        return;
+                        // Requirement 8.4: Mark records as failed for retry
+                        await SyncQueue.markAsFailed(tableName, recordIds, 'RLS policy error');
+                        
+                        recordIds.forEach(id => {
+                            allErrors.push({ recordId: id, error: 'RLS policy error' });
+                        });
+                        return { uploadedCount: totalUploaded, errors: allErrors };
                     }
                     
-                    console.error(`[SyncEngine] Push failed on ${tableName}. Supabase Error Details:`, {
+                    console.error(`[SyncEngine] Upload failed on ${tableName}. Supabase Error Details:`, {
                         message: error.message,
                         details: error.details,
                         hint: error.hint,
                         code: error.code
                     });
                     
-                    // For other errors, log but don't throw - data is saved locally
-                    console.log(`[SyncEngine] ${tableName} sync failed but data is safe locally`);
-                    return;
+                    // Requirement 6.3: On batch failure, retry individual records
+                    const retryResult = await this.retryIndividualRecords(batch, tableName, allowedColumns);
+                    totalUploaded += retryResult.uploadedCount;
+                    allErrors.push(...retryResult.errors);
+                    continue;
                 }
 
-                const ids = records.map((r: any) => r.id);
-                const placeholders = ids.map(() => '?').join(',');
-                await db.runAsync(`UPDATE ${tableName} SET sync_status = 'synced' WHERE id IN (${placeholders})`, ids);
-
-                offset += this.BATCH_SIZE;
+                // Requirement 8.4: Mark records as synced on success
+                await SyncQueue.markAsSynced(tableName, recordIds);
+                totalUploaded += batch.length;
             }
-        } catch (networkError) {
-            console.log('[SyncEngine] Network error during push phase:', networkError);
-            return;
+
+            return { uploadedCount: totalUploaded, errors: allErrors };
+        } catch (networkError: any) {
+            console.log('[SyncEngine] Network error during upload phase:', networkError);
+            return { uploadedCount: 0, errors: [{ recordId: tableName, error: networkError.message }] };
         }
     }
 
-    private static async applyServerRecord(db: any, tableName: string, record: any) {
-        const allowedColumns = this.TABLE_COLUMNS[tableName];
+    /**
+     * Retry individual records when batch upload fails
+     * Requirement 6.3: Retry individual records on batch failure
+     */
+    private async retryIndividualRecords(
+        batch: Array<{ id: string; data: any }>,
+        tableName: string,
+        allowedColumns: string[]
+    ): Promise<{
+        uploadedCount: number;
+        errors: Array<{ recordId: string; error: string }>;
+    }> {
+        let uploadedCount = 0;
+        const errors: Array<{ recordId: string; error: string }> = [];
+
+        for (const record of batch) {
+            try {
+                const cleanRecord: any = {};
+                allowedColumns.forEach(col => {
+                    if (record.data[col] !== undefined) {
+                        cleanRecord[col] = record.data[col];
+                    }
+                });
+
+                const { error } = await supabase.from(tableName).upsert(cleanRecord, {
+                    onConflict: 'id',
+                });
+
+                if (error) throw error;
+
+                // Success - mark as synced
+                await SyncQueue.markAsSynced(tableName, [record.id]);
+                uploadedCount++;
+            } catch (error: any) {
+                // Failure - mark as failed and increment retry_count
+                await SyncQueue.markAsFailed(tableName, [record.id], error.message);
+                errors.push({ recordId: record.id, error: error.message });
+            }
+        }
+
+        return { uploadedCount, errors };
+    }
+
+    /**
+     * Apply server record to local database
+     * Inserts new record or updates existing record with sync_status = 'synced'
+     */
+    private async applyServerRecord(db: any, tableName: string, record: any): Promise<void> {
+        const allowedColumns = SyncEngine.TABLE_COLUMNS[tableName];
         if (!allowedColumns) return;
 
         const validData: any = {};
@@ -202,5 +399,21 @@ export class SyncEngine {
             VALUES (${placeholders}, 'synced')
             ON CONFLICT(id) DO UPDATE SET ${setClause}, sync_status = 'synced'
         `, [...values, ...values]);
+    }
+
+    /**
+     * Check if sync is currently running
+     * @returns True if sync is in progress
+     */
+    isSyncing(): boolean {
+        return SyncLock.isLocked();
+    }
+
+    /**
+     * Get current sync status
+     * @returns Sync status: 'idle', 'syncing', or 'error'
+     */
+    getStatus(): 'idle' | 'syncing' | 'error' {
+        return SyncLock.isLocked() ? 'syncing' : 'idle';
     }
 }
