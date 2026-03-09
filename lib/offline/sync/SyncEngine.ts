@@ -39,6 +39,11 @@ export class SyncEngine {
         }
 
         try {
+            // Initialize device_id in sync_metadata if not exists
+            const db = await getDatabase();
+            const { getOrCreateDeviceId } = await import('@/database/device-id');
+            await getOrCreateDeviceId(db, this.userId);
+
             // Check network connectivity before attempting sync
             const isOnline = await networkMonitor.isOnline();
             if (!isOnline) {
@@ -81,7 +86,6 @@ export class SyncEngine {
             }
 
             // Update sync_metadata.last_sync_time after successful completion
-            const db = await getDatabase();
             const now = new Date().toISOString();
             await db.runAsync(
                 `INSERT INTO sync_metadata (user_id, last_sync_time, last_push_time, device_id) 
