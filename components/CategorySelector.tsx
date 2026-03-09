@@ -30,10 +30,17 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
 
     const loadCategories = async () => {
         try {
+            console.log('[CategorySelector] Loading categories...');
             const cats = await getUserCategories();
+            console.log('[CategorySelector] Loaded categories:', cats.length, 'items');
+            if (cats.length > 0) {
+                console.log('[CategorySelector] First 3 categories:', cats.slice(0, 3).map(c => c.name));
+            } else {
+                console.log('[CategorySelector] No categories found - showing empty list');
+            }
             setCategories(cats);
         } catch (e) {
-            console.error(e);
+            console.error('[CategorySelector] Error loading categories:', e);
         }
     };
 

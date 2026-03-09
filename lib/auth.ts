@@ -49,15 +49,23 @@ export async function signIn(email: string, password: string) {
       const { SyncEngine } = await import('./offline/sync/SyncEngine');
       const syncEngine = new SyncEngine(data.user.id);
       const result = await syncEngine.sync();
-      console.log('[Auth] Initial sync completed:', result);
+      console.log('[Auth] Initial sync completed:', JSON.stringify(result, null, 2));
       
       if (result.success) {
-        console.log(`[Auth] Downloaded ${result.downloadedCount} items from server`);
+        console.log(`[Auth] ✅ Sync successful - Downloaded ${result.downloadedCount} items, Uploaded ${result.uploadedCount} items`);
       } else {
-        console.log('[Auth] Sync had errors but local data is available');
+        console.log(`[Auth] ⚠️ Sync had ${result.errors.length} errors:`, result.errors);
+      }
+      
+      // Verify categories were downloaded
+      const { getUserCategories } = await import('./categories');
+      const categories = await getUserCategories();
+      console.log(`[Auth] Categories in local database after sync: ${categories.length} items`);
+      if (categories.length > 0) {
+        console.log('[Auth] First 3 categories:', categories.slice(0, 3).map(c => c.name));
       }
     } catch (syncError) {
-      console.log('[Auth] Initial sync failed (non-blocking):', syncError);
+      console.error('[Auth] ❌ Initial sync failed:', syncError);
     }
   }
 
