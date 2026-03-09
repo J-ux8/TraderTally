@@ -125,6 +125,15 @@ async function addColumnIfMissing(database: SQLite.SQLiteDatabase, table: string
 
 async function createIndexIfMissing(database: SQLite.SQLiteDatabase, indexName: string, table: string, column: string) {
     try {
+        // Check if table exists first
+        const tableExists = await database.getAllAsync(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [table]
+        );
+        if (tableExists.length === 0) {
+            console.log(`[Migration] Table ${table} doesn't exist yet, skipping index ${indexName}`);
+            return; // Table doesn't exist yet, setupDatabase will create it
+        }
+
         const indexExists = await database.getAllAsync(
             `SELECT name FROM sqlite_master WHERE type='index' AND name=?`, [indexName]
         );
