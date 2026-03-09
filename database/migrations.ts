@@ -69,7 +69,7 @@ export async function migrateDatabase(database: SQLite.SQLiteDatabase) {
             console.log('[Migration] Recreating sync_logs table with correct schema...');
             await database.execAsync('DROP TABLE IF EXISTS sync_logs');
             // Table will be recreated by setupDatabase
-        } else {
+        } else if (syncLogsInfo.length > 0) {
             // Add columns if table exists and has operation column
             await addColumnIfMissing(database, 'sync_logs', 'operation', 'TEXT NOT NULL DEFAULT ""');
             await addColumnIfMissing(database, 'sync_logs', 'status', 'TEXT NOT NULL DEFAULT ""');
@@ -90,32 +90,50 @@ export async function migrateDatabase(database: SQLite.SQLiteDatabase) {
         );
 
         console.log(`[Migration] Upgrade to version ${CURRENT_SCHEMA_VERSION} complete.`);
-    } catch (error) {
+    } catch (error: any) {
         console.error("[Migration] Failed:", error);
+        console.error("[Migration] Error details:", {
+            message: error?.message,
+            code: error?.code,
+            cause: error?.cause
+        });
         throw error;
     }
 }
 
 async function addColumnIfMissing(database: SQLite.SQLiteDatabase, table: string, column: string, type: string) {
-    const tableExists = await database.getAllAsync(
-        `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [table]
-    );
-    if (tableExists.length === 0) return; // Table doesn't exist yet, setupDatabase will create it
+    try {
+        const tableExists = await database.getAllAsync(
+            `SELECT name FROM sqlite_master WHERE type='table' AND name=?`, [table]
+        );
+        if (tableExists.length === 0) {
+            console.log(`[Migration] Table ${table} doesn't exist yet, skipping column ${column}`);
+            return; // Table doesn't exist yet, setupDatabase will create it
+        }
 
-    const info = await database.getAllAsync(`PRAGMA table_info(${table})`) as any[];
-    const exists = info.some(col => col.name === column);
-    if (!exists) {
-        console.log(`[Migration] Adding column ${column} to ${table}`);
-        await database.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        const info = await database.getAllAsync(`PRAGMA table_info(${table})`) as any[];
+        const exists = info.some(col => col.name === column);
+        if (!exists) {
+            console.log(`[Migration] Adding column ${column} to ${table}`);
+            await database.execAsync(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+        }
+    } catch (error: any) {
+        console.error(`[Migration] Error adding column ${column} to ${table}:`, error?.message);
+        // Don't throw - continue with other migrations
     }
 }
 
 async function createIndexIfMissing(database: SQLite.SQLiteDatabase, indexName: string, table: string, column: string) {
-    const indexExists = await database.getAllAsync(
-        `SELECT name FROM sqlite_master WHERE type='index' AND name=?`, [indexName]
-    );
-    if (indexExists.length === 0) {
-        console.log(`[Migration] Creating index ${indexName} on ${table}(${column})`);
-        await database.execAsync(`CREATE INDEX IF NOT EXISTS ${indexName} ON ${table}(${column})`);
+    try {
+        const indexExists = await database.getAllAsync(
+            `SELECT name FROM sqlite_master WHERE type='index' AND name=?`, [indexName]
+        );
+        if (indexExists.length === 0) {
+            console.log(`[Migration] Creating index ${indexName} on ${table}(${column})`);
+            await database.execAsync(`CREATE INDEX IF NOT EXISTS ${indexName} ON ${table}(${column})`);
+        }
+    } catch (error: any) {
+        console.error(`[Migration] Error creating index ${indexName}:`, error?.message);
+        // Don't throw - continue with other migrations
     }
 }
