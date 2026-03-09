@@ -42,12 +42,20 @@ export async function signIn(email: string, password: string) {
     }
 
     // Trigger initial sync to download data from server
+    // CRITICAL: Wait for sync to complete before returning
+    // This ensures categories and transactions are available immediately
     try {
+      console.log('[Auth] Starting initial sync after login (blocking)...');
       const { SyncEngine } = await import('./offline/sync/SyncEngine');
       const syncEngine = new SyncEngine(data.user.id);
-      console.log('[Auth] Triggering initial sync after login');
-      await syncEngine.sync();
-      console.log('[Auth] Initial sync completed');
+      const result = await syncEngine.sync();
+      console.log('[Auth] Initial sync completed:', result);
+      
+      if (result.success) {
+        console.log(`[Auth] Downloaded ${result.downloadedCount} items from server`);
+      } else {
+        console.log('[Auth] Sync had errors but local data is available');
+      }
     } catch (syncError) {
       console.log('[Auth] Initial sync failed (non-blocking):', syncError);
     }

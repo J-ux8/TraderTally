@@ -49,6 +49,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const syncEngineRef = useRef<SyncEngine | null>(null);
   const debouncedSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const backgroundSyncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastNetworkReconnectSyncRef = useRef<number>(0); // Track last network reconnect sync time
 
   // Monitor connectivity
   useEffect(() => {
@@ -136,19 +137,12 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   }, [triggerSync]);
 
   const refresh = useCallback(async () => {
-    // Check if data is fresh (less than 5 minutes old)
-    const now = Date.now();
-    const fiveMinutes = 5 * 60 * 1000;
-    if (now - lastLoadTime < fiveMinutes && transactions.length > 0) {
-      console.log('[TransactionsContext] Data is fresh, skipping refresh');
-      return;
-    }
-
     if (!isOnline) {
-      console.log('[TransactionsContext] Offline - skipping refresh');
-      await loadLocalData(true); // Still reload local data
+      console.log('[TransactionsContext] Offline - reloading local data only');
+      await loadLocalData(true);
       return;
     }
+    
     setRefreshing(true);
     setIsSyncing(true);
     try {
@@ -169,10 +163,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       setRefreshing(false);
       setIsSyncing(false);
     }
-  }, [loadLocalData, isOnline, lastLoadTime, transactions.length]);
+  }, [loadLocalData, isOnline]);
 
   useEffect(() => {
-    // Initialize SyncEngine
+    // Initialize SyncEngine and load data immediately
     const initSyncEngine = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -184,11 +178,9 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       }
     };
 
-    // Delay initial load slightly to allow session cache to be populated
-    const timer = setTimeout(() => {
-      loadLocalData();
-      initSyncEngine();
-    }, 100);
+    // Load data immediately - no delay
+    loadLocalData();
+    initSyncEngine();
 
     // Task 3.5: Network reconnection listener
     // Requirement 9.2: Trigger sync when network reconnects
@@ -196,8 +188,18 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       setIsOnline(online);
       
       if (online) {
-        console.log('[TransactionsContext] Network reconnected, triggering sync');
-        triggerSync('network_reconnect');
+        // Debounce network reconnect syncs to prevent spam
+        // Only trigger if it's been at least 30 seconds since last network reconnect sync
+        const now = Date.now();
+        const timeSinceLastSync = now - lastNetworkReconnectSyncRef.current;
+        
+        if (timeSinceLastSync >= 30000) { // 30 seconds
+          console.log('[TransactionsContext] Network reconnected, triggering sync');
+          lastNetworkReconnectSyncRef.current = now;
+          triggerSync('network_reconnect');
+        } else {
+          console.log(`[TransactionsContext] Network reconnected, but skipping sync (last sync was ${Math.round(timeSinceLastSync / 1000)}s ago)`);
+        }
       }
     });
 
@@ -219,7 +221,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }, 60000); // 60 second interval
 
     return () => {
-      clearTimeout(timer);
       unsubscribeNetwork();
       
       // Clear debounced sync timer
