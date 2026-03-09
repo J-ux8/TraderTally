@@ -33,11 +33,15 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
 
 export async function wipeDatabase() {
   try {
+    console.log('[Database] Starting database wipe...');
+    
     if (!db) {
+      console.log('[Database] Opening database for wipe');
       db = await SQLite.openDatabaseAsync('mobibooks.db');
     }
     
     // Drop all tables in a single transaction for safety
+    console.log('[Database] Dropping all tables...');
     await db.execAsync(`
       DROP TABLE IF EXISTS transactions;
       DROP TABLE IF EXISTS categories;
@@ -48,15 +52,24 @@ export async function wipeDatabase() {
       DROP TABLE IF EXISTS schema_version;
     `);
     
+    console.log('[Database] Tables dropped, recreating schema...');
+    
     // Recreate tables with fresh schema
     await migrateDatabase(db);
     await setupDatabase(db);
     
     console.log('[Database] Database wiped and recreated successfully');
-  } catch (error) {
+  } catch (error: any) {
     console.error('[Database] Error wiping database:', error);
+    console.error('[Database] Error details:', {
+      message: error?.message,
+      code: error?.code,
+      cause: error?.cause
+    });
+    
     // If wipe fails, close and reopen database to reset state
     try {
+      console.log('[Database] Attempting to reset database after error...');
       if (db) {
         await db.closeAsync();
         db = null;
@@ -66,9 +79,15 @@ export async function wipeDatabase() {
       await migrateDatabase(db);
       await setupDatabase(db);
       console.log('[Database] Database reset after error');
-    } catch (resetError) {
+    } catch (resetError: any) {
       console.error('[Database] Failed to reset database:', resetError);
-      throw resetError;
+      console.error('[Database] Reset error details:', {
+        message: resetError?.message,
+        code: resetError?.code,
+        cause: resetError?.cause
+      });
+      // Don't throw - allow logout to continue even if database wipe fails
+      console.log('[Database] Continuing despite database wipe failure');
     }
   }
 }
