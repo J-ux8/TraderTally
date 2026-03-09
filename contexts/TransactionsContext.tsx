@@ -62,22 +62,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   // Load from local SQLite
   const loadLocalData = useCallback(async (silent = false) => {
     try {
-      if (!silent) {
-        console.log('[TransactionsContext] Setting loading=true');
-        setLoading(true);
-      }
+      if (!silent) setLoading(true);
 
-      console.log('[TransactionsContext] Loading transactions from local database...');
       const txData = await getUserTransactions();
-      console.log(`[TransactionsContext] Loaded ${txData.length} transactions`);
       setTransactions(txData as Transaction[]);
       setLastLoadTime(Date.now());
     } catch (error) {
-      console.error('[TransactionsContext] Error loading local transactions:', error);
+      console.error('Error loading transactions:', error);
     } finally {
-      if (!silent) {
-        console.log('[TransactionsContext] Setting loading=false');
-      }
       setLoading(false);
     }
   }, []);
