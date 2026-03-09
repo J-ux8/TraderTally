@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_SCHEMA_VERSION = 7;
 
 /**
  * SAFE migration that NEVER drops tables with user data.
@@ -57,6 +57,24 @@ export async function migrateDatabase(database: SQLite.SQLiteDatabase) {
         await addColumnIfMissing(database, 'sync_metadata', 'last_sync_time', 'TEXT');
         await addColumnIfMissing(database, 'sync_metadata', 'last_push_time', 'TEXT');
         await addColumnIfMissing(database, 'sync_metadata', 'device_id', 'TEXT');
+
+        // Add missing columns to sync_logs (version 6)
+        // For sync_logs, we need to ensure all required columns exist
+        // Since this is a new feature, it's safe to recreate the table if needed
+        const syncLogsInfo = await database.getAllAsync(`PRAGMA table_info(sync_logs)`) as any[];
+        const hasOperation = syncLogsInfo.some(col => col.name === 'operation');
+        
+        if (syncLogsInfo.length > 0 && !hasOperation) {
+            // Table exists but missing operation column - recreate it
+            console.log('[Migration] Recreating sync_logs table with correct schema...');
+            await database.execAsync('DROP TABLE IF EXISTS sync_logs');
+            // Table will be recreated by setupDatabase
+        } else {
+            // Add columns if table exists and has operation column
+            await addColumnIfMissing(database, 'sync_logs', 'operation', 'TEXT NOT NULL DEFAULT ""');
+            await addColumnIfMissing(database, 'sync_logs', 'status', 'TEXT NOT NULL DEFAULT ""');
+            await addColumnIfMissing(database, 'sync_logs', 'device_id', 'TEXT NOT NULL DEFAULT ""');
+        }
 
         // Add performance indexes for updated_at columns
         console.log('[Migration] Adding performance indexes...');
