@@ -14,10 +14,13 @@ import {
   Share as ShareIcon,
   Target,
   TrendingDown,
-  TrendingUp
+  TrendingUp,
+  AlertCircle,
+  Download,
+  MessageCircle
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface Transaction {
@@ -37,73 +40,65 @@ interface CategoryBreakdown {
   percentage: number;
 }
 
-interface MonthlyData {
-  month: string;
-  monthKey: string;
+interface BusinessMetrics {
   revenue: number;
   expenses: number;
   net: number;
-  growth?: number;
-}
-
-interface AdvancedStats {
-  revenue: number;
-  expenses: number;
-  net: number;
-  transactionCount: number;
-  avgTransaction: number;
   profitMargin: number;
-  expenseRatio: number;
   revenueGrowth: number;
   expenseGrowth: number;
+  profitGrowth: number;
+  transactionCount: number;
+  transactionGrowth: number;
+}
+
+interface CreditHealth {
+  totalPending: number;
+  overdueCount: number;
+  oldestDebtDays: number;
+}
+
+interface Insight {
+  id: string;
+  type: 'positive' | 'warning' | 'neutral';
+  message: string;
+  icon: string;
 }
 
 export default function ReportsScreen() {
-  // ALL HOOKS MUST BE AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
   const colors = useThemeColors();
   const { transactions, loading, refresh } = useTransactionsContext();
   const { debts } = useDebts();
-  const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'week' | 'month' | 'quarter' | 'year'>('month');
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
   const [refreshing, setRefreshing] = useState(false);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
 
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
     const start = new Date();
-    const end = new Date();
 
     switch (period) {
       case 'week':
-        // Last 7 days
         start.setDate(now.getDate() - 7);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
         break;
       case 'month':
-        // Last 30 days
         start.setDate(now.getDate() - 30);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
         break;
       case 'quarter':
-        // Last 3 months
         start.setMonth(now.getMonth() - 3);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
         break;
       case 'year':
-        // Last 12 months
         start.setFullYear(now.getFullYear() - 1);
-        start.setHours(0, 0, 0, 0);
-        end.setHours(23, 59, 59, 999);
         break;
       default:
         return null;
     }
 
-    return { start, end };
+    start.setHours(0, 0, 0, 0);
+    now.setHours(23, 59, 59, 999);
+    return { start, end: now };
   }, []);
 
-  // Get previous period for comparison
   const getPreviousPeriod = useCallback((period: string) => {
     const now = new Date();
     const end = new Date();
@@ -130,157 +125,89 @@ export default function ReportsScreen() {
         return null;
     }
 
-    // Normalize times
     start.setHours(0, 0, 0, 0);
     end.setHours(23, 59, 59, 999);
-
     return { start, end };
   }, []);
 
-  // Filter transactions based on selected period
   const filteredTransactions = useMemo(() => {
     if (selectedPeriod === 'all') return transactions;
-
     const range = getDateRange(selectedPeriod);
     if (!range) return transactions;
 
-    // Normalize dates to compare only date part (ignore time)
-    const startDateOnly = new Date(range.start.getFullYear(), range.start.getMonth(), range.start.getDate());
-    const endDateOnly = new Date(range.end.getFullYear(), range.end.getMonth(), range.end.getDate() + 1);
-
     return transactions.filter(t => {
-      // Parse transaction_date (format: YYYY-MM-DD)
-      const transactionDateStr = t.transaction_date.split('T')[0]; // Remove time if present
-      const [year, month, day] = transactionDateStr.split('-').map(Number);
-      const transactionDateOnly = new Date(year, month - 1, day); // month is 0-indexed
-
-      // Compare dates: transaction must be >= start and < end (exclusive end = includes full end day)
-      return transactionDateOnly >= startDateOnly && transactionDateOnly < endDateOnly;
+      const txDate = new Date(t.transaction_date);
+      return txDate >= range.start && txDate <= range.end;
     });
   }, [transactions, selectedPeriod, getDateRange]);
 
-  // Get previous period transactions for comparison
   const previousTransactions = useMemo(() => {
     if (selectedPeriod === 'all') return [];
-
     const range = getPreviousPeriod(selectedPeriod);
     if (!range) return [];
 
-    // Normalize dates to compare only date part (ignore time)
-    const startDateOnly = new Date(range.start.getFullYear(), range.start.getMonth(), range.start.getDate());
-    const endDateOnly = new Date(range.end.getFullYear(), range.end.getMonth(), range.end.getDate() + 1);
-
     return transactions.filter(t => {
-      // Parse transaction_date (format: YYYY-MM-DD)
-      const transactionDateStr = t.transaction_date.split('T')[0]; // Remove time if present
-      const [year, month, day] = transactionDateStr.split('-').map(Number);
-      const transactionDateOnly = new Date(year, month - 1, day); // month is 0-indexed
-
-      // Compare dates: transaction must be >= start and < end (exclusive end = includes full end day)
-      return transactionDateOnly >= startDateOnly && transactionDateOnly < endDateOnly;
+      const txDate = new Date(t.transaction_date);
+      return txDate >= range.start && txDate <= range.end;
     });
   }, [transactions, selectedPeriod, getPreviousPeriod]);
 
-  // Calculate statistics for a transaction set
-  const calculateStats = useCallback((txns: Transaction[]): AdvancedStats => {
-    // Revenue: sum of all positive amounts (sales)
-    const revenue = txns
-      .filter(t => t.amount > 0)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    // Expenses: sum of absolute values of all negative amounts
-    const expenses = txns
-      .filter(t => t.amount < 0)
-      .reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-
-    // Net profit: revenue minus expenses
+  const calculateMetrics = useCallback((txns: Transaction[]): Omit<BusinessMetrics, 'revenueGrowth' | 'expenseGrowth' | 'profitGrowth' | 'transactionGrowth'> => {
+    const revenue = txns.filter(t => t.amount > 0).reduce((sum, t) => sum + Number(t.amount), 0);
+    const expenses = txns.filter(t => t.amount < 0).reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
     const net = revenue - expenses;
-    const transactionCount = txns.length;
-
-    // Average transaction: average of absolute values of all transactions
-    // This gives the average transaction size regardless of type
-    const avgTransaction = transactionCount > 0
-      ? (revenue + expenses) / transactionCount
-      : 0;
-
-    // Profit margin: (net profit / revenue) * 100
-    // Shows what percentage of revenue is profit
-    const profitMargin = revenue > 0
-      ? (net / revenue) * 100
-      : 0;
-
-    // Expense ratio: (expenses / revenue) * 100
-    // Shows what percentage of revenue goes to expenses
-    const expenseRatio = revenue > 0
-      ? (expenses / revenue) * 100
-      : 0;
+    const profitMargin = revenue > 0 ? (net / revenue) * 100 : 0;
 
     return {
       revenue,
       expenses,
       net,
-      transactionCount,
-      avgTransaction,
       profitMargin,
-      expenseRatio,
-      revenueGrowth: 0,
-      expenseGrowth: 0,
+      transactionCount: txns.length,
     };
   }, []);
 
-  // Calculate advanced statistics with growth
-  const stats = useMemo(() => {
-    const current = calculateStats(filteredTransactions);
-    const previous = calculateStats(previousTransactions);
+  const metrics = useMemo(() => {
+    const current = calculateMetrics(filteredTransactions);
+    const previous = calculateMetrics(previousTransactions);
 
-    // Revenue growth: ((current - previous) / previous) * 100
-    // Handle edge case: if previous was 0 and current > 0, show 100% growth
     const revenueGrowth = previous.revenue > 0
       ? ((current.revenue - previous.revenue) / previous.revenue) * 100
-      : previous.revenue === 0 && current.revenue > 0
-        ? 100 // 100% growth if previous was 0 and current > 0
-        : 0; // No growth if both are 0 or current decreased
+      : current.revenue > 0 ? 100 : 0;
 
-    // Expense growth: ((current - previous) / previous) * 100
-    // Handle edge case: if previous was 0 and current > 0, show 100% growth
     const expenseGrowth = previous.expenses > 0
       ? ((current.expenses - previous.expenses) / previous.expenses) * 100
-      : previous.expenses === 0 && current.expenses > 0
-        ? 100 // 100% growth if previous was 0 and current > 0
-        : 0; // No growth if both are 0 or current decreased
+      : current.expenses > 0 ? 100 : 0;
+
+    const profitGrowth = previous.net > 0
+      ? ((current.net - previous.net) / previous.net) * 100
+      : current.net > 0 ? 100 : 0;
+
+    const transactionGrowth = previous.transactionCount > 0
+      ? ((current.transactionCount - previous.transactionCount) / previous.transactionCount) * 100
+      : current.transactionCount > 0 ? 100 : 0;
 
     return {
       ...current,
       revenueGrowth,
       expenseGrowth,
+      profitGrowth,
+      transactionGrowth,
     };
-  }, [filteredTransactions, previousTransactions, calculateStats]);
+  }, [filteredTransactions, previousTransactions, calculateMetrics]);
 
-  // Category breakdown with percentages
   const categoryBreakdown = useMemo(() => {
     const categoryMap = new Map<string, CategoryBreakdown>();
-
-    // Calculate totals for percentage calculation
-    const totalRevenue = stats.revenue;
-    const totalExpenses = stats.expenses;
-    const totalAmount = totalRevenue + totalExpenses;
+    const totalAmount = metrics.revenue + metrics.expenses;
 
     filteredTransactions.forEach(t => {
       const category = t.category || 'Uncategorized';
       if (!categoryMap.has(category)) {
-        categoryMap.set(category, {
-          category,
-          revenue: 0,
-          expenses: 0,
-          count: 0,
-          percentage: 0,
-        });
+        categoryMap.set(category, { category, revenue: 0, expenses: 0, count: 0, percentage: 0 });
       }
 
       const cat = categoryMap.get(category)!;
       cat.count++;
-
-      // Add to revenue if positive, expenses if negative
       if (t.amount > 0) {
         cat.revenue += Number(t.amount);
       } else {
@@ -288,75 +215,101 @@ export default function ReportsScreen() {
       }
     });
 
-    // Calculate percentage: (category total / overall total) * 100
     return Array.from(categoryMap.values())
-      .map(cat => {
-        const categoryTotal = cat.revenue + cat.expenses;
-        return {
-          ...cat,
-          percentage: totalAmount > 0
-            ? (categoryTotal / totalAmount) * 100
-            : 0,
-        };
-      })
+      .map(cat => ({
+        ...cat,
+        percentage: totalAmount > 0 ? (((cat.revenue + cat.expenses) / totalAmount) * 100) : 0,
+      }))
       .sort((a, b) => (b.revenue + b.expenses) - (a.revenue + a.expenses));
-  }, [filteredTransactions, stats]);
+  }, [filteredTransactions, metrics]);
 
-  // Debt statistics
-  const debtStats = useMemo(() => {
-    const active = debts.filter(d => !d.is_settled);
-    const totalPending = active.reduce((sum, d) => sum + Number(d.amount), 0);
-    return { count: active.length, total: totalPending };
+  const creditHealth = useMemo(() => {
+    const activeDebts = debts.filter(d => !d.is_settled);
+    const totalPending = activeDebts.reduce((sum, d) => sum + Number(d.amount), 0);
+    
+    const now = new Date();
+    let overdueCount = 0;
+    let oldestDebtDays = 0;
+
+    activeDebts.forEach(d => {
+      if (d.due_date) {
+        const dueDate = new Date(d.due_date);
+        if (dueDate < now) {
+          overdueCount++;
+          const daysDiff = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+          oldestDebtDays = Math.max(oldestDebtDays, daysDiff);
+        }
+      }
+    });
+
+    return { totalPending, overdueCount, oldestDebtDays };
   }, [debts]);
 
-  // Monthly data for trends with growth
-  const monthlyData = useMemo(() => {
-    const monthMap = new Map<string, MonthlyData>();
+  const insights = useMemo(() => {
+    const insightsList: Insight[] = [];
 
-    filteredTransactions.forEach(t => {
-      const date = new Date(t.transaction_date);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      const monthLabel = date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    if (metrics.revenueGrowth > 10) {
+      insightsList.push({
+        id: 'revenue-growth',
+        type: 'positive',
+        message: `Revenue increased ${metrics.revenueGrowth.toFixed(0)}% this period! 🎉`,
+        icon: '📈',
+      });
+    } else if (metrics.revenueGrowth < -10) {
+      insightsList.push({
+        id: 'revenue-decline',
+        type: 'warning',
+        message: `Revenue decreased ${Math.abs(metrics.revenueGrowth).toFixed(0)}% compared to last period.`,
+        icon: '📉',
+      });
+    }
 
-      if (!monthMap.has(monthKey)) {
-        monthMap.set(monthKey, {
-          month: monthLabel,
-          monthKey,
-          revenue: 0,
-          expenses: 0,
-          net: 0,
-        });
-      }
+    if (metrics.profitMargin > 30) {
+      insightsList.push({
+        id: 'healthy-margin',
+        type: 'positive',
+        message: `Profit margin is ${metrics.profitMargin.toFixed(0)}% - excellent efficiency!`,
+        icon: '✨',
+      });
+    } else if (metrics.profitMargin < 10 && metrics.revenue > 0) {
+      insightsList.push({
+        id: 'low-margin',
+        type: 'warning',
+        message: `Profit margin is only ${metrics.profitMargin.toFixed(0)}%. Consider reducing expenses.`,
+        icon: '⚠️',
+      });
+    }
 
-      const month = monthMap.get(monthKey)!;
-      if (t.amount > 0) {
-        month.revenue += Number(t.amount);
-      } else {
-        month.expenses += Math.abs(Number(t.amount));
-      }
-      month.net = month.revenue - month.expenses;
-    });
+    if (categoryBreakdown.length > 0) {
+      const topCategory = categoryBreakdown[0];
+      insightsList.push({
+        id: 'top-category',
+        type: 'neutral',
+        message: `${topCategory.category} is your top category (${topCategory.percentage.toFixed(0)}% of activity)`,
+        icon: '🏆',
+      });
+    }
 
-    const sorted = Array.from(monthMap.values())
-      .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
-      .slice(-6);
+    if (creditHealth.overdueCount > 0) {
+      insightsList.push({
+        id: 'overdue-debts',
+        type: 'warning',
+        message: `${creditHealth.overdueCount} customer(s) have overdue payments. Follow up needed!`,
+        icon: '⏰',
+      });
+    }
 
-    // Calculate month-over-month revenue growth percentage
-    return sorted.map((month, index) => {
-      if (index > 0) {
-        const prevMonth = sorted[index - 1];
-        // Growth formula: ((current - previous) / previous) * 100
-        // Handle edge cases: if previous was 0 and current > 0, show 100% growth
-        const growth = prevMonth.revenue > 0
-          ? ((month.revenue - prevMonth.revenue) / prevMonth.revenue) * 100
-          : prevMonth.revenue === 0 && month.revenue > 0
-            ? 100 // 100% growth if previous was 0 and current > 0
-            : 0; // No growth if both are 0 or current is less
-        return { ...month, growth };
-      }
-      return month;
-    });
-  }, [filteredTransactions]);
+    if (metrics.transactionGrowth > 20) {
+      insightsList.push({
+        id: 'transaction-growth',
+        type: 'positive',
+        message: `Transaction volume up ${metrics.transactionGrowth.toFixed(0)}% - more activity!`,
+        icon: '📊',
+      });
+    }
+
+    return insightsList;
+  }, [metrics, categoryBreakdown, creditHealth]);
 
   const formatCurrency = useCallback((amount: number) => {
     return `K ${Math.abs(amount).toFixed(2)}`;
@@ -366,54 +319,22 @@ export default function ReportsScreen() {
     return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
   }, []);
 
-  const getPercentage = useCallback((value: number, total: number) => {
-    if (total === 0) return 0;
-    return (value / total) * 100;
-  }, []);
-
-  // Dynamic styles based on theme
-  const dynamicStyles = useMemo(() => ({
-    container: { ...styles.container, backgroundColor: colors.backgroundColor },
-    card: { ...styles.card, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
-    statCard: { ...styles.statCard, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
-    statValue: { ...styles.statValue, color: colors.textColor },
-    statLabel: { ...styles.statLabel, color: colors.textSecondary },
-    sectionTitle: { ...styles.sectionTitle, color: colors.textColor },
-    categoryName: { ...styles.categoryName, color: colors.textColor },
-    categoryAmount: { ...styles.categoryAmount, color: colors.textColor },
-    monthLabel: { ...styles.monthLabel, color: colors.textSecondary },
-    emptyText: { ...styles.emptyText, color: colors.textSecondary },
-    metricLabel: { ...styles.metricLabel, color: colors.textSecondary },
-    metricValue: { ...styles.metricValue, color: colors.textColor },
-    healthStats: { ...styles.healthStats, backgroundColor: colors.inputBackground },
-    healthLabel: { ...styles.healthLabel, color: colors.textSecondary },
-    healthValue: { ...styles.healthValue, color: colors.textColor },
-    shareReportButton: { ...styles.shareReportButton },
-    shareReportButtonText: { ...styles.shareReportButtonText },
-    totalValueCard: { ...styles.totalValueCard },
-    totalValueLabel: { ...styles.totalValueLabel },
-    totalValueAmount: { ...styles.totalValueAmount },
-    totalValueMeta: { ...styles.totalValueMeta },
-    healthDivider: { ...styles.healthDivider, backgroundColor: colors.borderColor },
-    healthItem: { ...styles.healthItem },
-  }), [colors]);
-
-  // NOW conditional returns can happen
   async function onRefresh() {
     setRefreshing(true);
     try {
-      await refresh(true); // Force refresh
+      await refresh();
     } finally {
       setRefreshing(false);
     }
   }
 
-  const handleShareReport = async () => {
+  const handleShareReport = async (type: 'whatsapp' | 'text') => {
     const periodLabel = selectedPeriod === 'all' ? 'All Time' : `Last ${selectedPeriod}`;
-    let message = `📊 *MobiBooks Performance Report* (${periodLabel})\n\n`;
-    message += `💰 *Revenue:* ${formatCurrency(stats.revenue)}\n`;
-    message += `💸 *Expenses:* ${formatCurrency(stats.expenses)}\n`;
-    message += `📈 *Net Profit:* ${formatCurrency(stats.net)}\n\n`;
+    let message = `📊 *MobiBooks Financial Report* (${periodLabel})\n\n`;
+    message += `💰 *Revenue:* ${formatCurrency(metrics.revenue)}\n`;
+    message += `💸 *Expenses:* ${formatCurrency(metrics.expenses)}\n`;
+    message += `📈 *Net Profit:* ${formatCurrency(metrics.net)}\n`;
+    message += `📊 *Profit Margin:* ${metrics.profitMargin.toFixed(1)}%\n\n`;
 
     if (categoryBreakdown.length > 0) {
       message += `🏆 *Top Categories:*\n`;
@@ -423,30 +344,36 @@ export default function ReportsScreen() {
       message += `\n`;
     }
 
-    if (debtStats.total > 0) {
-      message += `⚠️ *Pending Credits:* ${formatCurrency(debtStats.total)} (${debtStats.count} people)\n\n`;
+    if (creditHealth.totalPending > 0) {
+      message += `⚠️ *Pending Credits:* ${formatCurrency(creditHealth.totalPending)}\n`;
+      if (creditHealth.overdueCount > 0) {
+        message += `⏰ *Overdue:* ${creditHealth.overdueCount} customer(s)\n\n`;
+      }
     }
 
-    message += `_This business is growing with MobiBooks!_ 🇿🇲`;
+    message += `_Growing your business with MobiBooks!_ 🇿🇲`;
 
     try {
-      const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
-      const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);
-      if (canOpenWhatsApp) {
-        await Linking.openURL(whatsappUrl);
+      if (type === 'whatsapp') {
+        const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+        const canOpen = await Linking.canOpenURL(whatsappUrl);
+        if (canOpen) {
+          await Linking.openURL(whatsappUrl);
+        } else {
+          await Share.share({ message });
+        }
       } else {
         await Share.share({ message });
       }
+      setShareModalVisible(false);
     } catch (error) {
-      await Share.share({ message });
+      Alert.alert('Error', 'Failed to share report');
     }
   };
 
-  // Remove all the duplicate code below this line
-
   return (
-    <SafeAreaView style={dynamicStyles.container} edges={['top']}>
-      {/* Hero Header */}
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
+      {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
         <View style={styles.headerDecoration1} />
         <View style={styles.headerDecoration2} />
@@ -456,10 +383,8 @@ export default function ReportsScreen() {
               <BarChart3 size={24} color="#ffffff" />
             </View>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Financial Analytics</Text>
-              <Text style={styles.headerSubtitle}>
-                Comprehensive business insights
-              </Text>
+              <Text style={styles.headerTitle}>Financial Reports</Text>
+              <Text style={styles.headerSubtitle}>Your business at a glance</Text>
             </View>
           </View>
         </View>
@@ -468,9 +393,7 @@ export default function ReportsScreen() {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1e3a8a" />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1e3a8a" />}
         showsVerticalScrollIndicator={false}
       >
         {/* Period Selector */}
@@ -480,7 +403,7 @@ export default function ReportsScreen() {
               key={period}
               style={[
                 styles.periodButton,
-                selectedPeriod === period && { backgroundColor: '#1e3a8a' },
+                selectedPeriod === period && styles.periodButtonActive,
                 { borderColor: colors.borderColor, backgroundColor: selectedPeriod === period ? '#1e3a8a' : colors.cardBackground },
               ]}
               onPress={() => setSelectedPeriod(period)}
@@ -492,287 +415,262 @@ export default function ReportsScreen() {
                   { color: selectedPeriod === period ? '#ffffff' : colors.textColor },
                 ]}
               >
-                {period === 'all' ? 'All Time' : period === 'week' ? 'Week' : period === 'month' ? 'Month' : period === 'quarter' ? 'Quarter' : 'Year'}
+                {period === 'all' ? 'All' : period.charAt(0).toUpperCase() + period.slice(1)}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Key Performance Indicators */}
-        <View style={styles.kpiSection}>
-          <Text style={[styles.sectionHeader, { color: colors.textColor }]}>Key Performance Indicators</Text>
-          <View style={styles.kpiGrid}>
-            <View style={dynamicStyles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                <TrendingUp size={20} color="#1e3a8a" />
-              </View>
-              <Text style={dynamicStyles.statValue}>{formatCurrency(stats.revenue)}</Text>
-              <Text style={dynamicStyles.statLabel}>Total Revenue</Text>
-              {stats.revenueGrowth !== 0 && (
-                <View style={styles.growthIndicator}>
-                  {stats.revenueGrowth > 0 ? (
-                    <ArrowUpRight size={12} color="#1e3a8a" />
-                  ) : (
-                    <ArrowDownRight size={12} color="#ef4444" />
-                  )}
-                  <Text style={[styles.growthText, { color: stats.revenueGrowth > 0 ? '#1e3a8a' : '#ef4444' }]}>
-                    {formatPercent(stats.revenueGrowth)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={dynamicStyles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                <TrendingDown size={20} color="#ef4444" />
-              </View>
-              <Text style={dynamicStyles.statValue}>{formatCurrency(stats.expenses)}</Text>
-              <Text style={dynamicStyles.statLabel}>Total Expenses</Text>
-              {stats.expenseGrowth !== 0 && (
-                <View style={styles.growthIndicator}>
-                  {stats.expenseGrowth < 0 ? (
-                    <ArrowDownRight size={12} color="#1e3a8a" />
-                  ) : (
-                    <ArrowUpRight size={12} color="#ef4444" />
-                  )}
-                  <Text style={[styles.growthText, { color: stats.expenseGrowth < 0 ? '#1e3a8a' : '#ef4444' }]}>
-                    {formatPercent(stats.expenseGrowth)}
-                  </Text>
-                </View>
-              )}
-            </View>
-
-            <View style={dynamicStyles.statCard}>
-              <View style={[styles.statIcon, { backgroundColor: stats.net >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
-                <DollarSign size={20} color={stats.net >= 0 ? '#1e3a8a' : '#ef4444'} />
-              </View>
-              <Text style={[dynamicStyles.statValue, { color: stats.net >= 0 ? '#1e3a8a' : '#ef4444' }]}>
-                {formatCurrency(stats.net)}
+        {/* Business Snapshot */}
+        <View style={[styles.snapshotCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+          <Text style={[styles.cardTitle, { color: colors.textColor }]}>Business Snapshot</Text>
+          <View style={styles.snapshotGrid}>
+            <View style={styles.snapshotItem}>
+              <Text style={[styles.snapshotLabel, { color: colors.textSecondary }]}>Cash Balance</Text>
+              <Text style={[styles.snapshotValue, { color: metrics.net >= 0 ? '#1e3a8a' : '#ef4444' }]}>
+                {formatCurrency(metrics.net)}
               </Text>
-              <Text style={dynamicStyles.statLabel}>Net Profit</Text>
+            </View>
+            <View style={styles.snapshotDivider} />
+            <View style={styles.snapshotItem}>
+              <Text style={[styles.snapshotLabel, { color: colors.textSecondary }]}>Customers Owe</Text>
+              <Text style={[styles.snapshotValue, { color: '#f59e0b' }]}>
+                {formatCurrency(creditHealth.totalPending)}
+              </Text>
+            </View>
+            <View style={styles.snapshotDivider} />
+            <View style={styles.snapshotItem}>
+              <Text style={[styles.snapshotLabel, { color: colors.textSecondary }]}>Transactions</Text>
+              <Text style={[styles.snapshotValue, { color: '#1e3a8a' }]}>
+                {metrics.transactionCount}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Advanced Metrics */}
-        <View style={dynamicStyles.card}>
-          <View style={styles.cardHeader}>
-            <Activity size={20} color="#1e3a8a" />
-            <Text style={dynamicStyles.sectionTitle}>Performance Metrics</Text>
-          </View>
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricItem}>
-              <View style={[styles.metricIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                <Target size={16} color="#1e3a8a" />
+        {/* Profit Overview */}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+          <Text style={[styles.cardTitle, { color: colors.textColor }]}>Profit Overview</Text>
+          <View style={styles.profitGrid}>
+            <View style={styles.profitItem}>
+              <View style={[styles.profitIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                <ArrowUpRight size={20} color="#1e3a8a" />
               </View>
-              <Text style={dynamicStyles.metricLabel}>Profit Margin</Text>
-              <Text style={[dynamicStyles.metricValue, { color: stats.profitMargin >= 0 ? '#1e3a8a' : '#ef4444' }]}>
-                {formatPercent(stats.profitMargin)}
+              <Text style={[styles.profitLabel, { color: colors.textSecondary }]}>Revenue</Text>
+              <Text style={[styles.profitValue, { color: '#1e3a8a' }]}>{formatCurrency(metrics.revenue)}</Text>
+              {metrics.revenueGrowth !== 0 && (
+                <Text style={[styles.profitGrowth, { color: metrics.revenueGrowth > 0 ? '#1e3a8a' : '#ef4444' }]}>
+                  {formatPercent(metrics.revenueGrowth)}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.profitItem}>
+              <View style={[styles.profitIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+                <ArrowDownRight size={20} color="#ef4444" />
+              </View>
+              <Text style={[styles.profitLabel, { color: colors.textSecondary }]}>Expenses</Text>
+              <Text style={[styles.profitValue, { color: '#ef4444' }]}>{formatCurrency(metrics.expenses)}</Text>
+              {metrics.expenseGrowth !== 0 && (
+                <Text style={[styles.profitGrowth, { color: metrics.expenseGrowth < 0 ? '#1e3a8a' : '#ef4444' }]}>
+                  {formatPercent(metrics.expenseGrowth)}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.profitItem}>
+              <View style={[styles.profitIcon, { backgroundColor: metrics.net >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+                <DollarSign size={20} color={metrics.net >= 0 ? '#1e3a8a' : '#ef4444'} />
+              </View>
+              <Text style={[styles.profitLabel, { color: colors.textSecondary }]}>Net Profit</Text>
+              <Text style={[styles.profitValue, { color: metrics.net >= 0 ? '#1e3a8a' : '#ef4444' }]}>
+                {formatCurrency(metrics.net)}
               </Text>
+              {metrics.profitGrowth !== 0 && (
+                <Text style={[styles.profitGrowth, { color: metrics.profitGrowth > 0 ? '#1e3a8a' : '#ef4444' }]}>
+                  {formatPercent(metrics.profitGrowth)}
+                </Text>
+              )}
             </View>
 
-            <View style={styles.metricItem}>
-              <View style={[styles.metricIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                <Percent size={16} color="#ef4444" />
+            <View style={styles.profitItem}>
+              <View style={[styles.profitIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                <Percent size={20} color="#1e3a8a" />
               </View>
-              <Text style={dynamicStyles.metricLabel}>Expense Ratio</Text>
-              <Text style={dynamicStyles.metricValue}>{formatPercent(stats.expenseRatio)}</Text>
-            </View>
-
-            <View style={styles.metricItem}>
-              <View style={[styles.metricIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                <DollarSign size={16} color="#1e3a8a" />
-              </View>
-              <Text style={dynamicStyles.metricLabel}>Avg Transaction</Text>
-              <Text style={dynamicStyles.metricValue}>{formatCurrency(stats.avgTransaction)}</Text>
-            </View>
-
-            <View style={styles.metricItem}>
-              <View style={[styles.metricIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                <Activity size={16} color="#1e3a8a" />
-              </View>
-              <Text style={dynamicStyles.metricLabel}>Transactions</Text>
-              <Text style={dynamicStyles.metricValue}>{stats.transactionCount}</Text>
+              <Text style={[styles.profitLabel, { color: colors.textSecondary }]}>Profit Margin</Text>
+              <Text style={[styles.profitValue, { color: metrics.profitMargin >= 20 ? '#1e3a8a' : '#f59e0b' }]}>
+                {metrics.profitMargin.toFixed(1)}%
+              </Text>
+              <Text style={[styles.profitMeta, { color: colors.textSecondary }]}>
+                {metrics.profitMargin >= 30 ? 'Excellent' : metrics.profitMargin >= 20 ? 'Good' : 'Needs work'}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Financial Health / Cash Flow */}
-        <View style={dynamicStyles.card}>
+        {/* Credit Health */}
+        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
           <View style={styles.cardHeader}>
             <Briefcase size={20} color="#1e3a8a" />
-            <Text style={dynamicStyles.sectionTitle}>Business Cash Flow</Text>
+            <Text style={[styles.cardTitle, { color: colors.textColor }]}>Credit Health</Text>
           </View>
-          <View style={dynamicStyles.healthStats}>
-            <View style={dynamicStyles.healthItem as any}>
-              <Text style={dynamicStyles.healthLabel}>Cash in Hand (Profit)</Text>
-              <Text style={[dynamicStyles.healthValue, { color: stats.net >= 0 ? '#1e3a8a' : '#ef4444' }]}>
-                {formatCurrency(stats.net)}
+          <View style={styles.creditHealthGrid}>
+            <View style={[styles.creditHealthItem, { backgroundColor: colors.inputBackground }]}>
+              <Text style={[styles.creditHealthLabel, { color: colors.textSecondary }]}>Total Pending</Text>
+              <Text style={[styles.creditHealthValue, { color: '#f59e0b' }]}>
+                {formatCurrency(creditHealth.totalPending)}
               </Text>
             </View>
-            <View style={dynamicStyles.healthDivider} />
-            <View style={dynamicStyles.healthItem as any}>
-              <Text style={dynamicStyles.healthLabel}>Pending Credits (To Collect)</Text>
-              <Text style={[dynamicStyles.healthValue, { color: '#f59e0b' }]}>
-                {formatCurrency(debtStats.total)}
+            <View style={[styles.creditHealthItem, { backgroundColor: colors.inputBackground }]}>
+              <Text style={[styles.creditHealthLabel, { color: colors.textSecondary }]}>Overdue</Text>
+              <Text style={[styles.creditHealthValue, { color: creditHealth.overdueCount > 0 ? '#ef4444' : '#1e3a8a' }]}>
+                {creditHealth.overdueCount}
               </Text>
             </View>
-          </View>
-          <View style={dynamicStyles.totalValueCard}>
-            <Text style={dynamicStyles.totalValueLabel}>Total Business Value</Text>
-            <Text style={dynamicStyles.totalValueAmount}>{formatCurrency(stats.net + debtStats.total)}</Text>
-            <Text style={dynamicStyles.totalValueMeta}>Based on your current recorded data</Text>
+            <View style={[styles.creditHealthItem, { backgroundColor: colors.inputBackground }]}>
+              <Text style={[styles.creditHealthLabel, { color: colors.textSecondary }]}>Oldest Debt</Text>
+              <Text style={[styles.creditHealthValue, { color: '#1e3a8a' }]}>
+                {creditHealth.oldestDebtDays} days
+              </Text>
+            </View>
           </View>
         </View>
 
-        {/* Category Breakdown */}
+        {/* Category Analysis */}
         {categoryBreakdown.length > 0 && (
-          <View style={dynamicStyles.card}>
+          <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
             <View style={styles.cardHeader}>
               <PieChart size={20} color="#1e3a8a" />
-              <Text style={dynamicStyles.sectionTitle}>Category Analysis</Text>
+              <Text style={[styles.cardTitle, { color: colors.textColor }]}>Category Analysis</Text>
             </View>
             <View style={styles.categoryList}>
-              {categoryBreakdown.slice(0, 8).map((cat, index) => {
-                const total = cat.revenue + cat.expenses;
-                const maxTotal = Math.max(...categoryBreakdown.map(c => c.revenue + c.expenses));
-                const percentage = getPercentage(total, maxTotal);
-
-                return (
-                  <View key={`category-${cat.category}`} style={styles.categoryItem}>
-                    <View style={styles.categoryHeader}>
-                      <View style={styles.categoryLeft}>
-                        <View style={[styles.categoryRank, { backgroundColor: index < 3 ? '#1e3a8a' : 'rgba(16, 185, 129, 0.1)' }]}>
-                          <Text style={[styles.categoryRankText, { color: index < 3 ? '#ffffff' : '#1e3a8a' }]}>
-                            #{index + 1}
-                          </Text>
-                        </View>
-                        <View style={styles.categoryInfo}>
-                          <Text style={dynamicStyles.categoryName}>{cat.category}</Text>
-                          <Text style={[styles.categoryPercentage, { color: colors.textSecondary }]}>
-                            {cat.percentage.toFixed(1)}% of total
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={dynamicStyles.categoryAmount}>
-                        {formatCurrency(total)}
+              {categoryBreakdown.slice(0, 5).map((cat, idx) => (
+                <View key={cat.category} style={[styles.categoryRow, { borderBottomColor: colors.borderColor }]}>
+                  <View style={styles.categoryLeft}>
+                    <View style={[styles.categoryRank, { backgroundColor: idx < 2 ? '#1e3a8a' : 'rgba(16, 185, 129, 0.1)' }]}>
+                      <Text style={[styles.categoryRankText, { color: idx < 2 ? '#ffffff' : '#1e3a8a' }]}>
+                        #{idx + 1}
                       </Text>
                     </View>
-                    <View style={styles.categoryBarContainer}>
-                      <View style={[styles.categoryBar, { width: `${percentage}%`, backgroundColor: '#1e3a8a' }]} />
-                    </View>
-                    <View style={styles.categoryDetails}>
-                      <Text style={[styles.categoryDetail, { color: '#1e3a8a' }]}>
-                        Revenue: {formatCurrency(cat.revenue)}
-                      </Text>
-                      {cat.expenses > 0 && (
-                        <Text style={[styles.categoryDetail, { color: '#ef4444' }]}>
-                          Expenses: {formatCurrency(cat.expenses)}
-                        </Text>
-                      )}
-                      <Text style={[styles.categoryDetail, { color: colors.textSecondary }]}>
-                        {cat.count} {cat.count === 1 ? 'transaction' : 'transactions'}
+                    <View style={styles.categoryInfo}>
+                      <Text style={[styles.categoryName, { color: colors.textColor }]}>{cat.category}</Text>
+                      <Text style={[styles.categoryMeta, { color: colors.textSecondary }]}>
+                        {cat.count} transaction{cat.count !== 1 ? 's' : ''}
                       </Text>
                     </View>
                   </View>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {/* Monthly Trends */}
-        {monthlyData.length > 0 && (
-          <View style={dynamicStyles.card}>
-            <View style={styles.cardHeader}>
-              <Calendar size={20} color="#1e3a8a" />
-              <Text style={dynamicStyles.sectionTitle}>Revenue Trends</Text>
-            </View>
-            <View style={styles.monthlyList}>
-              {monthlyData.map((month, index) => {
-                const maxRevenue = Math.max(...monthlyData.map(m => m.revenue));
-                const maxExpenses = Math.max(...monthlyData.map(m => m.expenses));
-                const maxValue = Math.max(maxRevenue, maxExpenses);
-
-                return (
-                  <View key={`month-${month.monthKey}`} style={styles.monthlyItem}>
-                    <View style={styles.monthlyHeader}>
-                      <Text style={dynamicStyles.monthLabel}>{month.month}</Text>
-                      {month.growth !== undefined && (
-                        <View style={styles.growthIndicator}>
-                          {month.growth > 0 ? (
-                            <ArrowUpRight size={12} color="#1e3a8a" />
-                          ) : (
-                            <ArrowDownRight size={12} color="#ef4444" />
-                          )}
-                          <Text style={[styles.growthText, { color: month.growth > 0 ? '#1e3a8a' : '#ef4444' }]}>
-                            {formatPercent(month.growth)}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={styles.monthlyBars}>
-                      <View style={styles.monthlyBarContainer}>
-                        <View style={[styles.monthlyBar, { height: `${getPercentage(month.revenue, maxValue)}%`, backgroundColor: '#1e3a8a' }]} />
-                        <Text style={[styles.monthlyBarLabel, { color: colors.textSecondary }]}>
-                          {formatCurrency(month.revenue)}
-                        </Text>
-                      </View>
-                      <View style={styles.monthlyBarContainer}>
-                        <View style={[styles.monthlyBar, { height: `${getPercentage(month.expenses, maxValue)}%`, backgroundColor: '#ef4444' }]} />
-                        <Text style={[styles.monthlyBarLabel, { color: colors.textSecondary }]}>
-                          {formatCurrency(month.expenses)}
-                        </Text>
-                      </View>
-                    </View>
-                    <Text style={[styles.monthlyNet, { color: month.net >= 0 ? '#1e3a8a' : '#ef4444' }]}>
-                      Net: {formatCurrency(month.net)}
+                  <View style={styles.categoryRight}>
+                    <Text style={[styles.categoryAmount, { color: colors.textColor }]}>
+                      {formatCurrency(cat.revenue + cat.expenses)}
+                    </Text>
+                    <Text style={[styles.categoryPercent, { color: colors.textSecondary }]}>
+                      {cat.percentage.toFixed(0)}%
                     </Text>
                   </View>
-                );
-              })}
+                </View>
+              ))}
             </View>
           </View>
         )}
 
-        {/* Share Button Placeholder (since it's moved from Home) */}
+        {/* Smart Insights */}
+        {insights.length > 0 && (
+          <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+            <View style={styles.cardHeader}>
+              <AlertCircle size={20} color="#1e3a8a" />
+              <Text style={[styles.cardTitle, { color: colors.textColor }]}>Smart Insights</Text>
+            </View>
+            <View style={styles.insightsList}>
+              {insights.map((insight) => (
+                <View
+                  key={insight.id}
+                  style={[
+                    styles.insightItem,
+                    {
+                      backgroundColor: insight.type === 'positive' ? 'rgba(16, 185, 129, 0.05)' : insight.type === 'warning' ? 'rgba(239, 68, 68, 0.05)' : 'rgba(16, 185, 129, 0.05)',
+                      borderLeftColor: insight.type === 'positive' ? '#1e3a8a' : insight.type === 'warning' ? '#ef4444' : '#f59e0b',
+                    },
+                  ]}
+                >
+                  <Text style={styles.insightIcon}>{insight.icon}</Text>
+                  <Text style={[styles.insightText, { color: colors.textColor }]}>{insight.message}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Share Report Button */}
         <TouchableOpacity
-          style={dynamicStyles.shareReportButton}
-          onPress={handleShareReport}
+          style={styles.shareButton}
+          onPress={() => setShareModalVisible(true)}
           activeOpacity={0.8}
         >
           <ShareIcon size={20} color="#ffffff" />
-          <Text style={dynamicStyles.shareReportButtonText}>Share Performance Report</Text>
+          <Text style={styles.shareButtonText}>Share Report</Text>
         </TouchableOpacity>
 
         {/* Empty State */}
         {filteredTransactions.length === 0 && (
-          <View style={styles.emptyContainer}>
-            <Text style={dynamicStyles.emptyText}>No transactions found</Text>
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyText, { color: colors.textColor }]}>No transactions yet</Text>
             <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-              Start recording transactions to see comprehensive analytics
+              Start recording transactions to see analytics
             </Text>
           </View>
         )}
       </ScrollView>
+
+      {/* Share Modal */}
+      <Modal visible={shareModalVisible} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShareModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.modalTitle, { color: colors.textColor }]}>Share Report</Text>
+            <TouchableOpacity
+              style={styles.shareOption}
+              onPress={() => handleShareReport('whatsapp')}
+              activeOpacity={0.7}
+            >
+              <MessageCircle size={24} color="#25D366" />
+              <View style={styles.shareOptionText}>
+                <Text style={[styles.shareOptionTitle, { color: colors.textColor }]}>WhatsApp</Text>
+                <Text style={[styles.shareOptionDesc, { color: colors.textSecondary }]}>Send to contacts</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.shareOption}
+              onPress={() => handleShareReport('text')}
+              activeOpacity={0.7}
+            >
+              <ShareIcon size={24} color="#1e3a8a" />
+              <View style={styles.shareOptionText}>
+                <Text style={[styles.shareOptionTitle, { color: colors.textColor }]}>Share Text</Text>
+                <Text style={[styles.shareOptionDesc, { color: colors.textSecondary }]}>Copy or share</Text>
+              </View>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.shareOption, styles.shareOptionLast]}
+              onPress={() => setShareModalVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.shareOptionTitle, { color: colors.textColor }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
 
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-  },
+  safeArea: { flex: 1 },
+  scrollView: { flex: 1 },
+  scrollContent: { padding: 20, paddingBottom: 40 },
   header: {
     backgroundColor: '#1e3a8a',
     paddingTop: 60,
@@ -801,14 +699,8 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
-  headerContent: {
-    zIndex: 10,
-  },
-  headerIconContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
+  headerContent: { zIndex: 10 },
+  headerIconContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
   headerIcon: {
     width: 56,
     height: 56,
@@ -817,32 +709,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontWeight: '500',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  periodSelector: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 24,
-  },
+  headerTextContainer: { flex: 1 },
+  headerTitle: { fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
+  headerSubtitle: { fontSize: 16, color: 'rgba(255, 255, 255, 0.9)', fontWeight: '500' },
+  periodSelector: { flexDirection: 'row', gap: 8, marginBottom: 24 },
   periodButton: {
     flex: 1,
     paddingVertical: 12,
@@ -851,301 +721,71 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
   },
-  periodButtonText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  kpiSection: {
-    marginBottom: 24,
-  },
-  sectionHeader: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 16,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: '30%',
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  statIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  growthIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 8,
-  },
-  growthText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  card: {
-    backgroundColor: '#ffffff',
+  periodButtonActive: { backgroundColor: '#1e3a8a' },
+  periodButtonText: { fontSize: 13, fontWeight: '600' },
+  snapshotCard: {
     borderRadius: 16,
     padding: 20,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  snapshotGrid: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  snapshotItem: { flex: 1, alignItems: 'center' },
+  snapshotLabel: { fontSize: 12, fontWeight: '500', marginBottom: 8 },
+  snapshotValue: { fontSize: 18, fontWeight: '800' },
+  snapshotDivider: { width: 1, height: 50, backgroundColor: 'rgba(0, 0, 0, 0.1)' },
+  card: {
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  metricsGrid: {
+  cardTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 },
+  profitGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  profitItem: { flex: 1, minWidth: '45%', alignItems: 'center', padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.05)', borderRadius: 12 },
+  profitIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  profitLabel: { fontSize: 11, fontWeight: '500', marginBottom: 4 },
+  profitValue: { fontSize: 16, fontWeight: '700', marginBottom: 4 },
+  profitGrowth: { fontSize: 11, fontWeight: '600' },
+  profitMeta: { fontSize: 10, fontWeight: '500', marginTop: 2 },
+  creditHealthGrid: { flexDirection: 'row', gap: 12 },
+  creditHealthItem: { flex: 1, borderRadius: 12, padding: 16, alignItems: 'center' },
+  creditHealthLabel: { fontSize: 11, fontWeight: '600', marginBottom: 8 },
+  creditHealthValue: { fontSize: 18, fontWeight: '800' },
+  categoryList: { gap: 0 },
+  categoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
+  categoryLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
+  categoryRank: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  categoryRankText: { fontSize: 12, fontWeight: '700' },
+  categoryInfo: { flex: 1 },
+  categoryName: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  categoryMeta: { fontSize: 11, fontWeight: '500' },
+  categoryRight: { alignItems: 'flex-end' },
+  categoryAmount: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  categoryPercent: { fontSize: 11, fontWeight: '500' },
+  insightsList: { gap: 12 },
+  insightItem: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  metricItem: {
-    flex: 1,
-    minWidth: '45%',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#f9fafb',
     borderRadius: 12,
-  },
-  metricIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  metricValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  categoryList: {
-    gap: 16,
-  },
-  categoryItem: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  categoryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    borderLeftWidth: 4,
     gap: 12,
   },
-  categoryRank: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  categoryRankText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  categoryInfo: {
-    flex: 1,
-  },
-  categoryName: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  categoryPercentage: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  categoryAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  categoryBarContainer: {
-    height: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 4,
-    overflow: 'hidden',
-    marginBottom: 8,
-  },
-  categoryBar: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  categoryDetails: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 4,
-  },
-  categoryDetail: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  monthlyList: {
-    gap: 20,
-  },
-  monthlyItem: {
-    marginBottom: 20,
-  },
-  monthlyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  monthLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  monthlyBars: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 8,
-  },
-  monthlyBarContainer: {
-    flex: 1,
-    alignItems: 'center',
-    height: 120,
-    justifyContent: 'flex-end',
-  },
-  monthlyBar: {
-    width: '100%',
-    borderRadius: 8,
-    minHeight: 4,
-  },
-  monthlyBarLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  monthlyNet: {
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  emptyContainer: {
-    paddingVertical: 60,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  healthStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-    backgroundColor: '#f9fafb',
-    borderRadius: 12,
-    padding: 16,
-  },
-  healthItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  healthDivider: {
-    width: 1,
-    height: '60%',
-    backgroundColor: '#e5e7eb',
-    marginHorizontal: 12,
-  },
-  healthLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  healthValue: {
-    fontSize: 16,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  totalValueCard: {
-    backgroundColor: '#1e3a8a',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
-  },
-  totalValueLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginBottom: 4,
-  },
-  totalValueAmount: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#ffffff',
-    marginBottom: 4,
-  },
-  totalValueMeta: {
-    fontSize: 11,
-    color: 'rgba(255, 255, 255, 0.6)',
-    fontWeight: '500',
-  },
-  shareReportButton: {
+  insightIcon: { fontSize: 20 },
+  insightText: { fontSize: 13, fontWeight: '500', flex: 1 },
+  shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1161,9 +801,29 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  shareReportButtonText: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#ffffff',
+  shareButtonText: { fontSize: 18, fontWeight: '800', color: '#ffffff' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  modalContent: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    paddingBottom: 40,
   },
+  modalTitle: { fontSize: 20, fontWeight: '700', marginBottom: 20 },
+  shareOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    gap: 16,
+  },
+  shareOptionText: { flex: 1 },
+  shareOptionTitle: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
+  shareOptionDesc: { fontSize: 12, fontWeight: '500' },
+  shareOptionLast: { justifyContent: 'center' },
+  emptyState: { alignItems: 'center', paddingVertical: 60 },
+  emptyText: { fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  emptySubtext: { fontSize: 14, textAlign: 'center' },
 });
