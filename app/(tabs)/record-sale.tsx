@@ -3,7 +3,6 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordSale } from '@/lib/transactions';
-import { getCachedSession } from '@/lib/session-cache';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, ShoppingBag, ShoppingCart } from "lucide-react-native";
@@ -32,21 +31,9 @@ export default function RecordSaleScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
-          return;
         }
       } catch (error) {
-        console.log('[record-sale] Supabase auth failed, checking cache');
-      }
-
-      // Fallback to cached session
-      try {
-        const cached = await getCachedSession();
-        if (cached) {
-          setUser({ id: cached.userId, email: cached.email });
-          console.log('[record-sale] Using cached session');
-        }
-      } catch (error) {
-        console.error('[record-sale] Failed to get cached session:', error);
+        console.error('[record-sale] Failed to get session:', error);
       }
     };
 

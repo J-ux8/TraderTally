@@ -1,7 +1,6 @@
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { getCachedSession } from '@/lib/session-cache';
 import { supabase } from "@/lib/supabase";
 import { deleteTransaction, updateTransaction } from "@/lib/transactions";
 import { useFocusEffect } from "expo-router";
@@ -128,21 +127,9 @@ export default function RecordsScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
-          return;
         }
       } catch (error) {
-        console.log('[records] Supabase auth failed, checking cache');
-      }
-
-      // Fallback to cached session
-      try {
-        const cached = await getCachedSession();
-        if (cached) {
-          setUser({ id: cached.userId, email: cached.email });
-          console.log('[records] Using cached session');
-        }
-      } catch (error) {
-        console.error('[records] Failed to get cached session:', error);
+        console.error('[records] Failed to get session:', error);
       }
     };
 

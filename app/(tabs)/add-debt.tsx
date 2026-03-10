@@ -1,6 +1,5 @@
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useDebts } from "@/hooks/useDebts";
-import { getCachedSession } from "@/lib/session-cache";
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, FileText, Plus, User } from "lucide-react-native";
@@ -28,25 +27,10 @@ export default function AddDebtScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
-          setCheckingAuth(false);
-          return;
         }
       } catch (error) {
-        console.log('[add-debt] Supabase auth failed, checking cache');
+        console.error('[add-debt] Failed to get session:', error);
       }
-
-      // Fallback to cached session
-      try {
-        const cached = await getCachedSession();
-        if (cached) {
-          setUser({ id: cached.userId, email: cached.email });
-          console.log('[add-debt] Using cached session');
-        }
-      } catch (error) {
-        console.error('[add-debt] Failed to get cached session:', error);
-      }
-
-      setCheckingAuth(false);
     };
 
     initUser();

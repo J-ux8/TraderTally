@@ -1,5 +1,4 @@
 import { supabase } from '@/lib/supabase';
-import { getCachedSession } from '@/lib/session-cache';
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useState } from 'react';
 
@@ -14,36 +13,22 @@ export function useAuth() {
       setIsOnline(state.isConnected ?? false);
     });
 
-    // Get initial session - try Supabase first, fallback to cache
+    // Get initial session from Supabase only
     const initAuth = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-          setLoading(false);
-          return;
-        }
+        setUser(session?.user ?? null);
       } catch (error) {
-        console.log('[useAuth] Supabase auth failed, checking cache');
+        console.error('[useAuth] Failed to get session:', error);
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-
-      // Fallback to cached session
-      try {
-        const cached = await getCachedSession();
-        if (cached) {
-          setUser({ id: cached.userId, email: cached.email });
-          console.log('[useAuth] Using cached session for offline mode');
-        }
-      } catch (error) {
-        console.error('[useAuth] Failed to get cached session:', error);
-      }
-      
-      setLoading(false);
     };
 
     initAuth();
 
-    // Listen for auth changes (only works when online)
+    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });

@@ -19,7 +19,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const colors = useThemeColors();
-  const { transactions, refresh, loading: contextLoading } = useTransactionsContext();
+  const { transactions, refresh } = useTransactionsContext();
   const [refreshing, setRefreshing] = useState(false);
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -31,21 +31,9 @@ export default function HomeScreen() {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
           setUser(session.user);
-          return;
         }
       } catch (error) {
-        console.log('[home] Supabase auth failed, checking cache');
-      }
-
-      // Fallback to cached session
-      try {
-        const cached = await getCachedSession();
-        if (cached) {
-          setUser({ id: cached.userId, email: cached.email });
-          console.log('[home] Using cached session');
-        }
-      } catch (error) {
-        console.error('[home] Failed to get cached session:', error);
+        console.error('[home] Failed to get session:', error);
       }
     };
 
