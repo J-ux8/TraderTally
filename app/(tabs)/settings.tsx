@@ -284,15 +284,6 @@ export default function SettingsScreen() {
   const textSecondary = theme === 'dark' ? '#9BA1A6' : '#666';
   const borderColor = theme === 'dark' ? '#374151' : '#e5e7eb';
 
-  if (authLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor }]}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-        <Text style={[styles.loadingText, { color: textSecondary }]}>Loading...</Text>
-      </View>
-    );
-  }
-
   if (!user) {
     return (
       <View style={[styles.loadingContainer, { backgroundColor }]}>

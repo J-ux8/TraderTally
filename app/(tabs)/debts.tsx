@@ -4,31 +4,19 @@ import { EditDebtSheet } from '@/components/debts/EditDebtSheet';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useDebts } from '@/hooks/useDebts';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { useAuth } from '@/hooks/useAuth';
 import { Debt } from '@/lib/debts';
-import { getUserProfile, UserProfile } from '@/lib/profile';
 import { router, useFocusEffect } from 'expo-router';
 import { Plus, Store } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DebtsScreen() {
   const colors = useThemeColors();
-  const { user, loading: authLoading } = useAuth();
   const { debts, updateDebt, settleDebt, deleteDebt, refresh, loading, error } = useDebts();
   const [activeTab, setActiveTab] = useState<'active' | 'settled'>('active');
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
-
-  useEffect(() => {
-    if (user) {
-      getUserProfile().then(setProfile).catch(err => {
-        console.log('[debts] Could not load profile:', err);
-      });
-    }
-  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,26 +42,6 @@ export default function DebtsScreen() {
   }) => {
     updateDebt(id, data);
   };
-
-  // Show loading only on initial auth check
-  if (authLoading) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1e3a8a" />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading...</Text>
-        </View>
-      </View>
-    );
-  }
-
-  if (!user) {
-    return (
-      <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Please log in</Text>
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
@@ -167,7 +135,6 @@ export default function DebtsScreen() {
                     debt={d}
                     onSettle={() => settleDebt(d.id)}
                     onClick={() => setEditingDebt(d)}
-                    businessName={profile?.full_name}
                   />
                 ))}
               </View>
@@ -184,7 +151,6 @@ export default function DebtsScreen() {
                     key={d.id}
                     debt={d}
                     onClick={() => setEditingDebt(d)}
-                    businessName={profile?.full_name}
                   />
                 ))}
               </View>
