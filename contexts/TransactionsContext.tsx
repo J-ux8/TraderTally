@@ -50,24 +50,32 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
   const handleRecordSale = async (amount: number, category: string | null, description: string | null, date?: string) => {
     const result = await recordSale(amount, category, description, date);
-    await loadTransactions();
+    // Update state immediately instead of reloading all
+    setTransactions(prev => [result as Transaction, ...prev]);
     return result;
   };
 
   const handleRecordExpense = async (amount: number, category: string | null, description: string | null, date?: string) => {
     const result = await recordExpense(amount, category, description, date);
-    await loadTransactions();
+    // Update state immediately instead of reloading all
+    setTransactions(prev => [result as Transaction, ...prev]);
     return result;
   };
 
   const handleUpdateTransaction = async (id: string, amount: number, category: string | null, description: string | null, date?: string) => {
     await updateTxLib(id, amount, category, description, date);
-    await loadTransactions();
+    // Update state immediately instead of reloading all
+    setTransactions(prev => prev.map(tx =>
+      tx.id === id
+        ? { ...tx, amount, category, description, transaction_date: date || tx.transaction_date, updated_at: new Date().toISOString() }
+        : tx
+    ));
   };
 
   const handleRemoveTransaction = async (id: string) => {
     await deleteTxLib(id);
-    await loadTransactions();
+    // Update state immediately instead of reloading all
+    setTransactions(prev => prev.filter(tx => tx.id !== id));
   };
 
   return (

@@ -9,16 +9,8 @@ export function useDebts() {
   const [lastLoadTime, setLastLoadTime] = useState<number>(0);
   const { recordSale } = useTransactionsContext();
 
-  const refresh = useCallback(async (force = false) => {
+  const refresh = useCallback(async (force = true) => {
     try {
-      // Check if data is fresh (less than 3 minutes old)
-      const now = Date.now();
-      const threeMinutes = 3 * 60 * 1000;
-      if (!force && now - lastLoadTime < threeMinutes && debts.length > 0) {
-        console.log('[useDebts] Data is fresh, skipping refresh');
-        return;
-      }
-
       setLoading(true);
       setError(null);
 
@@ -34,7 +26,7 @@ export function useDebts() {
     } finally {
       setLoading(false);
     }
-  }, [lastLoadTime, debts.length]);
+  }, [lastLoadTime]);
 
   useEffect(() => {
     refresh();
@@ -47,6 +39,7 @@ export function useDebts() {
     note: string | null
   ) => {
     const newDebt = await addDebt(customerName, amount, dueDate, note);
+    // Update state immediately
     setDebts(prev => [newDebt, ...prev]);
     return newDebt;
   }, []);
@@ -61,6 +54,7 @@ export function useDebts() {
     }
   ) => {
     await updateDebt(id, data);
+    // Update state immediately
     setDebts(prev => prev.map(d =>
       d.id === id
         ? { ...d, ...data, updated_at: new Date().toISOString() }
@@ -86,6 +80,7 @@ export function useDebts() {
       console.error('Error recording transaction for settled debt:', txError);
     }
 
+    // Update state immediately
     setDebts(prev => prev.map(d =>
       d.id === id
         ? { ...d, is_settled: true, updated_at: new Date().toISOString() }
@@ -95,6 +90,7 @@ export function useDebts() {
 
   const handleDeleteDebt = useCallback(async (id: string) => {
     await deleteDebt(id);
+    // Update state immediately
     setDebts(prev => prev.filter(d => d.id !== id));
   }, []);
 

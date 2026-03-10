@@ -12,7 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function AddDebtScreen() {
   const params = useLocalSearchParams<{ amount?: string; note?: string; isSale?: string; category?: string }>();
-  const { createDebt: createDebtFromHook } = useDebts();
+  const { createDebt: createDebtFromHook, refresh: refreshDebts } = useDebts();
   const { recordSale } = useTransactionsContext();
   const [customerName, setCustomerName] = useState("");
   const [amount, setAmount] = useState(params.amount || "");
@@ -93,6 +93,9 @@ export default function AddDebtScreen() {
         dueDate ? dueDate.toISOString().split("T")[0] : null,
         note.trim() || null
       );
+
+      // Refresh debts list immediately
+      await refreshDebts(true);
 
       Alert.alert("Success", "Credit added to Credit Book! 💰");
       router.back();
