@@ -1,5 +1,4 @@
 import { createUserProfile } from "@/lib/profile";
-import { cacheProfile } from "@/lib/profile-cache";
 import { supabase } from "@/lib/supabase";
 import { resendVerificationOTP, verifyOTP } from "@/lib/verification-supabase";
 import { router, useLocalSearchParams } from "expo-router";
@@ -168,16 +167,8 @@ export default function VerifyEmailScreen() {
               profile.businessType
             );
             
-            // Cache the profile immediately for offline access
             if (createdProfile) {
-              await cacheProfile({
-                id: createdProfile.id,
-                full_name: createdProfile.full_name,
-                email: createdProfile.email,
-                phone_number: createdProfile.phone_number,
-                business_type: createdProfile.business_type,
-              });
-              console.log('[VerifyEmail] Profile created and cached successfully');
+              console.log('[VerifyEmail] Profile created successfully');
             }
           } catch (profileError: any) {
             console.error("Non-blocking profile creation error:", profileError);
