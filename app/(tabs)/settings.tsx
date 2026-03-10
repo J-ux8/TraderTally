@@ -87,7 +87,7 @@ export default function SettingsScreen() {
   const [recoveryModalVisible, setRecoveryModalVisible] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
 
-  const { transactions, pendingCount, syncStatus, refresh } = useTransactionsContext();
+  const { transactions, refresh } = useTransactionsContext();
 
   useEffect(() => {
     if (user) {

@@ -4,7 +4,6 @@ import { SummaryCard } from '@/components/dashboard/SummaryCard';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useSummary } from '@/hooks/useSummary';
-import { useSync } from '@/hooks/useSync';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { signOut } from '@/lib/auth';
 import { getCachedSession } from '@/lib/session-cache';
@@ -20,8 +19,8 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const colors = useThemeColors();
-  const { transactions, pendingCount, refresh, refreshing } = useTransactionsContext();
-  const { status: syncStatus } = useSync(pendingCount);
+  const { transactions, refresh, loading: contextLoading } = useTransactionsContext();
+  const [refreshing, setRefreshing] = useState(false);
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [user, setUser] = useState<any>(null);
@@ -64,7 +63,12 @@ export default function HomeScreen() {
 
 
   const handleRefresh = useCallback(async () => {
-    await refresh();
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
   }, [refresh]);
 
   const handleLogout = async () => {

@@ -1,4 +1,4 @@
-import { useTransactionsContext, SyncStatus } from '@/contexts/TransactionsContext';
+import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { getCachedSession } from '@/lib/session-cache';
@@ -104,13 +104,12 @@ export default function RecordsScreen() {
   const {
     transactions,
     loading,
-    refreshing,
     refresh,
-    syncStatus,
     updateTransaction: updateTransactionInContext,
     removeTransaction: removeTransactionFromContext
   } = useTransactionsContext();
   const [user, setUser] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Edit modal state
   const [editModalVisible, setEditModalVisible] = useState(false);

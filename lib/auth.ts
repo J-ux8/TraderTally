@@ -40,18 +40,6 @@ export async function signIn(email: string, password: string) {
     } catch (profileError) {
       console.log('[Auth] Could not load profile on login (non-blocking):', profileError);
     }
-
-    // Trigger initial sync to download data from server
-    // This runs in background and doesn't block login
-    setTimeout(async () => {
-      try {
-        const { SyncEngine } = await import('./offline/sync/SyncEngine');
-        const syncEngine = new SyncEngine(data.user.id);
-        await syncEngine.sync();
-      } catch (syncError) {
-        // Sync failed but app still works offline
-      }
-    }, 100);
   }
 
   return data;

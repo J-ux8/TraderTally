@@ -1,5 +1,5 @@
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
-import { createDebt, deleteDebt, getUserDebts, settleDebt, updateDebt } from '@/lib/debts';
+import { addDebt, deleteDebt, getUserDebts, settleDebt, updateDebt } from '@/lib/debts';
 import { useCallback, useEffect, useState } from 'react';
 
 export function useDebts() {
@@ -46,7 +46,7 @@ export function useDebts() {
     dueDate: string | null,
     note: string | null
   ) => {
-    const newDebt = await createDebt(customerName, amount, dueDate, note);
+    const newDebt = await addDebt(customerName, amount, dueDate, note);
     setDebts(prev => [newDebt, ...prev]);
     return newDebt;
   }, []);

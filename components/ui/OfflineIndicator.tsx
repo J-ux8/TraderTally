@@ -1,16 +1,14 @@
-import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import NetInfo from '@react-native-community/netinfo';
 
 interface OfflineIndicatorProps {
-  alwaysShow?: boolean; // Show even when synced
+  alwaysShow?: boolean; // Show even when online
   compact?: boolean; // Smaller version
 }
 
 export function OfflineIndicator({ alwaysShow = false, compact = false }: OfflineIndicatorProps) {
-  const { syncStatus, pendingCount } = useTransactionsContext();
   const [isOnline, setIsOnline] = useState(true);
   
   useEffect(() => {
@@ -20,8 +18,8 @@ export function OfflineIndicator({ alwaysShow = false, compact = false }: Offlin
     return () => unsubscribe();
   }, []);
   
-  // Don't show if synced and alwaysShow is false
-  if (!alwaysShow && syncStatus === 'synced' && isOnline) return null;
+  // Don't show if online and alwaysShow is false
+  if (!alwaysShow && isOnline) return null;
   
   const getStatusInfo = () => {
     if (!isOnline) {
@@ -32,27 +30,11 @@ export function OfflineIndicator({ alwaysShow = false, compact = false }: Offlin
       };
     }
     
-    if (syncStatus === 'syncing') {
-      return {
-        icon: 'cloud-upload-outline' as const,
-        text: compact ? 'Syncing' : 'Syncing...',
-        style: styles.syncing,
-      };
-    }
-    
-    if (syncStatus === 'pending' || pendingCount > 0) {
-      return {
-        icon: 'time-outline' as const,
-        text: compact ? `${pendingCount}` : `${pendingCount} pending`,
-        style: styles.pending,
-      };
-    }
-    
-    // Online and synced
+    // Online
     return {
       icon: 'cloud-done-outline' as const,
-      text: compact ? 'Synced' : 'All synced',
-      style: styles.synced,
+      text: compact ? 'Online' : 'Online',
+      style: styles.online,
     };
   };
   
@@ -81,9 +63,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   offline: { backgroundColor: '#dc2626' },
-  pending: { backgroundColor: '#f59e0b' },
-  syncing: { backgroundColor: '#3b82f6' },
-  synced: { backgroundColor: '#10b981' },
+  online: { backgroundColor: '#10b981' },
   text: { 
     color: '#fff', 
     fontSize: 12, 
