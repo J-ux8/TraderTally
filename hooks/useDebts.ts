@@ -7,13 +7,14 @@ export function useDebts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastLoadTime, setLastLoadTime] = useState<number>(0);
-  const loadingRef = useRef(false);
+  const isLoadingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
   const { recordSale } = useTransactionsContext();
 
   const refresh = useCallback(async (force = true) => {
-    // Prevent duplicate loads
-    if (loadingRef.current && !force) return;
-    loadingRef.current = true;
+    // Prevent concurrent loads unless forced
+    if (isLoadingRef.current && !force) return;
+    isLoadingRef.current = true;
     
     try {
       setLoading(true);
@@ -30,13 +31,17 @@ export function useDebts() {
       // Keep existing debts on error instead of clearing
     } finally {
       setLoading(false);
-      loadingRef.current = false;
+      isLoadingRef.current = false;
     }
   }, [lastLoadTime]);
 
   useEffect(() => {
+    // Only initialize once
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+    
     refresh();
-  }, [refresh]);
+  }, []);
 
   const handleCreateDebt = useCallback(async (
     customerName: string,

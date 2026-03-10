@@ -27,12 +27,13 @@ const TransactionsContext = createContext<TransactionsContextType | null>(null);
 export function TransactionsProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const loadingRef = useRef(false);
+  const isLoadingRef = useRef(false);
+  const hasInitializedRef = useRef(false);
 
   const loadTransactions = useCallback(async () => {
-    // Prevent duplicate loads
-    if (loadingRef.current) return;
-    loadingRef.current = true;
+    // Prevent concurrent loads
+    if (isLoadingRef.current) return;
+    isLoadingRef.current = true;
     
     try {
       setLoading(true);
@@ -42,7 +43,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       if (!user) {
         setTransactions([]);
         setLoading(false);
-        loadingRef.current = false;
         return;
       }
       
@@ -50,14 +50,18 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       setTransactions(data as Transaction[]);
     } catch (error) {
       console.error('Error loading transactions:', error);
-      setTransactions([]);
+      // Don't clear transactions on error - keep existing data
     } finally {
       setLoading(false);
-      loadingRef.current = false;
+      isLoadingRef.current = false;
     }
   }, []);
 
   useEffect(() => {
+    // Only initialize once
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
     loadTransactions();
     
     // Listen for auth changes
@@ -72,9 +76,10 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     return () => {
       subscription?.unsubscribe();
     };
-  }, [loadTransactions]);
+  }, []);
 
   const refresh = useCallback(async () => {
+    isLoadingRef.current = false; // Reset flag to allow refresh
     await loadTransactions();
   }, [loadTransactions]);
 
