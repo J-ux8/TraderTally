@@ -10,6 +10,10 @@ export interface UserProfile {
   updated_at: string;
 }
 
+// In-memory cache for profile data
+let profileCache: { [userId: string]: { data: UserProfile | null; timestamp: number } } = {};
+const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
     const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -17,9 +21,15 @@ export async function getUserProfile(): Promise<UserProfile | null> {
       return null;
     }
 
+    // Check cache first
+    const cached = profileCache[user.id];
+    if (cached && Date.now() - cached.timestamp < PROFILE_CACHE_TTL) {
+      return cached.data;
+    }
+
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select("id,full_name,email,phone_number,business_type,created_at,updated_at")
       .eq("id", user.id)
       .single();
 
@@ -27,7 +37,12 @@ export async function getUserProfile(): Promise<UserProfile | null> {
       // If profile doesn't exist, try to create a default one
       if (error.code === 'PGRST116') {
         try {
-          return await createDefaultProfile(user.id, user.email || '');
+          const profile = await createDefaultProfile(user.id, user.email || '');
+          // Cache the result
+          if (profile) {
+            profileCache[user.id] = { data: profile, timestamp: Date.now() };
+          }
+          return profile;
         } catch (createError) {
           return null;
         }
@@ -35,10 +50,21 @@ export async function getUserProfile(): Promise<UserProfile | null> {
       return null;
     }
 
+    // Cache the result
+    profileCache[user.id] = { data, timestamp: Date.now() };
     return data;
   } catch (error) {
     console.error('[Profile] Error loading profile:', error);
     return null;
+  }
+}
+
+// Invalidate profile cache (call after updates)
+export function invalidateProfileCache(userId?: string) {
+  if (userId) {
+    delete profileCache[userId];
+  } else {
+    profileCache = {};
   }
 }
 
@@ -187,6 +213,8 @@ export async function updateUserProfile(
       throw error;
     }
 
+    // Invalidate cache
+    invalidateProfileCache(user.id);
     return data;
   }
 
@@ -207,6 +235,8 @@ export async function updateUserProfile(
     throw error;
   }
 
+  // Invalidate cache after update
+  invalidateProfileCache(user.id);
   return data;
 }
 

@@ -123,7 +123,58 @@ export default function VerifyEmailScreen() {
 
   async function handleVerifyOTP() {
     const code = otpCode.join("");
+    await verifyOTPCode(code);
+  }
 
+  function handleOtpChange(index: number, value: string) {
+    // Only allow numbers
+    const numericValue = value.replace(/[^0-9]/g, "");
+
+    if (numericValue.length > 1) {
+      // Handle paste
+      const pastedCode = numericValue.slice(0, 6).split("");
+      const newOtp = [...otpCode];
+      pastedCode.forEach((digit, i) => {
+        if (index + i < 6) {
+          newOtp[index + i] = digit;
+        }
+      });
+      setOtpCode(newOtp);
+
+      // Focus on last filled input or next empty
+      const nextIndex = Math.min(index + pastedCode.length, 5);
+      inputRefs.current[nextIndex]?.focus();
+
+      // Auto-verify if all 6 digits are now filled
+      const fullCode = newOtp.join("");
+      if (fullCode.length === 6) {
+        Keyboard.dismiss();
+        // Use the newOtp directly instead of waiting for state update
+        setTimeout(() => verifyOTPCode(fullCode), 300);
+      }
+    } else {
+      // Single digit input
+      const newOtp = [...otpCode];
+      newOtp[index] = numericValue;
+      setOtpCode(newOtp);
+
+      // Auto-focus next input
+      if (numericValue && index < 5) {
+        inputRefs.current[index + 1]?.focus();
+      }
+
+      // Auto-verify when all 6 digits are entered
+      const fullCode = newOtp.join("");
+      if (fullCode.length === 6) {
+        // Dismiss keyboard before verifying
+        Keyboard.dismiss();
+        // Use the fullCode directly instead of waiting for state update
+        setTimeout(() => verifyOTPCode(fullCode), 300);
+      }
+    }
+  }
+
+  async function verifyOTPCode(code: string) {
     if (code.length !== 6) {
       Alert.alert("Error", "Please enter the complete 6-digit code");
       return;
@@ -141,6 +192,9 @@ export default function VerifyEmailScreen() {
       const isVerified = await verifyOTP(email, code, verifyType as any);
 
       if (isVerified) {
+        // Wait a bit for session to be established after verification
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Email is verified, retrieve the latest user data including metadata
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
@@ -202,45 +256,6 @@ export default function VerifyEmailScreen() {
       inputRefs.current[0]?.focus();
     } finally {
       setVerifying(false);
-    }
-  }
-
-  function handleOtpChange(index: number, value: string) {
-    // Only allow numbers
-    const numericValue = value.replace(/[^0-9]/g, "");
-
-    if (numericValue.length > 1) {
-      // Handle paste
-      const pastedCode = numericValue.slice(0, 6).split("");
-      const newOtp = [...otpCode];
-      pastedCode.forEach((digit, i) => {
-        if (index + i < 6) {
-          newOtp[index + i] = digit;
-        }
-      });
-      setOtpCode(newOtp);
-
-      // Focus on last filled input or next empty
-      const nextIndex = Math.min(index + pastedCode.length, 5);
-      inputRefs.current[nextIndex]?.focus();
-    } else {
-      // Single digit input
-      const newOtp = [...otpCode];
-      newOtp[index] = numericValue;
-      setOtpCode(newOtp);
-
-      // Auto-focus next input
-      if (numericValue && index < 5) {
-        inputRefs.current[index + 1]?.focus();
-      }
-
-      // Auto-verify when all 6 digits are entered
-      const fullCode = newOtp.join("");
-      if (fullCode.length === 6) {
-        // Dismiss keyboard before verifying
-        Keyboard.dismiss();
-        setTimeout(() => handleVerifyOTP(), 500); // Slightly longer delay to ensure state is updated
-      }
     }
   }
 

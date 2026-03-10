@@ -96,10 +96,12 @@ export default function SettingsScreen() {
     }
   }, [user]);
 
+  // Don't reload profile on every focus - it's cached in memory
+  // User can manually refresh if needed via the UI
   useFocusEffect(
     useCallback(() => {
-      // Don't reload on every focus - profile is cached
-      // User can manually refresh if needed
+      // Profile is cached, no need to reload on focus
+      return () => {};
     }, [])
   );
 

@@ -62,16 +62,25 @@ export async function recordExpense(
   return data;
 }
 
-export async function getUserTransactions(): Promise<Transaction[]> {
+export async function getUserTransactions(limit?: number, offset?: number): Promise<Transaction[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
   
-  const { data, error } = await supabase
+  let query = supabase
     .from('transactions')
-    .select('*')
+    .select('id,user_id,amount,category,description,transaction_date,created_at,updated_at,is_deleted', { count: 'exact' })
     .eq('user_id', user.id)
     .eq('is_deleted', 0)
     .order('transaction_date', { ascending: false });
+  
+  if (limit) {
+    query = query.limit(limit);
+  }
+  if (offset) {
+    query = query.range(offset, offset + (limit || 50) - 1);
+  }
+  
+  const { data, error } = await query;
   
   if (error) {
     console.error('[getUserTransactions] Error:', error);
@@ -122,4 +131,65 @@ export async function getRealTimeProfit(): Promise<number> {
   if (error) throw error;
   
   return (data || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+}
+
+// Batch operations for performance
+export async function batchUpdateTransactions(
+  updates: Array<{ id: string; amount: number; category: string | null; description: string | null; transaction_date: string }>
+): Promise<void> {
+  if (updates.length === 0) return;
+  
+  // Supabase doesn't support true batch updates, so we use Promise.all for parallel execution
+  await Promise.all(
+    updates.map(update =>
+      supabase
+        .from('transactions')
+        .update({
+          amount: update.amount,
+          category: update.category,
+          description: update.description,
+          transaction_date: update.transaction_date
+        })
+        .eq('id', update.id)
+    )
+  );
+}
+
+export async function batchDeleteTransactions(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  
+  // Batch soft delete
+  await Promise.all(
+    ids.map(id =>
+      supabase
+        .from('transactions')
+        .update({ is_deleted: 1 })
+        .eq('id', id)
+    )
+  );
+}
+
+export async function batchInsertTransactions(
+  transactions: Array<{ amount: number; category: string | null; description: string | null; transaction_date: string }>
+): Promise<Transaction[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Not authenticated');
+  
+  if (transactions.length === 0) return [];
+  
+  const { data, error } = await supabase
+    .from('transactions')
+    .insert(
+      transactions.map(tx => ({
+        user_id: user.id,
+        amount: tx.amount,
+        category: tx.category,
+        description: tx.description,
+        transaction_date: tx.transaction_date
+      }))
+    )
+    .select();
+  
+  if (error) throw error;
+  return data || [];
 }

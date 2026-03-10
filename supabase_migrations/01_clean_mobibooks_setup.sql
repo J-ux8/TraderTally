@@ -71,9 +71,14 @@ CREATE INDEX IF NOT EXISTS idx_categories_not_deleted ON categories(user_id) WHE
 CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_not_deleted ON transactions(user_id) WHERE is_deleted = 0;
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(transaction_date DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_deleted ON transactions(user_id, is_deleted);
+CREATE INDEX IF NOT EXISTS idx_transactions_user_date ON transactions(user_id, transaction_date DESC);
 
 CREATE INDEX IF NOT EXISTS idx_debts_user_id ON debts(user_id);
 CREATE INDEX IF NOT EXISTS idx_debts_not_deleted ON debts(user_id) WHERE is_deleted = 0;
+CREATE INDEX IF NOT EXISTS idx_debts_user_deleted ON debts(user_id, is_deleted);
+CREATE INDEX IF NOT EXISTS idx_debts_user_settled ON debts(user_id, is_settled);
+CREATE INDEX IF NOT EXISTS idx_debts_user_deleted_settled ON debts(user_id, is_deleted, is_settled);
 
 CREATE INDEX IF NOT EXISTS idx_verification_codes_user_id ON verification_codes(user_id);
 CREATE INDEX IF NOT EXISTS idx_verification_codes_email ON verification_codes(email);

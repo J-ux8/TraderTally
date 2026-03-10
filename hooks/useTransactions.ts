@@ -1,5 +1,5 @@
 import { deleteTransaction, getRealTimeProfit, getUserTransactions, recordExpense, recordSale, updateTransaction } from '@/lib/transactions';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 export function useTransactions() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -25,32 +25,83 @@ export function useTransactions() {
     refresh();
   }, [refresh]);
 
-  async function handleRecordSale(amount: number, categoryName: string | null, description: string | null, date?: string) {
+  // Memoize transaction stats
+  const transactionStats = useMemo(() => {
+    const sales = transactions.filter(tx => tx.amount > 0);
+    const expenses = transactions.filter(tx => tx.amount < 0);
+    
+    return {
+      totalSales: sales.reduce((sum, tx) => sum + tx.amount, 0),
+      totalExpenses: expenses.reduce((sum, tx) => sum + Math.abs(tx.amount), 0),
+      transactionCount: transactions.length,
+      salesCount: sales.length,
+      expensesCount: expenses.length,
+    };
+  }, [transactions]);
+
+  const handleRecordSale = useCallback(async (amount: number, categoryName: string | null, description: string | null, date?: string) => {
     const res = await recordSale(amount, categoryName, description, date);
-    await refresh();
+    // Optimistic update
+    setTransactions(prev => [res, ...prev]);
+    setProfit(prev => prev + amount);
     return res;
-  }
+  }, []);
 
-  async function handleRecordExpense(amount: number, categoryName: string | null, description: string | null, date?: string) {
+  const handleRecordExpense = useCallback(async (amount: number, categoryName: string | null, description: string | null, date?: string) => {
     const res = await recordExpense(amount, categoryName, description, date);
-    await refresh();
+    // Optimistic update
+    setTransactions(prev => [res, ...prev]);
+    setProfit(prev => prev - amount);
     return res;
-  }
+  }, []);
 
-  async function handleUpdateTransaction(id: string, amount: number, categoryName: string | null, description: string | null, date?: string) {
-    await updateTransaction(id, amount, categoryName, description, date);
-    await refresh();
-  }
+  const handleUpdateTransaction = useCallback(async (id: string, amount: number, categoryName: string | null, description: string | null, date?: string) => {
+    const oldTx = transactions.find(tx => tx.id === id);
+    
+    // Optimistic update
+    setTransactions(prev => prev.map(tx =>
+      tx.id === id
+        ? { ...tx, amount, category: categoryName, description, transaction_date: date || tx.transaction_date }
+        : tx
+    ));
+    
+    if (oldTx) {
+      const diff = amount - oldTx.amount;
+      setProfit(prev => prev + diff);
+    }
+    
+    try {
+      await updateTransaction(id, amount, categoryName, description, date);
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      // Reload on error
+      await refresh();
+    }
+  }, [transactions, refresh]);
 
-  async function handleDeleteTransaction(id: string) {
-    await deleteTransaction(id);
-    await refresh();
-  }
+  const handleDeleteTransaction = useCallback(async (id: string) => {
+    const txToDelete = transactions.find(tx => tx.id === id);
+    
+    // Optimistic update
+    setTransactions(prev => prev.filter(tx => tx.id !== id));
+    if (txToDelete) {
+      setProfit(prev => prev - txToDelete.amount);
+    }
+    
+    try {
+      await deleteTransaction(id);
+    } catch (error) {
+      console.error('Error deleting transaction:', error);
+      // Reload on error
+      await refresh();
+    }
+  }, [transactions, refresh]);
 
   return {
     transactions,
     profit,
     loading,
+    transactionStats,
     refresh,
     recordSale: handleRecordSale,
     recordExpense: handleRecordExpense,
