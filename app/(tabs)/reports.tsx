@@ -9,6 +9,7 @@ import {
 import React, { useCallback, useMemo, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 
 interface DailyData {
   date: string;
@@ -55,10 +56,18 @@ interface FinancialMetrics {
 export default function ReportsScreen() {
   const colors = useThemeColors();
   const { transactions, refresh } = useTransactionsContext();
-  const { debts } = useDebts();
+  const { debts, refresh: refreshDebts } = useDebts();
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
   const [refreshing, setRefreshing] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
+
+  // Refresh data when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshDebts();
+      refresh();
+    }, [refreshDebts, refresh])
+  );
 
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
