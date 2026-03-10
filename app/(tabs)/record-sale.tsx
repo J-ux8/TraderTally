@@ -5,7 +5,7 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordSale } from '@/lib/transactions';
 import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, ShoppingBag, ShoppingCart } from "lucide-react-native";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
