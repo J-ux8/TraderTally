@@ -58,7 +58,7 @@ function RootLayoutContent() {
 
   return (
     <NavigationThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
+      <Stack screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal' }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
         <Stack.Screen name="unlock" options={{ headerShown: false, animation: 'fade' }} />
@@ -67,9 +67,6 @@ function RootLayoutContent() {
         <Stack.Screen name="Authentication/register" options={{ title: 'Register', headerShown: false }} />
         <Stack.Screen name="Authentication/verify-email" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        <Stack.Screen name="(tabs)/record-sale" options={{ headerShown: false, animationEnabled: true, gestureEnabled: true }} />
-        <Stack.Screen name="(tabs)/record-expense" options={{ headerShown: false, animationEnabled: true, gestureEnabled: true }} />
-        <Stack.Screen name="(tabs)/add-debt" options={{ headerShown: false, animationEnabled: true, gestureEnabled: true }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </NavigationThemeProvider>

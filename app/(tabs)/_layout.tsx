@@ -44,6 +44,24 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="record-sale"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="record-expense"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="add-debt"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="reports"
         options={{
           title: 'Reports',
