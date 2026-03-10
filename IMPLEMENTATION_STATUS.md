@@ -42,6 +42,17 @@
 - ✅ Error handling
 - ✅ Pull-to-refresh
 
+### 6. **Performance Optimizations**
+- ✅ Added duplicate load prevention in TransactionsContext (useRef flag)
+- ✅ Added duplicate load prevention in useDebts hook (useRef flag)
+- ✅ Optimized form clearing with useFocusEffect in add-debt screen
+- ✅ Instant state updates on transaction/debt operations (no full reloads)
+- ✅ Removed unused imports (recordSale from add-debt)
+- ✅ Transaction counter badge in records screen header
+- ✅ Debt counter badges in credit book tabs
+- ✅ Pull-to-refresh for manual data refresh
+- ✅ Optimized focus effects to prevent unnecessary reloads
+
 ## 📊 Codebase Metrics
 
 | Metric | Before | After | Change |

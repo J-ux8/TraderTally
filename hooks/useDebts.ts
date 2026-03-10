@@ -1,15 +1,20 @@
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { addDebt, deleteDebt, getUserDebts, settleDebt, updateDebt } from '@/lib/debts';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export function useDebts() {
   const [debts, setDebts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastLoadTime, setLastLoadTime] = useState<number>(0);
+  const loadingRef = useRef(false);
   const { recordSale } = useTransactionsContext();
 
   const refresh = useCallback(async (force = true) => {
+    // Prevent duplicate loads
+    if (loadingRef.current && !force) return;
+    loadingRef.current = true;
+    
     try {
       setLoading(true);
       setError(null);
@@ -25,6 +30,7 @@ export function useDebts() {
       // Keep existing debts on error instead of clearing
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   }, [lastLoadTime]);
 

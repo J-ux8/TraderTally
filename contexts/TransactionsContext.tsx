@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib } from '@/lib/transactions';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 interface Transaction {
   id: string;
@@ -27,8 +27,13 @@ const TransactionsContext = createContext<TransactionsContextType | null>(null);
 export function TransactionsProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadingRef = useRef(false);
 
   const loadTransactions = useCallback(async () => {
+    // Prevent duplicate loads
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -37,6 +42,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       if (!user) {
         setTransactions([]);
         setLoading(false);
+        loadingRef.current = false;
         return;
       }
       
@@ -47,6 +53,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       setTransactions([]);
     } finally {
       setLoading(false);
+      loadingRef.current = false;
     }
   }, []);
 

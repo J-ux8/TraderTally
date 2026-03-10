@@ -1,5 +1,4 @@
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
-import { useTransactionsContext } from "@/contexts/TransactionsContext";
 import { useDebts } from "@/hooks/useDebts";
 import { getCachedSession } from "@/lib/session-cache";
 import { supabase } from "@/lib/supabase";
@@ -13,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function AddDebtScreen() {
   const params = useLocalSearchParams<{ amount?: string; note?: string; isSale?: string; category?: string }>();
   const { createDebt: createDebtFromHook, refresh: refreshDebts } = useDebts();
-  const { recordSale } = useTransactionsContext();
   const [customerName, setCustomerName] = useState("");
   const [amount, setAmount] = useState(params.amount || "");
   const [dueDate, setDueDate] = useState<Date | null>(null);
@@ -59,7 +57,11 @@ export default function AddDebtScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // No re-check needed, session handled in useEffect
+      // Clear form when screen is focused
+      setCustomerName("");
+      setAmount("");
+      setDueDate(null);
+      setNote("");
     }, [])
   );
 
