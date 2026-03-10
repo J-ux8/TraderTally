@@ -1,9 +1,8 @@
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useDebts } from "@/hooks/useDebts";
-import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, FileText, Plus, User } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,26 +17,6 @@ export default function AddDebtScreen() {
   const [loading, setLoading] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
-  const [user, setUser] = useState<any>(null);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-
-  useEffect(() => {
-    const initUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-        }
-      } catch (error) {
-        console.error('[add-debt] Failed to get session:', error);
-      }
-    };
-
-    initUser();
-
-    if (params.amount) setAmount(params.amount);
-    if (params.note) setNote(params.note);
-  }, [params.amount, params.note]);
 
   useFocusEffect(
     useCallback(() => {
@@ -114,14 +93,6 @@ export default function AddDebtScreen() {
 
   const selectedDateString = dueDate ? formatDateForCalendar(dueDate) : formatDateForCalendar(tempDate);
   const todayString = formatDateForCalendar(new Date());
-
-  if (checkingAuth || !user) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

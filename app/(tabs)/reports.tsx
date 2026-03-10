@@ -1,8 +1,6 @@
-import { useAuth } from '@/hooks/useAuth';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useDebts } from '@/hooks/useDebts';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { supabase } from '@/lib/supabase';
 import {
   Activity,
   ArrowDownRight,
@@ -63,10 +61,10 @@ interface AdvancedStats {
 export default function ReportsScreen() {
   // ALL HOOKS MUST BE AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
   const colors = useThemeColors();
-  const { user, loading: authLoading } = useAuth();
-  const { transactions, loading, refreshing, refresh } = useTransactionsContext();
+  const { transactions, loading, refresh } = useTransactionsContext();
   const { debts } = useDebts();
   const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'week' | 'month' | 'quarter' | 'year'>('month');
+  const [refreshing, setRefreshing] = useState(false);
 
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
@@ -402,26 +400,12 @@ export default function ReportsScreen() {
 
   // NOW conditional returns can happen
   async function onRefresh() {
-    await refresh(true); // Force refresh
-  }
-
-  // Show UI immediately with cached data, don't block on loading
-  // Only show loading if we have no data and are actually loading
-  if (authLoading) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
-        <ActivityIndicator size="large" color="#1e3a8a" />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading analytics...</Text>
-      </View>
-    );
-  }
-
-  if (!user) {
-    return (
-      <View style={[styles.loadingContainer, { backgroundColor: colors.backgroundColor }]}>
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Please log in</Text>
-      </View>
-    );
+    setRefreshing(true);
+    try {
+      await refresh(true); // Force refresh
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   const handleShareReport = async () => {

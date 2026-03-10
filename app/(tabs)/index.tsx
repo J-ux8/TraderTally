@@ -6,12 +6,11 @@ import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useSummary } from '@/hooks/useSummary';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { signOut } from '@/lib/auth';
-import { getCachedSession } from '@/lib/session-cache';
 import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { Activity, LogOut, Store } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,32 +22,6 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const [user, setUser] = useState<any>(null);
-
-  useEffect(() => {
-    const initUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-        }
-      } catch (error) {
-        console.error('[home] Failed to get session:', error);
-      }
-    };
-
-    initUser();
-  }, []);
-
-
-  // Only refresh if data is stale (not on every focus)
-  useFocusEffect(
-    useCallback(() => {
-      // Don't refresh on every focus - context already manages data freshness
-      // User can pull-to-refresh if needed
-    }, [])
-  );
-
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -94,7 +67,6 @@ export default function HomeScreen() {
     return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
   }, []);
 
-
   const tabs = useMemo(() => [
     { id: 'daily' as const, label: 'Today', summary: daily, title: "Today's Profit" },
     { id: 'weekly' as const, label: 'Week', summary: weekly, title: "This Week's Profit" },
@@ -125,19 +97,6 @@ export default function HomeScreen() {
   const cardBackground = theme === 'dark' ? '#1e293b' : '#ffffff';
   const textColor = theme === 'dark' ? '#e2e8f0' : '#1e293b';
   const textSecondary = theme === 'dark' ? '#94a3b8' : '#64748b';
-
-
-  // Show UI immediately with session data
-  if (!user) {
-    return (
-      <View style={[styles.container, { backgroundColor, paddingTop: insets.top }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1e3a8a" />
-          <Text style={[styles.loadingText, { color: textSecondary }]}>Loading MobiBooks...</Text>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.container, { backgroundColor }]}>

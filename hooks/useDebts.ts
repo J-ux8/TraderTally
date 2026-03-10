@@ -24,6 +24,7 @@ export function useDebts() {
       setDebts(data || []);
       setLastLoadTime(Date.now());
     } catch (error: any) {
+      console.error('[useDebts] Error loading debts:', error);
       // Only set error if we already have loaded before (not initial load)
       if (lastLoadTime > 0) {
         setError(error.message || 'Failed to load debts');
@@ -33,7 +34,7 @@ export function useDebts() {
       setLoading(false);
       isLoadingRef.current = false;
     }
-  }, [lastLoadTime]);
+  }, []);
 
   useEffect(() => {
     // Only initialize once

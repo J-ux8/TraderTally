@@ -2,10 +2,9 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordExpense } from '@/lib/transactions';
-import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, TrendingDown } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,7 +12,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function RecordExpenseScreen() {
   const colors = useThemeColors();
   const { recordExpense } = useTransactionsContext();
-  const [user, setUser] = useState<any>(null);
   const [amount, setAmount] = useState("");
   const [expenseType, setExpenseType] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
@@ -21,10 +19,6 @@ export default function RecordExpenseScreen() {
   const [loading, setLoading] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
-
-  useEffect(() => {
-    checkUser();
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,21 +30,6 @@ export default function RecordExpenseScreen() {
     }, [])
   );
 
-  async function checkUser() {
-    try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (currentUser) {
-        setUser(currentUser);
-        return;
-      }
-    } catch (error) {
-      console.error('[record-expense] Failed to get user:', error);
-    }
-
-    // Only redirect if we truly have no session
-    router.replace("/Authentication/login");
-  }
-
   const handleAmountChange = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, '');
     const parts = cleaned.split('.');
@@ -60,8 +39,6 @@ export default function RecordExpenseScreen() {
   };
 
   async function handleSubmit() {
-    if (!user) return;
-
     const numericAmount = parseFloat(amount);
     if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');

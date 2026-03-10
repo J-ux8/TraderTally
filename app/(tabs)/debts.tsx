@@ -33,7 +33,7 @@ export default function DebtsScreen() {
   useFocusEffect(
     useCallback(() => {
       // Always try to refresh debts when screen is focused
-      refresh();
+      refresh(true);
     }, [refresh])
   );
 

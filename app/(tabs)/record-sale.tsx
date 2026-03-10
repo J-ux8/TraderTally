@@ -3,10 +3,9 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordSale } from '@/lib/transactions';
-import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, ShoppingBag, ShoppingCart } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,7 +13,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function RecordSaleScreen() {
   const colors = useThemeColors();
   const { recordSale } = useTransactionsContext();
-  const [user, setUser] = useState<any>(null);
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
 
@@ -24,21 +22,6 @@ export default function RecordSaleScreen() {
   const [loading, setLoading] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
-
-  useEffect(() => {
-    const initUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-        }
-      } catch (error) {
-        console.error('[record-sale] Failed to get session:', error);
-      }
-    };
-
-    initUser();
-  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -86,8 +69,6 @@ export default function RecordSaleScreen() {
   };
 
   async function handleSubmit() {
-    if (!user) return;
-
     const numericAmount = parseFloat(amount);
     if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
       Alert.alert('Error', 'Please enter a valid amount');
