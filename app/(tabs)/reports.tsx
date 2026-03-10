@@ -5,13 +5,9 @@ import {
   BarChart3,
   Share as ShareIcon,
   MessageCircle,
-  TrendingUp,
-  TrendingDown,
-  AlertCircle,
-  CheckCircle,
 } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert, Dimensions } from 'react-native';
+import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface DailyData {
