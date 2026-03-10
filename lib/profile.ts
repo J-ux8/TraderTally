@@ -1,6 +1,4 @@
 import { supabase } from "./supabase";
-import { cacheProfile, getCachedProfile } from "./profile-cache";
-import NetInfo from '@react-native-community/netinfo';
 
 export interface UserProfile {
   id: string;
@@ -12,38 +10,10 @@ export interface UserProfile {
   updated_at: string;
 }
 
-// Get user profile with offline support
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
-    // Check network status
-    const netState = await NetInfo.fetch();
-    const isOnline = netState.isConnected ?? false;
-
-    if (!isOnline) {
-      // Return cached profile when offline
-      console.log('[Profile] Offline - using cached profile');
-      const cached = await getCachedProfile();
-      if (cached) {
-        return {
-          ...cached,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-      }
-      return null;
-    }
-
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
-      // Try cached profile as fallback
-      const cached = await getCachedProfile();
-      if (cached) {
-        return {
-          ...cached,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-      }
       return null;
     }
 
@@ -57,66 +27,17 @@ export async function getUserProfile(): Promise<UserProfile | null> {
       // If profile doesn't exist, try to create a default one
       if (error.code === 'PGRST116') {
         try {
-          const defaultProfile = await createDefaultProfile(user.id, user.email || '');
-          if (defaultProfile) {
-            // Cache the profile
-            await cacheProfile({
-              id: defaultProfile.id,
-              full_name: defaultProfile.full_name,
-              email: defaultProfile.email,
-              phone_number: defaultProfile.phone_number,
-              business_type: defaultProfile.business_type,
-            });
-          }
-          return defaultProfile;
+          return await createDefaultProfile(user.id, user.email || '');
         } catch (createError) {
-          // Return cached profile as fallback
-          const cached = await getCachedProfile();
-          if (cached) {
-            return {
-              ...cached,
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-            };
-          }
           return null;
         }
-      }
-      // Return cached profile as fallback
-      const cached = await getCachedProfile();
-      if (cached) {
-        return {
-          ...cached,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
       }
       return null;
     }
 
-    // Cache the profile for offline use
-    if (data) {
-      await cacheProfile({
-        id: data.id,
-        full_name: data.full_name,
-        email: data.email,
-        phone_number: data.phone_number,
-        business_type: data.business_type,
-      });
-    }
-
     return data;
   } catch (error) {
-    console.log('[Profile] Error loading profile, using cache');
-    // Return cached profile as fallback
-    const cached = await getCachedProfile();
-    if (cached) {
-      return {
-        ...cached,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-    }
+    console.error('[Profile] Error loading profile:', error);
     return null;
   }
 }
@@ -138,7 +59,6 @@ export async function createUserProfile(
       .single();
 
     if (existing) {
-      // Profile already exists, return it
       return existing;
     }
 
@@ -152,7 +72,6 @@ export async function createUserProfile(
     });
 
     if (!functionError) {
-      // Function succeeded (returns UUID), fetch the profile
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -160,18 +79,11 @@ export async function createUserProfile(
         .single();
 
       if (!error && data) {
-        console.log("Profile created successfully using function");
         return data;
-      } else {
-        console.error("Error fetching profile after function call:", error);
       }
-    } else {
-      console.error("Error calling insert_user_profile function:", functionError);
-      // Continue to fallback
     }
 
-    // Fallback to direct insert (only if function failed)
-    // This will likely fail due to RLS, but we try anyway
+    // Fallback to direct insert
     const { data, error } = await supabase
       .from("profiles")
       .insert({
@@ -185,8 +97,6 @@ export async function createUserProfile(
       .single();
 
     if (error) {
-      console.error("Error creating profile (fallback):", error);
-      // If RLS error, suggest running the SQL migration
       if (error.code === "42501") {
         throw new Error("Profile creation failed due to RLS. Please run the SQL migration: fix_profiles_rls.sql");
       }
@@ -203,7 +113,7 @@ export async function createUserProfile(
 // Create default profile for user
 async function createDefaultProfile(userId: string, userEmail: string): Promise<UserProfile | null> {
   try {
-    // First try using the database function (bypasses RLS)
+    // Try using the database function (bypasses RLS)
     const { data: functionData, error: functionError } = await supabase.rpc("insert_user_profile", {
       p_user_id: userId,
       p_email: userEmail,
@@ -213,7 +123,6 @@ async function createDefaultProfile(userId: string, userEmail: string): Promise<
     });
 
     if (!functionError && functionData) {
-      // Function succeeded, fetch the profile
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
@@ -225,7 +134,7 @@ async function createDefaultProfile(userId: string, userEmail: string): Promise<
       }
     }
 
-    // Fallback to direct insert if function doesn't exist
+    // Fallback to direct insert
     const { data, error } = await supabase
       .from("profiles")
       .insert({
@@ -239,19 +148,11 @@ async function createDefaultProfile(userId: string, userEmail: string): Promise<
       .single();
 
     if (error) {
-      // Don't log RLS errors as errors - they're expected if user isn't fully authenticated
-      if (error.code !== "42501") {
-        console.error("Error creating default profile:", error);
-      }
       return null;
     }
 
     return data;
   } catch (error) {
-    // Don't log RLS errors as errors
-    if (error && typeof error === 'object' && 'code' in error && error.code !== "42501") {
-      console.error("Error creating default profile:", error);
-    }
     return null;
   }
 }
@@ -286,15 +187,6 @@ export async function updateUserProfile(
       throw error;
     }
 
-    // Cache the new profile
-    await cacheProfile({
-      id: data.id,
-      full_name: data.full_name,
-      email: data.email,
-      phone_number: data.phone_number,
-      business_type: data.business_type,
-    });
-
     return data;
   }
 
@@ -314,15 +206,6 @@ export async function updateUserProfile(
   if (error) {
     throw error;
   }
-
-  // Cache the updated profile
-  await cacheProfile({
-    id: data.id,
-    full_name: data.full_name,
-    email: data.email,
-    phone_number: data.phone_number,
-    business_type: data.business_type,
-  });
 
   return data;
 }

@@ -1,18 +1,11 @@
 import { supabase } from '@/lib/supabase';
-import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useState } from 'react';
 
 export function useAuth() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    // Monitor network status
-    const unsubscribeNetwork = NetInfo.addEventListener((state) => {
-      setIsOnline(state.isConnected ?? false);
-    });
-
     // Get initial session from Supabase only
     const initAuth = async () => {
       try {
@@ -35,9 +28,8 @@ export function useAuth() {
 
     return () => {
       subscription.unsubscribe();
-      unsubscribeNetwork();
     };
   }, []);
 
-  return { user, loading, isOnline };
+  return { user, loading };
 }
