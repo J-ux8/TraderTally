@@ -32,11 +32,9 @@ export default function DebtsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Only refresh if debts are empty - otherwise use pull-to-refresh
-      if (debts.length === 0 && !loading) {
-        refresh();
-      }
-    }, [debts.length, loading, refresh])
+      // Always try to refresh debts when screen is focused
+      refresh();
+    }, [refresh])
   );
 
   const activeDebts = useMemo(() => debts.filter(d => !d.is_settled), [debts]);
@@ -132,7 +130,12 @@ export default function DebtsScreen() {
           </View>
 
           {/* Content */}
-          {error && debts.length === 0 ? (
+          {loading && debts.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#1e3a8a" />
+              <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading debts...</Text>
+            </View>
+          ) : error && debts.length === 0 ? (
             <View style={styles.emptyState}>
               <View style={styles.emptyIconContainer}>
                 <Text style={styles.emptyIcon}>⚠️</Text>
