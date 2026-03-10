@@ -2,36 +2,13 @@ import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useDebts } from '@/hooks/useDebts';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import {
-  Activity,
-  ArrowDownRight,
-  ArrowUpRight,
   BarChart3,
-  Briefcase,
-  Calendar,
-  DollarSign,
-  Percent,
-  PieChart,
   Share as ShareIcon,
-  Target,
-  TrendingDown,
-  TrendingUp,
-  AlertCircle,
   MessageCircle,
-  Zap,
-  AlertTriangle
 } from 'lucide-react-native';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
+import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-interface Transaction {
-  id: string;
-  amount: number;
-  category: string | null;
-  description: string | null;
-  transaction_date: string;
-  created_at: string;
-}
 
 interface DailyData {
   date: string;
