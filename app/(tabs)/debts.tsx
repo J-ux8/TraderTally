@@ -161,7 +161,7 @@ export default function DebtsScreen() {
         {/* Floating Action Button */}
         <TouchableOpacity
           style={styles.fab}
-          onPress={() => router.push('./add-debt')}
+          onPress={() => router.push('/modals/add-debt')}
           activeOpacity={0.8}
         >
           <Plus size={28} color="#ffffff" />
