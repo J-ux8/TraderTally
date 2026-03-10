@@ -10,7 +10,7 @@ export const QuickActions = React.memo(function QuickActions() {
       <View style={styles.grid}>
         <TouchableOpacity
           style={[styles.actionButton, styles.primaryButton]}
-          onPress={() => router.push('./record-sale')}
+          onPress={() => router.push('/modals/record-sale')}
           activeOpacity={0.8}
         >
           <View style={styles.iconContainer}>
@@ -21,7 +21,7 @@ export const QuickActions = React.memo(function QuickActions() {
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('./record-expense')}
+          onPress={() => router.push('/modals/record-expense')}
           activeOpacity={0.8}
         >
           <View style={[styles.iconContainer, styles.secondaryIcon]}>
@@ -32,7 +32,7 @@ export const QuickActions = React.memo(function QuickActions() {
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('./debts')}
+          onPress={() => router.push('/(tabs)/debts')}
           activeOpacity={0.8}
         >
           <View style={[styles.iconContainer, styles.secondaryIcon]}>
@@ -43,7 +43,7 @@ export const QuickActions = React.memo(function QuickActions() {
 
         <TouchableOpacity
           style={styles.actionButton}
-          onPress={() => router.push('./reports')}
+          onPress={() => router.push('/(tabs)/reports')}
           activeOpacity={0.8}
         >
           <View style={[styles.iconContainer, styles.secondaryIcon]}>

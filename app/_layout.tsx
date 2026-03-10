@@ -67,6 +67,9 @@ function RootLayoutContent() {
         <Stack.Screen name="Authentication/register" options={{ title: 'Register', headerShown: false }} />
         <Stack.Screen name="Authentication/verify-email" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="modals/record-sale" options={{ headerShown: false, animationEnabled: true }} />
+        <Stack.Screen name="modals/record-expense" options={{ headerShown: false, animationEnabled: true }} />
+        <Stack.Screen name="modals/add-debt" options={{ headerShown: false, animationEnabled: true }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </NavigationThemeProvider>
