@@ -31,10 +31,20 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   const loadTransactions = useCallback(async () => {
     try {
       setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // Only load if user is authenticated
+      if (!user) {
+        setTransactions([]);
+        setLoading(false);
+        return;
+      }
+      
       const data = await getUserTransactions();
       setTransactions(data as Transaction[]);
     } catch (error) {
       console.error('Error loading transactions:', error);
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -42,6 +52,19 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => {
     loadTransactions();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadTransactions();
+      } else {
+        setTransactions([]);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, [loadTransactions]);
 
   const refresh = useCallback(async () => {

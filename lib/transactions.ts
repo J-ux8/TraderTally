@@ -73,7 +73,10 @@ export async function getUserTransactions(): Promise<Transaction[]> {
     .eq('is_deleted', 0)
     .order('transaction_date', { ascending: false });
   
-  if (error) throw error;
+  if (error) {
+    console.error('[getUserTransactions] Error:', error);
+    throw error;
+  }
   return data || [];
 }
 
