@@ -57,24 +57,24 @@ export const DebtItem = React.memo(function DebtItem({ debt, onSettle, onClick, 
 
   return (
     <TouchableOpacity
-      style={[styles.container, debt.is_settled && styles.containerSettled]}
+      style={[styles.container, debt.is_settled ? styles.containerSettled : undefined]}
       onPress={onClick}
       activeOpacity={0.7}
     >
       <View style={styles.content}>
         <View style={styles.header}>
           <View style={styles.customerInfo}>
-            <View style={[styles.iconContainer, debt.is_settled && styles.iconContainerSettled]}>
+            <View style={[styles.iconContainer, debt.is_settled ? styles.iconContainerSettled : undefined]}>
               <User size={20} color={debt.is_settled ? "#999" : "#1e3a8a"} />
             </View>
             <View style={styles.customerDetails}>
-              <Text style={[styles.customerName, debt.is_settled && styles.customerNameSettled]}>
+              <Text style={[styles.customerName, debt.is_settled ? styles.customerNameSettled : undefined]}>
                 {debt.customer_name}
               </Text>
               {dueDate && (
                 <View style={styles.dateContainer}>
                   <Calendar size={14} color="#999" />
-                  <Text style={[styles.dateText, isOverdue && styles.dateTextOverdue]}>
+                  <Text style={[styles.dateText, isOverdue ? styles.dateTextOverdue : undefined]}>
                     {formatDate(dueDate)}
                   </Text>
                 </View>
@@ -82,7 +82,7 @@ export const DebtItem = React.memo(function DebtItem({ debt, onSettle, onClick, 
             </View>
           </View>
           <View style={styles.amountContainer}>
-            <Text style={[styles.amount, debt.is_settled && styles.amountSettled]}>
+            <Text style={[styles.amount, debt.is_settled ? styles.amountSettled : undefined]}>
               K {Number(debt.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Text>
             {isOverdue && !debt.is_settled && (
@@ -100,7 +100,7 @@ export const DebtItem = React.memo(function DebtItem({ debt, onSettle, onClick, 
           </View>
         </View>
         {debt.note && (
-          <Text style={[styles.note, debt.is_settled && styles.noteSettled]} numberOfLines={2}>
+          <Text style={[styles.note, debt.is_settled ? styles.noteSettled : undefined]} numberOfLines={2}>
             {debt.note}
           </Text>
         )}

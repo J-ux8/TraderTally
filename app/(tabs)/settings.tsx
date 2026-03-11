@@ -210,13 +210,6 @@ export default function SettingsScreen() {
   }
 
   async function handleForceResync() {
-    if (pendingCount > 0) {
-      Alert.alert(
-        "Pending Changes",
-        "You have unsynced changes. Please sync them before performing a full re-sync to avoid data loss."
-      );
-      return;
-    }
 
     Alert.alert(
       "Force Re-sync",
