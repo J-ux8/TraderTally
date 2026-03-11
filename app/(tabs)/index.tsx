@@ -10,7 +10,7 @@ import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { Activity, LogOut, Store } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -30,6 +30,29 @@ export default function HomeScreen() {
     } finally {
       setRefreshing(false);
     }
+  }, [refresh]);
+
+  // Refresh data at midnight to update consistency score
+  useEffect(() => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const timeUntilMidnight = tomorrow.getTime() - now.getTime();
+    
+    const midnightTimer = setTimeout(() => {
+      refresh();
+      
+      // Set up recurring daily refresh
+      const dailyRefreshInterval = setInterval(() => {
+        refresh();
+      }, 24 * 60 * 60 * 1000); // Every 24 hours
+      
+      return () => clearInterval(dailyRefreshInterval);
+    }, timeUntilMidnight);
+    
+    return () => clearTimeout(midnightTimer);
   }, [refresh]);
 
   const handleLogout = async () => {

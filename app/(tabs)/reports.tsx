@@ -6,7 +6,7 @@ import {
   Share as ShareIcon,
   MessageCircle,
 } from 'lucide-react-native';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -68,6 +68,31 @@ export default function ReportsScreen() {
       refresh();
     }, [refreshDebts, refresh])
   );
+
+  // Refresh data at midnight to update daily metrics
+  useEffect(() => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const timeUntilMidnight = tomorrow.getTime() - now.getTime();
+    
+    const midnightTimer = setTimeout(() => {
+      refreshDebts();
+      refresh();
+      
+      // Set up recurring daily refresh
+      const dailyRefreshInterval = setInterval(() => {
+        refreshDebts();
+        refresh();
+      }, 24 * 60 * 60 * 1000); // Every 24 hours
+      
+      return () => clearInterval(dailyRefreshInterval);
+    }, timeUntilMidnight);
+    
+    return () => clearTimeout(midnightTimer);
+  }, [refreshDebts, refresh]);
 
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
