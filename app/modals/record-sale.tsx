@@ -1,6 +1,7 @@
 import { CategorySelector } from '@/components/CategorySelector';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
+import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordSale } from '@/lib/transactions';
 import { router, useFocusEffect } from "expo-router";
@@ -13,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function RecordSaleScreen() {
   const colors = useThemeColors();
   const { recordSale } = useTransactionsContext();
+  const { success: showSuccess, error: showError } = useToastContext();
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
 
@@ -71,12 +73,12 @@ export default function RecordSaleScreen() {
   async function handleSubmit() {
     const numericAmount = parseFloat(amount);
     if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      showError('Invalid Amount', { message: 'Please enter a valid amount' });
       return;
     }
 
     if (!category.trim()) {
-      Alert.alert('Error', 'Please enter a category or item name');
+      showError('Missing Category', { message: 'Please enter a category or item name' });
       return;
     }
 
@@ -92,14 +94,17 @@ export default function RecordSaleScreen() {
     const dateStr = getLocalDateString(date);
 
     try {
-      // 2. Record the Sale Transaction
       await recordSale(numericAmount, category.trim(), description.trim() || null, dateStr);
 
-      Alert.alert("Success", "Sale recorded! 🎉");
+      showSuccess('Sale Recorded', {
+        amount: numericAmount,
+        category: category.trim(),
+        message: 'Transaction saved successfully',
+      });
       router.back();
     } catch (error: any) {
       console.error('Error recording sale:', error);
-      Alert.alert('Error', error.message || 'Failed to record sale');
+      showError('Failed to Record Sale', { message: error.message || 'Please try again' });
     } finally {
       setLoading(false);
     }

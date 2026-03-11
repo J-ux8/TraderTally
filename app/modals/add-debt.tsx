@@ -1,5 +1,6 @@
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useDebts } from "@/hooks/useDebts";
+import { useToastContext } from "@/contexts/ToastContext";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, FileText, Plus, User } from "lucide-react-native";
 import { useCallback, useState } from "react";
@@ -10,6 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function AddDebtScreen() {
   const params = useLocalSearchParams<{ amount?: string; note?: string; isSale?: string; category?: string }>();
   const { createDebt: createDebtFromHook, refresh: refreshDebts } = useDebts();
+  const { success: showSuccess, error: showError } = useToastContext();
   const [customerName, setCustomerName] = useState("");
   const [amount, setAmount] = useState(params.amount || "");
   const [dueDate, setDueDate] = useState<Date | null>(null);
@@ -38,20 +40,19 @@ export default function AddDebtScreen() {
 
   async function handleSubmit() {
     if (!customerName.trim()) {
-      Alert.alert('Error', 'Please enter customer name');
+      showError('Missing Customer', { message: 'Please enter customer name' });
       return;
     }
 
     const numericAmount = parseFloat(amount);
     if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      showError('Invalid Amount', { message: 'Please enter a valid amount' });
       return;
     }
 
     setLoading(true);
 
     try {
-      // Use the hook's createDebt function which updates state immediately
       await createDebtFromHook(
         customerName.trim(),
         numericAmount,
@@ -59,14 +60,17 @@ export default function AddDebtScreen() {
         note.trim() || null
       );
 
-      // Refresh debts list immediately
       await refreshDebts(true);
 
-      Alert.alert("Success", "Credit added to Credit Book! 💰");
+      showSuccess('Credit Added', {
+        amount: numericAmount,
+        category: customerName.trim(),
+        message: 'Added to Credit Book',
+      });
       router.back();
     } catch (error: any) {
       console.error('Error recording debt:', error);
-      Alert.alert('Error', error.message || 'Failed to record debt');
+      showError('Failed to Add Credit', { message: error.message || 'Please try again' });
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
+import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordExpense } from '@/lib/transactions';
 import { router, useFocusEffect } from "expo-router";
@@ -12,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function RecordExpenseScreen() {
   const colors = useThemeColors();
   const { recordExpense } = useTransactionsContext();
+  const { success: showSuccess, error: showError } = useToastContext();
   const [amount, setAmount] = useState("");
   const [expenseType, setExpenseType] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
@@ -41,7 +43,7 @@ export default function RecordExpenseScreen() {
   async function handleSubmit() {
     const numericAmount = parseFloat(amount);
     if (!amount || isNaN(numericAmount) || numericAmount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount');
+      showError('Invalid Amount', { message: 'Please enter a valid amount' });
       return;
     }
 
@@ -58,11 +60,15 @@ export default function RecordExpenseScreen() {
 
     try {
       await recordExpense(numericAmount, expenseType.trim(), null, dateStr);
-      Alert.alert("Success", "Expense recorded! 💸");
+      showSuccess('Expense Recorded', {
+        amount: numericAmount,
+        category: expenseType.trim(),
+        message: 'Transaction saved successfully',
+      });
       router.back();
     } catch (error: any) {
       console.error('Error recording expense:', error);
-      Alert.alert('Error', error.message || 'Failed to record expense');
+      showError('Failed to Record Expense', { message: error.message || 'Please try again' });
     } finally {
       setLoading(false);
     }
