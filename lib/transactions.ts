@@ -21,20 +21,58 @@ export async function recordSale(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Not authenticated');
   
-  const { data, error } = await supabase
-    .from('transactions')
-    .insert({
-      user_id: user.id,
-      amount: Math.abs(amount),
-      category,
-      description,
-      transaction_date: date || new Date().toISOString().split('T')[0]
-    })
-    .select()
-    .single();
+  // Retry logic for network issues
+  let lastError: any;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          amount: Math.abs(amount),
+          category,
+          description,
+          transaction_date: date || new Date().toISOString().split('T')[0]
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        lastError = error;
+        
+        // If it's a network error, retry
+        if (error.message?.includes('network') || error.message?.includes('fetch')) {
+          console.log(`[recordSale] Network error on attempt ${attempt}, retrying...`);
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Wait 1s, 2s, 3s
+            continue;
+          }
+        }
+        
+        // For other errors, throw immediately
+        throw error;
+      }
+      
+      return data;
+    } catch (error: any) {
+      lastError = error;
+      
+      // Check if it's a network-related error
+      if (error.message?.includes('network') || error.message?.includes('fetch') || error.name === 'TypeError') {
+        console.log(`[recordSale] Network error on attempt ${attempt}:`, error.message);
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Wait 1s, 2s, 3s
+          continue;
+        }
+      }
+      
+      // For other errors, throw immediately
+      throw error;
+    }
+  }
   
-  if (error) throw error;
-  return data;
+  // If all retries failed, throw the last error with a user-friendly message
+  throw new Error(`Failed to record sale after 3 attempts. Please check your internet connection and try again. (${lastError?.message || 'Unknown error'})`);
 }
 
 export async function recordExpense(

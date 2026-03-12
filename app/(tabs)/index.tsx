@@ -8,11 +8,11 @@ import { useTemplatesContext } from '@/contexts/TemplatesContext';
 import { useSummary } from '@/hooks/useSummary';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { signOut } from '@/lib/auth';
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { Activity, LogOut, Store, Plus } from 'lucide-react-native';
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Template } from '@/lib/templates';
 
@@ -25,6 +25,7 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const lastDateRef = useRef<string>(new Date().toDateString());
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -35,7 +36,7 @@ export default function HomeScreen() {
     }
   }, [refresh]);
 
-  // Refresh data at midnight to update consistency score
+  // Refresh data at midnight to update daily tracking
   useEffect(() => {
     const now = new Date();
     const tomorrow = new Date(now);
@@ -45,17 +46,40 @@ export default function HomeScreen() {
     const timeUntilMidnight = tomorrow.getTime() - now.getTime();
     
     const midnightTimer = setTimeout(() => {
-      refresh();
-      
-      // Set up recurring daily refresh
-      const dailyRefreshInterval = setInterval(() => {
-        refresh();
-      }, 24 * 60 * 60 * 1000); // Every 24 hours
-      
-      return () => clearInterval(dailyRefreshInterval);
+      refresh(); // This will update the daily tracking count
     }, timeUntilMidnight);
     
     return () => clearTimeout(midnightTimer);
+  }, [refresh]);
+
+  // Force refresh when component mounts to ensure current day calculation
+  useEffect(() => {
+    // Small delay to ensure transactions are loaded first
+    const mountTimer = setTimeout(() => {
+      refresh();
+    }, 100);
+    
+    return () => clearTimeout(mountTimer);
+  }, []);
+
+  // Listen for app state changes to detect day changes
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        const currentDate = new Date().toDateString();
+        if (currentDate !== lastDateRef.current) {
+          lastDateRef.current = currentDate;
+          // Day has changed, refresh to update daily tracking
+          refresh();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    return () => {
+      subscription?.remove();
+    };
   }, [refresh]);
 
   const handleLogout = async () => {
@@ -151,16 +175,40 @@ export default function HomeScreen() {
     router.push('/modals/create-template' as any);
   }, []);
 
-  const consistency = useMemo(() => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      return d.toISOString().split('T')[0];
-    });
-    const daysWithData = last7Days.filter(date =>
-      transactions.some(t => t.transaction_date.split('T')[0] === date)
-    ).length;
-    return daysWithData;
+  const dailyTracking = useMemo(() => {
+    // Calculate consecutive days with transactions starting from today
+    let consecutiveDays = 0;
+    const today = new Date();
+    
+    // Get today's date in local timezone (YYYY-MM-DD format)
+    const getLocalDateString = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    // Check up to 30 days back for consecutive daily tracking
+    for (let i = 0; i < 30; i++) {
+      const checkDate = new Date(today);
+      checkDate.setDate(today.getDate() - i);
+      const dateStr = getLocalDateString(checkDate);
+      
+      // Check if there's a transaction on this date
+      const hasTransaction = transactions.some(t => {
+        const transactionDate = t.transaction_date.split('T')[0];
+        return transactionDate === dateStr;
+      });
+      
+      if (hasTransaction) {
+        consecutiveDays++;
+      } else {
+        // Break if no transaction found for this day
+        break;
+      }
+    }
+    
+    return consecutiveDays;
   }, [transactions]);
 
   // Dynamic colors based on theme - navy blue
@@ -209,29 +257,36 @@ export default function HomeScreen() {
             <View style={styles.heroGreeting}>
               <Text style={styles.greetingText}>{greeting} 👋</Text>
               <Text style={styles.greetingSubtext}>
-                Ready to record your sales today?
+                {dailyTracking === 0 ? 'Ready to track your business today?' :
+                 dailyTracking === 1 ? 'Keep the momentum going!' :
+                 dailyTracking >= 7 ? 'You\'re building great habits!' :
+                 'Your business tracking is on point!'}
               </Text>
             </View>
           </View>
         </View>
 
         <View style={styles.mainContent}>
-          {/* Consistency Tracker */}
+          {/* Daily Tracking Card */}
           <View style={[styles.consistencyCard, { backgroundColor: cardBackground }]}>
             <View style={styles.consistencyLeft}>
               <View style={styles.consistencyIconContainer}>
                 <Activity size={20} color="#1e3a8a" />
               </View>
               <View>
-                <Text style={[styles.consistencyTitle, { color: textColor }]}>Consistency Score</Text>
+                <Text style={[styles.consistencyTitle, { color: textColor }]}>Daily Tracking</Text>
                 <Text style={[styles.consistencyValue, { color: textSecondary }]}>
-                  {consistency}/7 days recorded
+                  {dailyTracking === 0 ? 'Ready to start tracking today' : 
+                   dailyTracking === 1 ? 'Day 1 - Great start!' :
+                   dailyTracking === 2 ? 'Day 2 - Building momentum!' :
+                   dailyTracking === 3 ? 'Day 3 - You\'re on a roll!' :
+                   `${dailyTracking} days in a row - Amazing!`}
                 </Text>
               </View>
             </View>
-            <View style={[styles.consistencyBadge, { backgroundColor: consistency >= 5 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)' }]}>
-              <Text style={[styles.consistencyBadgeText, { color: consistency >= 5 ? '#1e3a8a' : '#f59e0b' }]}>
-                {consistency >= 5 ? 'Strong' : 'Keep it up'}
+            <View style={[styles.consistencyBadge, { backgroundColor: dailyTracking >= 7 ? 'rgba(16, 185, 129, 0.1)' : dailyTracking >= 3 ? 'rgba(245, 158, 11, 0.1)' : dailyTracking >= 1 ? 'rgba(59, 130, 246, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+              <Text style={[styles.consistencyBadgeText, { color: dailyTracking >= 7 ? '#10b981' : dailyTracking >= 3 ? '#f59e0b' : dailyTracking >= 1 ? '#3b82f6' : '#ef4444' }]}>
+                {dailyTracking >= 7 ? 'Excellent!' : dailyTracking >= 3 ? 'Keep going!' : dailyTracking >= 1 ? 'Good start' : 'Start today'}
               </Text>
             </View>
           </View>

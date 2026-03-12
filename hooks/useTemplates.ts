@@ -7,7 +7,9 @@ import {
   deleteTemplate as deleteTemplateLib,
   getTemplates as getTemplatesLib,
   useTemplateForTransaction,
+  debugTemplatesTable,
 } from '@/lib/templates';
+import { useAuth } from '@/hooks/useAuth';
 
 export interface UseTemplatesReturn {
   templates: Template[];
@@ -25,26 +27,44 @@ export function useTemplates(): UseTemplatesReturn {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Load templates on mount
-  useEffect(() => {
-    loadTemplates();
-  }, []);
+  const { user, loading: authLoading } = useAuth();
 
   const loadTemplates = useCallback(async () => {
+    // Don't try to load templates if auth is still loading or user is not authenticated
+    if (authLoading || !user) {
+      setTemplates([]);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
+      
+      // Debug table access first
+      await debugTemplatesTable();
+      
       const data = await getTemplatesLib();
       setTemplates(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load templates';
-      setError(message);
-      console.error('Error loading templates:', err);
+      // Don't show authentication errors as errors - just set empty state
+      if (message.includes('not authenticated') || message.includes('Not authenticated')) {
+        setTemplates([]);
+        setError(null);
+      } else {
+        setError(message);
+        console.error('Error loading templates:', err);
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user, authLoading]);
+
+  // Load templates on mount
+  useEffect(() => {
+    loadTemplates();
+  }, [loadTemplates]);
 
   const refresh = useCallback(async () => {
     await loadTemplates();

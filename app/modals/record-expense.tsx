@@ -2,11 +2,10 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { recordExpense } from '@/lib/transactions';
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, TrendingDown } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
-import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -46,7 +45,7 @@ export default function RecordExpenseScreen() {
         setDatePickerOpen(false);
         setShowDropdown(false);
       }
-    }, [params])
+    }, [params.templateId, params.amount, params.category])
   );
 
   const handleAmountChange = (value: string) => {

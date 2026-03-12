@@ -3,9 +3,8 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { recordSale } from '@/lib/transactions';
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, ShoppingBag, ShoppingCart } from "lucide-react-native";
+import { ArrowLeft, Calendar as CalendarIcon, ShoppingBag } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
@@ -51,7 +50,7 @@ export default function RecordSaleScreen() {
         setDate(new Date());
         setDatePickerOpen(false);
       }
-    }, [params])
+    }, [params.templateId, params.amount, params.category, params.description])
   );
 
   useEffect(() => {
@@ -60,7 +59,7 @@ export default function RecordSaleScreen() {
       if (amount && !isNaN(numericAmount) && numericAmount > 0) {
         // Redirect to credit book with initial values
         router.push({
-          pathname: '/(tabs)/add-debt',
+          pathname: '/(tabs)/debts',
           params: {
             amount: amount,
             note: description,

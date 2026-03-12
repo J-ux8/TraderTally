@@ -32,7 +32,13 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       const data = await getUserCategories();
       setCategories(data);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      // Don't crash on auth errors, just set empty state
+      if (error instanceof Error && (error.message.includes('not authenticated') || error.message.includes('Not authenticated'))) {
+        setCategories([]);
+        // Don't log authentication errors as they're expected during app startup
+      } else {
+        console.error('Error loading categories:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -40,6 +46,19 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     loadCategories();
+    
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadCategories();
+      } else {
+        setCategories([]);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, [loadCategories]);
 
   const refresh = useCallback(async () => {

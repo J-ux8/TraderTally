@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { TransactionsProvider } from '@/contexts/TransactionsContext';
+import { CategoriesProvider } from '@/contexts/CategoriesContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { TemplatesProvider } from '@/contexts/TemplatesContext';
 import React from 'react';
@@ -84,11 +85,13 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <TransactionsProvider>
-        <TemplatesProvider>
-          <ToastProvider>
-            <RootLayoutContent />
-          </ToastProvider>
-        </TemplatesProvider>
+        <CategoriesProvider>
+          <TemplatesProvider>
+            <ToastProvider>
+              <RootLayoutContent />
+            </ToastProvider>
+          </TemplatesProvider>
+        </CategoriesProvider>
       </TransactionsProvider>
     </ThemeProvider>
   );

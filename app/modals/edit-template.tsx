@@ -23,8 +23,6 @@ export default function EditTemplateScreen() {
   const { categories } = useCategoriesContext();
   const { success: showSuccess, error: showError } = useToastContext();
 
-  const template = templates.find((t) => t.id === id);
-
   const [name, setName] = useState('');
   const [type, setType] = useState<'sale' | 'expense'>('sale');
   const [amount, setAmount] = useState('');
@@ -34,6 +32,8 @@ export default function EditTemplateScreen() {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const template = templates.find((t) => t.id === id);
 
   // Initialize form with template data
   useEffect(() => {
@@ -45,14 +45,6 @@ export default function EditTemplateScreen() {
       setDescription(template.description || '');
     }
   }, [template]);
-
-  if (!template) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.errorMessage}>Template not found</Text>
-      </View>
-    );
-  }
 
   const validateForm = useCallback((): boolean => {
     const input: TemplateInput = {
@@ -93,7 +85,7 @@ export default function EditTemplateScreen() {
         description: description || undefined,
       };
 
-      await updateTemplate(template.id, input);
+      await updateTemplate(template!.id, input);
       showSuccess('Template updated successfully! 🎉');
       router.back();
     } catch (error) {
@@ -102,7 +94,15 @@ export default function EditTemplateScreen() {
     } finally {
       setLoading(false);
     }
-  }, [name, type, amount, category, description, validateForm, template.id, updateTemplate, showSuccess, showError]);
+  }, [name, type, amount, category, description, validateForm, template, updateTemplate, showSuccess, showError]);
+
+  if (!template) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorMessage}>Template not found</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView

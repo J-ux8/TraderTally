@@ -1,5 +1,68 @@
 import { supabase } from '@/lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
+
+/**
+ * Debug function to test Supabase connection and table existence
+ */
+export async function debugTemplatesTable(): Promise<void> {
+  try {
+    console.log('[Templates Debug] Testing Supabase connection...');
+    
+    // Test authentication
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError) {
+      console.error('[Templates Debug] Auth error:', authError);
+      return;
+    }
+    if (!user) {
+      console.log('[Templates Debug] No authenticated user');
+      return;
+    }
+    console.log('[Templates Debug] User authenticated:', user.id);
+
+    // Test table access with a simple select query
+    console.log('[Templates Debug] Testing table access...');
+    const { data, error } = await supabase
+      .from('transaction_templates')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1);
+
+    if (error) {
+      console.error('[Templates Debug] Table access error:', error);
+      console.error('[Templates Debug] Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      
+      // Check if it's a table not found error
+      if (error.message.includes('relation "transaction_templates" does not exist')) {
+        console.error('[Templates Debug] ❌ TABLE DOES NOT EXIST! You need to run the migration in Supabase SQL Editor.');
+        console.error('[Templates Debug] Run this file: supabase_migrations/create_transaction_templates_table.sql');
+      }
+    } else {
+      console.log('[Templates Debug] ✅ Table accessible, test query successful');
+      
+      // Try to fetch all templates for this user
+      const { data: templates, error: fetchError } = await supabase
+        .from('transaction_templates')
+        .select('*')
+        .eq('user_id', user.id);
+        
+      if (fetchError) {
+        console.error('[Templates Debug] Error fetching templates:', fetchError);
+      } else {
+        console.log('[Templates Debug] ✅ Found templates:', templates?.length || 0);
+        if (templates && templates.length > 0) {
+          console.log('[Templates Debug] Templates data:', templates);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[Templates Debug] Unexpected error:', error);
+  }
+}
 
 export interface Template {
   id: string;
@@ -81,27 +144,27 @@ export async function createTemplate(input: TemplateInput): Promise<Template> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
+  console.log('[Templates] Creating template for user:', user.id);
+  console.log('[Templates] Template input:', input);
+
   // Validate input
   const validation = validateTemplateInput(input);
   if (!validation.valid) {
     throw new Error(validation.errors.join(', '));
   }
 
-  const templateId = uuidv4();
   const now = new Date().toISOString();
 
-  const template: Template = {
-    id: templateId,
-    user_id: user.id,
+  const template = {
+    user_id: user.id, // This will be a UUID
     name: input.name.trim(),
     type: input.type,
     default_amount: input.default_amount,
     category: input.category || null,
     description: input.description || null,
-    created_at: now,
-    updated_at: now,
-    is_deleted: 0,
   };
+
+  console.log('[Templates] Inserting template:', template);
 
   const { data, error } = await supabase
     .from('transaction_templates')
@@ -109,7 +172,18 @@ export async function createTemplate(input: TemplateInput): Promise<Template> {
     .select()
     .single();
 
-  if (error) throw new Error(`Failed to create template: ${error.message}`);
+  if (error) {
+    console.error('[Templates] Error creating template:', error);
+    console.error('[Templates] Error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code
+    });
+    throw new Error(`Failed to create template: ${error.message}`);
+  }
+  
+  console.log('[Templates] Template created successfully:', data);
   return data as Template;
 }
 
@@ -120,6 +194,8 @@ export async function getTemplates(limit: number = 100, offset: number = 0): Pro
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
 
+  console.log('[Templates] Fetching templates for user:', user.id);
+
   const { data, error } = await supabase
     .from('transaction_templates')
     .select('*')
@@ -128,7 +204,20 @@ export async function getTemplates(limit: number = 100, offset: number = 0): Pro
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (error) throw new Error(`Failed to fetch templates: ${error.message}`);
+  if (error) {
+    console.error('[Templates] Error fetching templates:', error);
+    console.error('[Templates] Error details:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code
+    });
+    throw new Error(`Failed to fetch templates: ${error.message}`);
+  }
+  
+  console.log('[Templates] Raw data from Supabase:', data);
+  console.log('[Templates] Found templates count:', data?.length || 0);
+  
   return (data || []) as Template[];
 }
 

@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, Modal,
     StyleSheet, ActivityIndicator, Alert, ScrollView
 } from 'react-native';
 import { Check, Plus, ShoppingCart, TrendingDown } from 'lucide-react-native';
-import { supabase } from '../lib/supabase';
-import { addCategory, Category, getUserCategories } from '../lib/categories';
+import { useCategoriesContext } from '@/contexts/CategoriesContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
 interface CategorySelectorProps {
@@ -16,26 +15,13 @@ interface CategorySelectorProps {
 
 export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'income' }: CategorySelectorProps) => {
     const colors = useThemeColors();
-    const [categories, setCategories] = useState<Category[]>([]);
+    const { categories, addCategory: addCategoryToContext } = useCategoriesContext();
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
 
     const [newCatName, setNewCatName] = useState('');
     const [errorText, setErrorText] = useState('');
     const [isSaving, setIsSaving] = useState(false);
-
-    useEffect(() => {
-        loadCategories();
-    }, []);
-
-    const loadCategories = async () => {
-        try {
-            const cats = await getUserCategories();
-            setCategories(cats);
-        } catch (e) {
-            console.error('Error loading categories:', e);
-        }
-    };
 
     const validateInput = (name: string) => {
         const trimmed = name.trim();
@@ -60,10 +46,8 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
         try {
             const trimmedName = newCatName.trim();
 
-            // Save locally (Offline-First optimistic update logic is within addCategory)
-            const newCat = await addCategory(trimmedName);
-
-            setCategories(prev => [...prev, newCat].sort((a, b) => a.name.localeCompare(b.name)));
+            // Use context to add category
+            const newCat = await addCategoryToContext(trimmedName);
             onSelect(newCat.name); // Auto-select new category
 
             setModalVisible(false);
