@@ -47,6 +47,14 @@ export const QuickTemplatesSection = React.memo(function QuickTemplatesSection({
     }
   }, [selectedTemplate, onEditTemplate]);
 
+  const handleDeleteTemplate = useCallback(async (template: Template) => {
+    try {
+      await onDeleteTemplate(template);
+    } catch (error) {
+      console.error('Error deleting template:', error);
+    }
+  }, [onDeleteTemplate]);
+
   const handleDelete = useCallback(() => {
     if (selectedTemplate) {
       handleDeleteTemplate(selectedTemplate);
@@ -55,7 +63,7 @@ export const QuickTemplatesSection = React.memo(function QuickTemplatesSection({
   }, [selectedTemplate, handleDeleteTemplate]);
 
   const handleScroll = useCallback(
-    (event) => {
+    (event: any) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
       if (contentOffset.x + layoutMeasurement.width >= contentSize.width - 100) {
         setDisplayedCount((prev) => Math.min(prev + 6, templates.length));
