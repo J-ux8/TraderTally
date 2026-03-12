@@ -4,7 +4,7 @@ import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordSale } from '@/lib/transactions';
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, ShoppingBag, ShoppingCart } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -15,6 +15,13 @@ export default function RecordSaleScreen() {
   const colors = useThemeColors();
   const { recordSale } = useTransactionsContext();
   const { success: showSuccess, error: showError } = useToastContext();
+  const params = useLocalSearchParams<{
+    templateId?: string;
+    amount?: string;
+    category?: string;
+    description?: string;
+  }>();
+  
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
 
@@ -27,13 +34,24 @@ export default function RecordSaleScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setAmount("");
-      setCategory("");
-      setPaymentMode('Paid');
-      setDescription("");
-      setDate(new Date());
-      setDatePickerOpen(false);
-    }, [])
+      // Pre-fill from template if provided
+      if (params.templateId && params.amount) {
+        setAmount(params.amount);
+        setCategory(params.category || "");
+        setDescription(params.description || "");
+        setPaymentMode('Paid');
+        setDate(new Date());
+        setDatePickerOpen(false);
+      } else {
+        // Reset form for new entry
+        setAmount("");
+        setCategory("");
+        setPaymentMode('Paid');
+        setDescription("");
+        setDate(new Date());
+        setDatePickerOpen(false);
+      }
+    }, [params])
   );
 
   useEffect(() => {

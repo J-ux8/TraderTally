@@ -3,7 +3,7 @@ import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { recordExpense } from '@/lib/transactions';
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, TrendingDown } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -14,6 +14,13 @@ export default function RecordExpenseScreen() {
   const colors = useThemeColors();
   const { recordExpense } = useTransactionsContext();
   const { success: showSuccess, error: showError } = useToastContext();
+  const params = useLocalSearchParams<{
+    templateId?: string;
+    amount?: string;
+    category?: string;
+    description?: string;
+  }>();
+  
   const [amount, setAmount] = useState("");
   const [expenseType, setExpenseType] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
@@ -24,12 +31,22 @@ export default function RecordExpenseScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setAmount("");
-      setExpenseType("");
-      setDate(new Date());
-      setDatePickerOpen(false);
-      setShowDropdown(false);
-    }, [])
+      // Pre-fill from template if provided
+      if (params.templateId && params.amount) {
+        setAmount(params.amount);
+        setExpenseType(params.category || "");
+        setDate(new Date());
+        setDatePickerOpen(false);
+        setShowDropdown(false);
+      } else {
+        // Reset form for new entry
+        setAmount("");
+        setExpenseType("");
+        setDate(new Date());
+        setDatePickerOpen(false);
+        setShowDropdown(false);
+      }
+    }, [params])
   );
 
   const handleAmountChange = (value: string) => {

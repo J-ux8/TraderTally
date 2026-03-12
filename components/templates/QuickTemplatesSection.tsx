@@ -49,10 +49,10 @@ export const QuickTemplatesSection = React.memo(function QuickTemplatesSection({
 
   const handleDelete = useCallback(() => {
     if (selectedTemplate) {
-      onDeleteTemplate(selectedTemplate);
+      handleDeleteTemplate(selectedTemplate);
       setMenuVisible(false);
     }
-  }, [selectedTemplate, onDeleteTemplate]);
+  }, [selectedTemplate, handleDeleteTemplate]);
 
   const handleScroll = useCallback(
     (event) => {

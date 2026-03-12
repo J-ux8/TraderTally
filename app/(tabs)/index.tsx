@@ -1,24 +1,27 @@
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { SummaryCard } from '@/components/dashboard/SummaryCard';
+import { QuickTemplatesSection } from '@/components/templates/QuickTemplatesSection';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
+import { useTemplatesContext } from '@/contexts/TemplatesContext';
 import { useSummary } from '@/hooks/useSummary';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { signOut } from '@/lib/auth';
-import { supabase } from "@/lib/supabase";
 import { router, useFocusEffect } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
-import { Activity, LogOut, Store } from 'lucide-react-native';
+import { Activity, LogOut, Store, Plus } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Template } from '@/lib/templates';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const colors = useThemeColors();
   const { transactions, refresh } = useTransactionsContext();
+  const { templates, loading: templatesLoading, deleteTemplate } = useTemplatesContext();
   const [refreshing, setRefreshing] = useState(false);
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -102,6 +105,51 @@ export default function HomeScreen() {
   );
 
   const activeSummary = useMemo(() => activeTabInfo.summary, [activeTabInfo]);
+
+  // Template handlers
+  const handleTemplatePress = useCallback((template: Template) => {
+    // Navigate to transaction form with pre-filled data
+    if (template.type === 'sale') {
+      router.push({
+        pathname: '/modals/record-sale',
+        params: {
+          templateId: template.id,
+          amount: template.default_amount.toString(),
+          category: template.category || '',
+          description: template.description || '',
+        },
+      });
+    } else {
+      router.push({
+        pathname: '/modals/record-expense',
+        params: {
+          templateId: template.id,
+          amount: template.default_amount.toString(),
+          category: template.category || '',
+          description: template.description || '',
+        },
+      });
+    }
+  }, []);
+
+  const handleEditTemplate = useCallback((template: Template) => {
+    router.push({
+      pathname: '/modals/edit-template' as any,
+      params: { id: template.id },
+    });
+  }, []);
+
+  const handleDeleteTemplate = useCallback(async (template: Template) => {
+    try {
+      await deleteTemplate(template.id);
+    } catch (error) {
+      console.error('Error deleting template:', error);
+    }
+  }, [deleteTemplate]);
+
+  const handleCreateTemplate = useCallback(() => {
+    router.push('/modals/create-template' as any);
+  }, []);
 
   const consistency = useMemo(() => {
     const last7Days = Array.from({ length: 7 }, (_, i) => {
@@ -223,6 +271,28 @@ export default function HomeScreen() {
 
           {/* Quick Actions */}
           <QuickActions />
+
+          {/* Quick Templates Section */}
+          <View style={[styles.templatesContainer, { backgroundColor: cardBackground }]}>
+            <View style={styles.templatesHeader}>
+              <Text style={[styles.templatesTitle, { color: textColor }]}>Quick Templates</Text>
+              <TouchableOpacity
+                style={styles.createTemplateButton}
+                onPress={handleCreateTemplate}
+                activeOpacity={0.7}
+              >
+                <Plus size={16} color="#1e3a8a" />
+                <Text style={styles.createTemplateText}>Create</Text>
+              </TouchableOpacity>
+            </View>
+            <QuickTemplatesSection
+              templates={templates}
+              onTemplatePress={handleTemplatePress}
+              onEditTemplate={handleEditTemplate}
+              onDeleteTemplate={handleDeleteTemplate}
+              loading={templatesLoading}
+            />
+          </View>
 
           {/* Recent Transactions */}
           <RecentTransactions transactions={transactions} />
@@ -457,5 +527,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
+  },
+  templatesContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    overflow: 'hidden',
+  },
+  templatesHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  templatesTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  createTemplateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(30, 58, 138, 0.1)',
+    borderRadius: 8,
+  },
+  createTemplateText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#1e3a8a',
   },
 });

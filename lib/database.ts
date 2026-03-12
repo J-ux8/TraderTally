@@ -21,6 +21,7 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
   await database.execAsync(SCHEMA.categories);
   await database.execAsync(SCHEMA.debts);
   await database.execAsync(SCHEMA.security_settings);
+  await database.execAsync(SCHEMA.transaction_templates);
 }
 
 export async function wipeDatabase() {
@@ -39,6 +40,7 @@ export async function wipeDatabase() {
       DROP TABLE IF EXISTS categories;
       DROP TABLE IF EXISTS debts;
       DROP TABLE IF EXISTS security_settings;
+      DROP TABLE IF EXISTS transaction_templates;
       DROP TABLE IF EXISTS schema_version;
     `);
     

@@ -15,7 +15,7 @@ The implementation follows a layered approach: database setup → core library f
   - Verify migration runs successfully on app initialization
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6_
 
-- [x] 2. Core Library Functions - Template CRUD Operations
+- [ ] 2. Core Library Functions - Template CRUD Operations
   - [x] 2.1 Implement createTemplate() function
     - Accept TemplateInput and validate all fields
     - Generate UUID for template ID
@@ -270,15 +270,15 @@ The implementation follows a layered approach: database setup → core library f
     - Ensure routes are accessible from home screen
     - _Requirements: 5.6_
 
-- [ ] 12. Home Screen Integration - Add Quick Templates Section
-  - [ ] 12.1 Integrate QuickTemplatesSection into home screen
+- [x] 12. Home Screen Integration - Add Quick Templates Section
+  - [x] 12.1 Integrate QuickTemplatesSection into home screen
     - Import QuickTemplatesSection component
     - Get templates from useTemplatesContext hook
     - Display section above transaction list
     - Implement onTemplatePress to open transaction form with pre-filled values
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8_
 
-  - [ ] 12.2 Add Create Template button to home screen
+  - [x] 12.2 Add Create Template button to home screen
     - Add button to navigate to CreateTemplateScreen
     - Position button in header or action area
     - _Requirements: 3.1_
@@ -289,8 +289,8 @@ The implementation follows a layered approach: database setup → core library f
     - Test template tap opens transaction form
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8_
 
-- [ ] 13. Transaction Form Integration - Pre-filling from Templates
-  - [ ] 13.1 Modify transaction form to accept template data
+- [x] 13. Transaction Form Integration - Pre-filling from Templates
+  - [x] 13.1 Modify transaction form to accept template data
     - Accept optional template parameter in form props
     - Pre-fill amount field with template.default_amount
     - Pre-fill category field with template.category
@@ -299,7 +299,7 @@ The implementation follows a layered approach: database setup → core library f
     - Focus amount field for quick editing
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-  - [ ] 13.2 Implement template-to-transaction flow
+  - [x] 13.2 Implement template-to-transaction flow
     - When template is tapped, pass template data to transaction form
     - Form opens with pre-filled values
     - User can edit any field before saving
