@@ -6,6 +6,7 @@ import 'react-native-reanimated';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { TransactionsProvider } from '@/contexts/TransactionsContext';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { TemplatesProvider } from '@/contexts/TemplatesContext';
 import React from 'react';
 
 export const unstable_settings = {
@@ -71,6 +72,8 @@ function RootLayoutContent() {
         <Stack.Screen name="modals/record-sale" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
         <Stack.Screen name="modals/record-expense" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
         <Stack.Screen name="modals/add-debt" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="modals/create-template" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="modals/edit-template" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </NavigationThemeProvider>
@@ -81,9 +84,11 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <TransactionsProvider>
-        <ToastProvider>
-          <RootLayoutContent />
-        </ToastProvider>
+        <TemplatesProvider>
+          <ToastProvider>
+            <RootLayoutContent />
+          </ToastProvider>
+        </TemplatesProvider>
       </TransactionsProvider>
     </ThemeProvider>
   );

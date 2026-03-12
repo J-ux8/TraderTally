@@ -50,5 +50,22 @@ export const SCHEMA = {
       pin_hash TEXT,
       biometric_enabled INTEGER DEFAULT 0
     );
+  `,
+  transaction_templates: `
+    CREATE TABLE IF NOT EXISTS transaction_templates (
+      id TEXT PRIMARY KEY NOT NULL,
+      user_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('sale', 'expense')),
+      default_amount REAL NOT NULL CHECK (default_amount > 0),
+      category TEXT,
+      description TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      is_deleted INTEGER DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_templates_user_id ON transaction_templates(user_id);
+    CREATE INDEX IF NOT EXISTS idx_templates_user_active ON transaction_templates(user_id, is_deleted);
+    CREATE INDEX IF NOT EXISTS idx_templates_created_at ON transaction_templates(created_at DESC);
   `
 };
