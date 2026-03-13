@@ -1,3 +1,4 @@
+import { getLocalISOString } from "@/lib/dateUtils";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useDebts } from "@/hooks/useDebts";
 import { useToastContext } from "@/contexts/ToastContext";
@@ -56,7 +57,7 @@ export default function AddDebtScreen() {
       await createDebtFromHook(
         customerName.trim(),
         numericAmount,
-        dueDate ? dueDate.toISOString().split("T")[0] : null,
+        dueDate ? getLocalISOString(dueDate).split("T")[0] : null,
         note.trim() || null
       );
 

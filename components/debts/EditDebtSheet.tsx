@@ -1,3 +1,4 @@
+import { getLocalISOString } from '@/lib/dateUtils';
 import { Debt } from '@/lib/debts';
 import { Calendar as CalendarIcon, Trash2, X } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
@@ -59,7 +60,7 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
     onSave(debt.id, {
       customer_name: customerName.trim(),
       amount: numericAmount,
-      due_date: dueDate ? dueDate.toISOString().split('T')[0] : null,
+      due_date: dueDate ? getLocalISOString(dueDate).split('T')[0] : null,
       note: note.trim() || null,
     });
 

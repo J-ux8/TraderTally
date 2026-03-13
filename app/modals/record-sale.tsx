@@ -1,3 +1,4 @@
+import { getLocalISOString } from '@/lib/dateUtils';
 import { CategorySelector } from '@/components/CategorySelector';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
@@ -100,8 +101,7 @@ export default function RecordSaleScreen() {
     }
 
     setLoading(true);
-
-    const dateStr = date.toISOString();
+    const dateStr = getLocalISOString(date);
 
     try {
       await recordSale(numericAmount, category.trim(), description.trim() || null, dateStr);

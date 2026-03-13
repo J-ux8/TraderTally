@@ -184,7 +184,8 @@ export default function ReportsScreen() {
     const dayMap = new Map<string, DailyData>();
     filteredTransactions.forEach(t => {
       const date = new Date(t.transaction_date);
-      const dateKey = date.toISOString().split('T')[0];
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const dateKey = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
       if (!dayMap.has(dateKey)) {
         dayMap.set(dateKey, { date: dateKey, revenue: 0, expenses: 0, net: 0, transactionCount: 0 });
       }

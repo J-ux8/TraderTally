@@ -1,3 +1,4 @@
+import { getLocalISOString } from "./dateUtils";
 import { supabase } from "./supabase";
 
 export interface Transaction {
@@ -32,7 +33,7 @@ export async function recordSale(
           amount: Math.abs(amount),
           category,
           description,
-          transaction_date: date || new Date().toISOString()
+          transaction_date: date || getLocalISOString()
         })
         .select()
         .single();
@@ -91,7 +92,7 @@ export async function recordExpense(
       amount: -Math.abs(amount),
       category,
       description,
-      transaction_date: date || new Date().toISOString()
+      transaction_date: date || getLocalISOString()
     })
     .select()
     .single();
@@ -140,7 +141,7 @@ export async function updateTransaction(
       amount,
       category,
       description,
-      transaction_date: date || new Date().toISOString()
+      transaction_date: date || getLocalISOString()
     })
     .eq('id', id);
   

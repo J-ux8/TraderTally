@@ -1,3 +1,4 @@
+import { getLocalISOString } from '@/lib/dateUtils';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useThemeColors } from '@/hooks/useThemeColors';
@@ -199,10 +200,10 @@ export default function RecordsScreen() {
         finalAmount,
         editCategory,
         editDescription.trim() || null,
-        editDate.toISOString()
+        getLocalISOString(editDate)
       );
       // Update in context
-      updateTransactionInContext(selectedTransaction.id, finalAmount, editCategory, editDescription.trim() || null, editDate.toISOString());
+      updateTransactionInContext(selectedTransaction.id, finalAmount, editCategory, editDescription.trim() || null, getLocalISOString(editDate));
       closeEditModal();
       Alert.alert('Success', 'Transaction updated successfully! 🎉');
     } catch (error: any) {
@@ -245,26 +246,23 @@ export default function RecordsScreen() {
 
   const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    if (isNaN(date.getTime())) return 'Invalid date';
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
   }, []);
 
   const formatTime = useCallback((dateString: string) => {
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid time';
     
-    // If the date is invalid, return a fallback
-    if (isNaN(date.getTime())) {
-      return 'Invalid time';
-    }
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12; // the hour '0' should be '12'
+    const minutesStr = minutes < 10 ? '0' + minutes : minutes;
     
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    return `${hours}:${minutesStr} ${ampm}`;
   }, []);
 
   const isSale = useCallback((amount: number) => amount > 0, []);
@@ -437,7 +435,7 @@ export default function RecordsScreen() {
                   <View style={dynamicStyles.inputContainer}>
                     <CalendarIcon size={20} color={colors.textSecondary} style={styles.inputIcon} />
                     <Text style={[styles.dateText, { color: colors.textColor }]}>
-                      {editDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                      {`${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][editDate.getMonth()]} ${editDate.getDate()}, ${editDate.getFullYear()}`}
                     </Text>
                   </View>
                 </TouchableOpacity>

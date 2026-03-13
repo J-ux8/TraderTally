@@ -1,3 +1,4 @@
+import { getLocalISOString } from '@/lib/dateUtils';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { addDebt, deleteDebt, getUserDebts, settleDebt, updateDebt, batchSettleDebts, batchDeleteDebts, batchUpdateDebts } from '@/lib/debts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -107,7 +108,7 @@ export function useDebts() {
     // Optimistic UI update
     setDebts(prev => prev.map(d =>
       d.id === id
-        ? { ...d, ...data, updated_at: new Date().toISOString() }
+        ? { ...d, ...data, updated_at: getLocalISOString() }
         : d
     ));
     
@@ -124,10 +125,9 @@ export function useDebts() {
     const debtToSettle = debts.find(d => d.id === id);
     if (!debtToSettle) return;
 
-    // Optimistic UI update
     setDebts(prev => prev.map(d =>
       d.id === id
-        ? { ...d, is_settled: 1, updated_at: new Date().toISOString() }
+        ? { ...d, is_settled: 1, updated_at: getLocalISOString() }
         : d
     ));
 
@@ -140,7 +140,7 @@ export function useDebts() {
           debtToSettle.amount,
           'Debt Payment',
           `Settled: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
-          new Date().toISOString().split('T')[0]
+          getLocalISOString().split('T')[0]
         );
       } catch (txError) {
         console.error('Error recording transaction for settled debt:', txError);
@@ -170,7 +170,7 @@ export function useDebts() {
     // Optimistic UI update
     setDebts(prev => prev.map(d =>
       ids.includes(d.id)
-        ? { ...d, is_settled: 1, updated_at: new Date().toISOString() }
+        ? { ...d, is_settled: 1, updated_at: getLocalISOString() }
         : d
     ));
     

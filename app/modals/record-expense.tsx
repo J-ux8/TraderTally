@@ -1,3 +1,4 @@
+import { getLocalISOString } from '@/lib/dateUtils';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
@@ -64,8 +65,7 @@ export default function RecordExpenseScreen() {
     }
 
     setLoading(true);
-
-    const dateStr = date.toISOString();
+    const dateStr = getLocalISOString(date);
 
     try {
       await recordExpense(numericAmount, expenseType.trim(), null, dateStr);

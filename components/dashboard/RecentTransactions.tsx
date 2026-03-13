@@ -34,7 +34,8 @@ export const RecentTransactions = React.memo(function RecentTransactions({ trans
     if (date.toDateString() === yesterday.toDateString()) {
       return 'Yesterday';
     }
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}`;
   }, []);
 
   const recentTransactions = useMemo(() => transactions.slice(0, 5), [transactions]);

@@ -52,11 +52,9 @@ const TransactionItem = memo<TransactionItemProps>(({
   const formatTime = (dateString: string): string => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false 
-      });
+      const hoursFixed = date.getHours().toString().padStart(2, '0');
+      const minsFixed = date.getMinutes().toString().padStart(2, '0');
+      return `${hoursFixed}:${minsFixed}`;
     } catch (error) {
       return '--:--';
     }
@@ -146,12 +144,9 @@ export const TransactionGroupDetail = memo<TransactionGroupDetailProps>(({
         return 'Yesterday';
       }
 
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
+      const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+      return `${daysOfWeek[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
     } catch (error) {
       return dateString;
     }

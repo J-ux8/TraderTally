@@ -81,12 +81,8 @@ export const GroupSummaryCard = memo<GroupSummaryCardProps>(({
         return 'Yesterday';
       }
 
-      // Format as MMM DD
-      const options: Intl.DateTimeFormatOptions = { 
-        month: 'short', 
-        day: 'numeric' 
-      };
-      return date.toLocaleDateString('en-US', options);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${months[date.getMonth()]} ${date.getDate()}`;
     } catch (error) {
       return dateString;
     }
