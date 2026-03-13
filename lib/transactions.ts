@@ -32,7 +32,7 @@ export async function recordSale(
           amount: Math.abs(amount),
           category,
           description,
-          transaction_date: date || new Date().toISOString().split('T')[0]
+          transaction_date: date || new Date().toISOString()
         })
         .select()
         .single();
@@ -91,7 +91,7 @@ export async function recordExpense(
       amount: -Math.abs(amount),
       category,
       description,
-      transaction_date: date || new Date().toISOString().split('T')[0]
+      transaction_date: date || new Date().toISOString()
     })
     .select()
     .single();
@@ -140,7 +140,7 @@ export async function updateTransaction(
       amount,
       category,
       description,
-      transaction_date: date || new Date().toISOString().split('T')[0]
+      transaction_date: date || new Date().toISOString()
     })
     .eq('id', id);
   

@@ -55,7 +55,13 @@ interface FinancialMetrics {
 
 export default function ReportsScreen() {
   const colors = useThemeColors();
-  const { transactions, refresh } = useTransactionsContext();
+  const { 
+    transactions, 
+    refresh, 
+    groupedTransactions, 
+    groupingEnabled,
+    groupingMetrics 
+  } = useTransactionsContext();
   const { debts, refresh: refreshDebts } = useDebts();
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
   const [refreshing, setRefreshing] = useState(false);
@@ -256,28 +262,56 @@ export default function ReportsScreen() {
 
   const categoryMetrics = useMemo(() => {
     const categoryMap = new Map<string, CategoryMetrics>();
+    
+    // Use grouped data when grouping is enabled for better insights
+    // but still calculate from individual transactions for accuracy
     const totalAmount = filteredTransactions.reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-    filteredTransactions.forEach(t => {
-      const category = t.category || 'Uncategorized';
-      if (!categoryMap.has(category)) {
-        categoryMap.set(category, { category, revenue: 0, expenses: 0, net: 0, count: 0, percentage: 0 });
-      }
-      const cat = categoryMap.get(category)!;
-      cat.count++;
-      if (t.amount > 0) {
-        cat.revenue += Number(t.amount);
-      } else {
-        cat.expenses += Math.abs(Number(t.amount));
-      }
-      cat.net = cat.revenue - cat.expenses;
-    });
+    
+    if (groupingEnabled) {
+      // When using grouped data, aggregate from groups but maintain transaction-level accuracy
+      groupedTransactions.forEach(group => {
+        const category = group.category || 'Uncategorized';
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, { category, revenue: 0, expenses: 0, net: 0, count: 0, percentage: 0 });
+        }
+        const cat = categoryMap.get(category)!;
+        
+        // Aggregate from individual transactions within the group for accuracy
+        group.transactions.forEach((tx: any) => {
+          cat.count++;
+          if (tx.amount > 0) {
+            cat.revenue += Number(tx.amount);
+          } else {
+            cat.expenses += Math.abs(Number(tx.amount));
+          }
+        });
+        cat.net = cat.revenue - cat.expenses;
+      });
+    } else {
+      // Use individual transactions directly
+      filteredTransactions.forEach(t => {
+        const category = t.category || 'Uncategorized';
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, { category, revenue: 0, expenses: 0, net: 0, count: 0, percentage: 0 });
+        }
+        const cat = categoryMap.get(category)!;
+        cat.count++;
+        if (t.amount > 0) {
+          cat.revenue += Number(t.amount);
+        } else {
+          cat.expenses += Math.abs(Number(t.amount));
+        }
+        cat.net = cat.revenue - cat.expenses;
+      });
+    }
+    
     return Array.from(categoryMap.values())
       .map(cat => ({
         ...cat,
         percentage: totalAmount > 0 ? (((cat.revenue + cat.expenses) / totalAmount) * 100) : 0,
       }))
       .sort((a, b) => (b.revenue + b.expenses) - (a.revenue + a.expenses));
-  }, [filteredTransactions]);
+  }, [filteredTransactions, groupedTransactions, groupingEnabled]);
 
   const revenueConcentration = useMemo(() => {
     const totalRevenue = categoryMetrics.reduce((sum, c) => sum + c.revenue, 0);
@@ -316,6 +350,18 @@ export default function ReportsScreen() {
         icon: '📈',
       });
     }
+    
+    // Grouping-specific insights
+    if (groupingEnabled && groupingMetrics.averageGroupSize > 3) {
+      sugg.push({
+        id: 'frequent-products',
+        type: 'opportunity',
+        title: 'High-Frequency Products',
+        description: `You're selling ${groupingMetrics.averageGroupSize.toFixed(1)} of the same items on average. Consider bulk pricing!`,
+        icon: '🔄',
+      });
+    }
+    
     if (categoryMetrics.length > 0 && categoryMetrics[0].revenue > 0) {
       sugg.push({
         id: 'top-category',
@@ -354,7 +400,7 @@ export default function ReportsScreen() {
       });
     }
     return sugg.slice(0, 3);
-  }, [growthMetrics, categoryMetrics, revenueConcentration, debtRiskData]);
+  }, [growthMetrics, categoryMetrics, revenueConcentration, debtRiskData, groupingEnabled, groupingMetrics]);
 
   const formatCurrency = useCallback((amount: number) => {
     return `K ${Math.abs(amount).toFixed(2)}`;
@@ -565,7 +611,74 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-        {/* SECTION 4: CATEGORY PERFORMANCE */}
+        {/* SECTION 4: GROUPING INSIGHTS (when grouping enabled) */}
+        {groupingEnabled && groupedTransactions.length > 0 && (
+          <>
+            <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Transaction Grouping Insights</Text>
+            </View>
+
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+              <View style={styles.groupingGrid}>
+                <View style={styles.groupingItem}>
+                  <Text style={[styles.groupingLabel, { color: colors.textSecondary }]}>Total Groups</Text>
+                  <Text style={[styles.groupingValue, { color: '#1e3a8a' }]}>{groupingMetrics.totalGroups}</Text>
+                  <Text style={[styles.groupingSubtext, { color: colors.textSecondary }]}>
+                    from {transactions.length} transactions
+                  </Text>
+                </View>
+
+                <View style={styles.groupingItem}>
+                  <Text style={[styles.groupingLabel, { color: colors.textSecondary }]}>Avg Group Size</Text>
+                  <Text style={[styles.groupingValue, { color: '#10b981' }]}>{groupingMetrics.averageGroupSize.toFixed(1)}</Text>
+                  <Text style={[styles.groupingSubtext, { color: colors.textSecondary }]}>
+                    transactions per group
+                  </Text>
+                </View>
+
+                <View style={styles.groupingItem}>
+                  <Text style={[styles.groupingLabel, { color: colors.textSecondary }]}>Efficiency</Text>
+                  <Text style={[styles.groupingValue, { color: '#f59e0b' }]}>{(groupingMetrics.groupingEfficiency * 100).toFixed(0)}%</Text>
+                  <Text style={[styles.groupingSubtext, { color: colors.textSecondary }]}>
+                    data reduction
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.divider, { backgroundColor: colors.borderColor }]} />
+
+              <Text style={[styles.groupingInsightTitle, { color: colors.textColor }]}>Top Product Groups</Text>
+              <View style={styles.topGroupsList}>
+                {groupedTransactions
+                  .filter(group => group.transactionCount > 1)
+                  .sort((a, b) => b.totalAmount - a.totalAmount)
+                  .slice(0, 3)
+                  .map((group, idx) => (
+                    <View key={group.id} style={[styles.topGroupRow, { borderBottomColor: colors.borderColor }]}>
+                      <View style={styles.topGroupLeft}>
+                        <View style={[styles.topGroupRank, { backgroundColor: idx === 0 ? '#1e3a8a' : 'rgba(16, 185, 129, 0.1)' }]}>
+                          <Text style={[styles.topGroupRankText, { color: idx === 0 ? '#ffffff' : '#1e3a8a' }]}>#{idx + 1}</Text>
+                        </View>
+                        <View style={styles.topGroupInfo}>
+                          <Text style={[styles.topGroupName, { color: colors.textColor }]}>
+                            {group.description || 'Unnamed'}
+                          </Text>
+                          <Text style={[styles.topGroupCount, { color: colors.textSecondary }]}>
+                            {group.transactionCount} transactions
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.topGroupAmount, { color: group.totalAmount >= 0 ? '#1e3a8a' : '#ef4444' }]}>
+                        {formatCurrency(group.totalAmount)}
+                      </Text>
+                    </View>
+                  ))}
+              </View>
+            </View>
+          </>
+        )}
+
+        {/* SECTION 5: CATEGORY PERFORMANCE */}
         {categoryMetrics.length > 0 && (
           <>
             <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
@@ -600,7 +713,7 @@ export default function ReportsScreen() {
           </>
         )}
 
-        {/* SECTION 5: CREDIT & DEBT ANALYSIS */}
+        {/* SECTION 6: CREDIT & DEBT ANALYSIS */}
         <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
           <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Credit & Debt Analysis</Text>
         </View>
@@ -643,7 +756,7 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-        {/* SECTION 6: BUSINESS HEALTH DIAGNOSTICS */}
+        {/* SECTION 7: BUSINESS HEALTH DIAGNOSTICS */}
         <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
           <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Business Health Diagnostics</Text>
         </View>
@@ -699,7 +812,7 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-        {/* SECTION 7: INTELLIGENT INSIGHTS */}
+        {/* SECTION 8: INTELLIGENT INSIGHTS */}
         {suggestions.length > 0 && (
           <>
             <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
@@ -837,4 +950,21 @@ const styles = StyleSheet.create({
   shareOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 12, borderRadius: 12, marginBottom: 12, gap: 16 },
   shareOptionTitle: { fontSize: 16, fontWeight: '600' },
   shareOptionLast: { justifyContent: 'center' },
+  
+  // Grouping insights styles
+  groupingGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
+  groupingItem: { flex: 1, padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.05)', borderRadius: 12, alignItems: 'center' },
+  groupingLabel: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
+  groupingValue: { fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  groupingSubtext: { fontSize: 10, fontWeight: '500', textAlign: 'center' },
+  groupingInsightTitle: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
+  topGroupsList: { gap: 0 },
+  topGroupRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
+  topGroupLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
+  topGroupRank: { width: 28, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
+  topGroupRankText: { fontSize: 11, fontWeight: '700' },
+  topGroupInfo: { flex: 1 },
+  topGroupName: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
+  topGroupCount: { fontSize: 11, fontWeight: '500' },
+  topGroupAmount: { fontSize: 13, fontWeight: '700' },
 });

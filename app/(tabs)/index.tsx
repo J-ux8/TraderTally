@@ -1,12 +1,13 @@
 import { QuickActions } from '@/components/dashboard/QuickActions';
-import { RecentTransactions } from '@/components/dashboard/RecentTransactions';
 import { SummaryCard } from '@/components/dashboard/SummaryCard';
 import { QuickTemplatesSection } from '@/components/templates/QuickTemplatesSection';
+import { GroupedTransactionsList } from '@/components/transactions/GroupedTransactionsList';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useTemplatesContext } from '@/contexts/TemplatesContext';
 import { useSummary } from '@/hooks/useSummary';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { useGroupNavigation } from '@/hooks/useGroupNavigation';
 import { signOut } from '@/lib/auth';
 import { router } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
@@ -15,13 +16,15 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from "react"
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Template } from '@/lib/templates';
+import { TransactionGroup } from '@/types/grouping';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const colors = useThemeColors();
-  const { transactions, refresh } = useTransactionsContext();
+  const { transactions, refresh, groupedTransactions, groupingEnabled, toggleGrouping } = useTransactionsContext();
   const { templates, loading: templatesLoading, deleteTemplate } = useTemplatesContext();
+  const { actions: { navigateToGroup } } = useGroupNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
@@ -175,29 +178,33 @@ export default function HomeScreen() {
     router.push('/modals/create-template' as any);
   }, []);
 
+  // Handle group press - navigate to group detail
+  const handleGroupPress = useCallback((group: TransactionGroup) => {
+    navigateToGroup(group);
+  }, [navigateToGroup]);
+
   const dailyTracking = useMemo(() => {
     // Calculate consecutive days with transactions starting from today
     let consecutiveDays = 0;
     const today = new Date();
     
-    // Get today's date in local timezone (YYYY-MM-DD format)
-    const getLocalDateString = (date: Date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+    // Get today's date in local timezone normalized
+    const normalizeDate = (date: Date) => {
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
     };
+
+    const startIdx = 0;
     
     // Check up to 30 days back for consecutive daily tracking
     for (let i = 0; i < 30; i++) {
       const checkDate = new Date(today);
       checkDate.setDate(today.getDate() - i);
-      const dateStr = getLocalDateString(checkDate);
+      const checkTime = normalizeDate(checkDate);
       
       // Check if there's a transaction on this date
       const hasTransaction = transactions.some(t => {
-        const transactionDate = t.transaction_date.split('T')[0];
-        return transactionDate === dateStr;
+        const txDate = new Date(t.transaction_date);
+        return normalizeDate(txDate) === checkTime;
       });
       
       if (hasTransaction) {
@@ -349,8 +356,45 @@ export default function HomeScreen() {
             />
           </View>
 
-          {/* Recent Transactions */}
-          <RecentTransactions transactions={transactions} />
+          {/* Grouped Transactions */}
+          <View style={[styles.transactionsContainer, { backgroundColor: cardBackground }]}>
+            <View style={styles.transactionsHeader}>
+              <Text style={[styles.transactionsTitle, { color: textColor }]}>
+                {groupingEnabled ? 'Recent Groups' : 'Recent Transactions'}
+              </Text>
+              <View style={styles.transactionsActions}>
+                <TouchableOpacity
+                  style={styles.groupingToggle}
+                  onPress={toggleGrouping}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.groupingToggleText, { color: colors.primaryColor }]}>
+                    {groupingEnabled ? 'Individual' : 'Grouped'}
+                  </Text>
+                </TouchableOpacity>
+                {groupedTransactions.length > 5 && (
+                  <TouchableOpacity
+                    onPress={() => router.push('./records')}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.viewAllText, { color: colors.primaryColor }]}>View All</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+            <GroupedTransactionsList
+              groups={groupedTransactions.slice(0, 5)}
+              onGroupPress={handleGroupPress}
+              loading={false}
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              emptyMessage="No transactions yet. Start by recording your first sale!"
+              showDates={false}
+              compact={true}
+              maxItems={5}
+              scrollable={false}
+            />
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -614,5 +658,42 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#1e3a8a',
+  },
+  transactionsContainer: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0, 0, 0, 0.05)',
+    overflow: 'hidden',
+  },
+  transactionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  transactionsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  transactionsActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  groupingToggle: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(30, 58, 138, 0.1)',
+    borderRadius: 6,
+  },
+  groupingToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

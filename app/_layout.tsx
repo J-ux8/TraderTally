@@ -8,10 +8,11 @@ import { TransactionsProvider } from '@/contexts/TransactionsContext';
 import { CategoriesProvider } from '@/contexts/CategoriesContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { TemplatesProvider } from '@/contexts/TemplatesContext';
+import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import React from 'react';
 
 export const unstable_settings = {
-  initialRouteName: 'welcome',
+  initialRouteName: 'index',
 };
 
 import { getSecuritySettings } from '@/lib/security';
@@ -25,6 +26,9 @@ function RootLayoutContent() {
   const appState = useRef(AppState.currentState);
   const [lastBackgroundTime, setLastBackgroundTime] = useState<number | null>(null);
   const pathname = usePathname();
+
+  // Add navigation guard
+  useNavigationGuard();
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
@@ -61,20 +65,101 @@ function RootLayoutContent() {
 
   return (
     <NavigationThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ gestureEnabled: true, gestureDirection: 'horizontal' }}>
+      <Stack screenOptions={{ 
+        gestureEnabled: true, 
+        gestureDirection: 'horizontal',
+        headerShown: false 
+      }}>
         <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="welcome" options={{ headerShown: false, animation: 'fade' }} />
-        <Stack.Screen name="unlock" options={{ headerShown: false, animation: 'fade' }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="Authentication/login" options={{ title: 'Login', headerShown: false }} />
-        <Stack.Screen name="Authentication/register" options={{ title: 'Register', headerShown: false }} />
-        <Stack.Screen name="Authentication/verify-email" options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="welcome" 
+          options={{ 
+            headerShown: false, 
+            animation: 'fade',
+            gestureEnabled: false
+          }} 
+        />
+        <Stack.Screen 
+          name="unlock" 
+          options={{ 
+            headerShown: false, 
+            animation: 'fade',
+            gestureEnabled: false // Prevent swipe back from unlock
+          }} 
+        />
+        <Stack.Screen 
+          name="(tabs)" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false
+          }} 
+        />
+        <Stack.Screen 
+          name="Authentication/login" 
+          options={{ 
+            title: 'Login', 
+            headerShown: false,
+            gestureEnabled: false // Prevent swipe back from login
+          }} 
+        />
+        <Stack.Screen 
+          name="Authentication/register" 
+          options={{ 
+            title: 'Register', 
+            headerShown: false,
+            gestureEnabled: false // Prevent swipe back from register
+          }} 
+        />
+        <Stack.Screen 
+          name="Authentication/verify-email" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: false // Prevent swipe back from verify
+          }} 
+        />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        <Stack.Screen name="modals/record-sale" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="modals/record-expense" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="modals/add-debt" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="modals/create-template" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
-        <Stack.Screen name="modals/edit-template" options={{ headerShown: false, animation: 'slide_from_bottom' }} />
+        <Stack.Screen 
+          name="modals/record-sale" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_right'
+          }} 
+        />
+        <Stack.Screen 
+          name="modals/record-expense" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_right'
+          }} 
+        />
+        <Stack.Screen 
+          name="modals/add-debt" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_right'
+          }} 
+        />
+        <Stack.Screen 
+          name="modals/create-template" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_right'
+          }} 
+        />
+        <Stack.Screen 
+          name="modals/edit-template" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_right'
+          }} 
+        />
+        <Stack.Screen 
+          name="modals/transaction-group-detail" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_right'
+          }} 
+        />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </NavigationThemeProvider>

@@ -43,9 +43,6 @@ export function useSummary(transactions: Transaction[]) {
 
   const calculateSummary = (type: 'daily' | 'weekly' | 'monthly'): Summary => {
     const { start, end } = getDateRange(type);
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-
     const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
     const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
 
@@ -55,15 +52,15 @@ export function useSummary(transactions: Transaction[]) {
     const catTotals: Record<string, number> = {};
 
     transactions.forEach((t) => {
-      const transactionDateStr = t.transaction_date.split('T')[0];
-
       let match = false;
+      const transactionDate = new Date(t.transaction_date);
+
       if (type === 'daily') {
-        match = transactionDateStr === todayStr;
+        const tDate = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
+        match = tDate.getTime() === startDateOnly.getTime();
       } else {
-        const [year, month, day] = transactionDateStr.split('-').map(Number);
-        const transactionDateOnly = new Date(year, month - 1, day);
-        match = transactionDateOnly >= startDateOnly && transactionDateOnly < endDateOnly;
+        const tDate = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
+        match = tDate >= startDateOnly && tDate < endDateOnly;
       }
 
       if (match) {

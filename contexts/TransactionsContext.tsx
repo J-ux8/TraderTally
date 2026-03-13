@@ -1,5 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib, batchUpdateTransactions, batchDeleteTransactions } from '@/lib/transactions';
+import { TransactionGroup, Transaction as GroupingTransaction } from '@/types/grouping';
+import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 interface Transaction {
@@ -21,6 +23,20 @@ interface TransactionsContextType {
   recordSale: (amount: number, category: string | null, description: string | null, transaction_date?: string) => Promise<any>;
   recordExpense: (amount: number, category: string | null, description: string | null, transaction_date?: string) => Promise<any>;
   totalProfit: number;
+  
+  // New grouping functionality
+  groupedTransactions: TransactionGroup[];
+  groupingEnabled: boolean;
+  toggleGrouping: () => void;
+  setGroupingEnabled: (enabled: boolean) => void;
+  getGroupById: (id: string) => TransactionGroup | undefined;
+  getGroupByKey: (key: string) => TransactionGroup | undefined;
+  groupingMetrics: {
+    totalGroups: number;
+    averageGroupSize: number;
+    groupingEfficiency: number;
+    processingTime: number;
+  };
 }
 
 const TransactionsContext = createContext<TransactionsContextType | null>(null);
@@ -28,9 +44,27 @@ const TransactionsContext = createContext<TransactionsContextType | null>(null);
 export function TransactionsProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [groupingEnabled, setGroupingEnabled] = useState(true); // Default to enabled
   const isLoadingRef = useRef(false);
   const hasInitializedRef = useRef(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Use the transaction grouping hook
+  const {
+    groupedTransactions,
+    loading: groupingLoading,
+    metrics: groupingMetrics,
+    actions: groupingActions
+  } = useTransactionGroups(transactions, {
+    initialGroupingEnabled: groupingEnabled,
+    caseSensitive: true,
+    minGroupSize: 1
+  });
+
+  // Sync grouping enabled state with hook
+  useEffect(() => {
+    groupingActions.setGroupingEnabled(groupingEnabled);
+  }, [groupingEnabled, groupingActions]);
 
   // Memoize profit calculation
   const totalProfit = useMemo(() => {
@@ -141,17 +175,41 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }
   }, [loadTransactions]);
 
+  // Toggle grouping functionality
+  const toggleGrouping = useCallback(() => {
+    setGroupingEnabled(prev => !prev);
+  }, []);
+
+  // Get group by ID
+  const getGroupById = useCallback((id: string) => {
+    return groupingActions.getGroupById(id);
+  }, [groupingActions]);
+
+  // Get group by key
+  const getGroupByKey = useCallback((key: string) => {
+    return groupingActions.getGroupByKey(key);
+  }, [groupingActions]);
+
   return (
     <TransactionsContext.Provider
       value={{
         transactions,
-        loading,
+        loading: loading || groupingLoading,
         refresh,
         updateTransaction: handleUpdateTransaction,
         removeTransaction: handleRemoveTransaction,
         recordSale: handleRecordSale,
         recordExpense: handleRecordExpense,
         totalProfit,
+        
+        // Grouping functionality
+        groupedTransactions,
+        groupingEnabled,
+        toggleGrouping,
+        setGroupingEnabled,
+        getGroupById,
+        getGroupByKey,
+        groupingMetrics,
       }}
     >
       {children}

@@ -14,7 +14,6 @@ export default function Index() {
         setSession(currentSession);
       } catch (error) {
         console.error('[Index] Failed to get session:', error);
-        setSession(null);
       } finally {
         setLoading(false);
       }
@@ -25,6 +24,7 @@ export default function Index() {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      setLoading(false);
     });
 
     return () => subscription?.unsubscribe();
@@ -38,11 +38,5 @@ export default function Index() {
     );
   }
 
-  // If we have a valid Supabase session, go to dashboard
-  if (session) {
-    return <Redirect href="/(tabs)" />;
-  }
-
-  // Otherwise, show welcome screen
-  return <Redirect href="/welcome" />;
+  return session ? <Redirect href="/(tabs)" /> : <Redirect href="/welcome" />;
 }

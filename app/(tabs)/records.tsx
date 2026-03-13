@@ -40,14 +40,16 @@ const TransactionItem = React.memo(({
   onDelete,
   colors,
   dynamicStyles,
-  formatDate
+  formatDate,
+  formatTime
 }: {
   transaction: Transaction,
   onEdit: (t: Transaction) => void,
   onDelete: (id: string) => void,
   colors: any,
   dynamicStyles: any,
-  formatDate: (d: string) => string
+  formatDate: (d: string) => string,
+  formatTime: (d: string) => string
 }) => {
   const sale = transaction.amount > 0;
   return (
@@ -65,7 +67,10 @@ const TransactionItem = React.memo(({
             <Text style={[dynamicStyles.amount, { color: sale ? '#1e3a8a' : '#ef4444' }]}>
               {sale ? '+' : '-'}K {Math.abs(transaction.amount).toFixed(2)}
             </Text>
-            <Text style={dynamicStyles.date}>{formatDate(transaction.transaction_date)}</Text>
+            <View style={styles.dateTimeContainer}>
+              <Text style={dynamicStyles.date}>{formatDate(transaction.transaction_date)}</Text>
+              <Text style={dynamicStyles.time}>{formatTime(transaction.transaction_date)}</Text>
+            </View>
           </View>
         </View>
         <View style={styles.transactionActions}>
@@ -146,7 +151,12 @@ export default function RecordsScreen() {
 
 
   async function onRefresh() {
-    await refresh();
+    setRefreshing(true);
+    try {
+      await refresh();
+    } finally {
+      setRefreshing(false);
+    }
   }
 
   function openEditModal(transaction: Transaction) {
@@ -242,6 +252,21 @@ export default function RecordsScreen() {
     });
   }, []);
 
+  const formatTime = useCallback((dateString: string) => {
+    const date = new Date(dateString);
+    
+    // If the date is invalid, return a fallback
+    if (isNaN(date.getTime())) {
+      return 'Invalid time';
+    }
+    
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  }, []);
+
   const isSale = useCallback((amount: number) => amount > 0, []);
 
   const dynamicStyles = {
@@ -249,6 +274,7 @@ export default function RecordsScreen() {
     card: { ...styles.transactionItem, backgroundColor: colors.cardBackground, borderColor: colors.borderColor },
     amount: { ...styles.amount, color: colors.textColor },
     date: { ...styles.date, color: colors.textSecondary },
+    time: { ...styles.time, color: colors.textSecondary },
     category: { ...styles.category, color: colors.textSecondary },
     description: { ...styles.description, color: colors.textColor },
     emptyText: { ...styles.emptyText, color: colors.textSecondary },
@@ -272,10 +298,7 @@ export default function RecordsScreen() {
             <View style={styles.headerTextContainer}>
               <Text style={styles.headerTitle}>Records</Text>
               <Text style={styles.headerSubtitle}>
-                {transactions.length > 0
-                  ? `${transactions.length} transaction${transactions.length !== 1 ? 's' : ''}`
-                  : 'View and manage transactions'
-                }
+                {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
               </Text>
             </View>
           </View>
@@ -291,41 +314,40 @@ export default function RecordsScreen() {
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading transactions...</Text>
         </View>
       ) : (
-        <FlatList
-          data={transactions}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item: transaction }) => (
-            <TransactionItem
-              transaction={transaction}
-              onEdit={openEditModal}
-              onDelete={handleDeleteTransaction}
-              colors={colors}
-              dynamicStyles={dynamicStyles}
-              formatDate={formatDate}
-            />
-          )}
-          contentContainerStyle={styles.scrollContent}
-          style={styles.scrollView}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1e3a8a" />
-          }
-          showsVerticalScrollIndicator={false}
-          windowSize={10}
-          maxToRenderPerBatch={10}
-          updateCellsBatchingPeriod={50}
-          removeClippedSubviews={true}
-          initialNumToRender={15}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={dynamicStyles.emptyText}>No transactions yet</Text>
-              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-                Start by recording your first sale or expense!
-              </Text>
-            </View>
-          }
-        />
-      )
-      }
+        <View style={styles.contentContainer}>
+          <FlatList
+            data={transactions}
+            renderItem={({ item }) => (
+              <TransactionItem
+                transaction={item}
+                onEdit={openEditModal}
+                onDelete={handleDeleteTransaction}
+                colors={colors}
+                dynamicStyles={dynamicStyles}
+                formatDate={formatDate}
+                formatTime={formatTime}
+              />
+            )}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={[
+              styles.scrollContent,
+              transactions.length === 0 && styles.emptyContainer
+            ]}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1e3a8a" />
+            }
+            showsVerticalScrollIndicator={false}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No transactions yet</Text>
+                <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                  Your transactions will appear here once you start recording them.
+                </Text>
+              </View>
+            }
+          />
+        </View>
+      )}
 
       {/* Edit Transaction Modal */}
       <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={closeEditModal}>
@@ -472,7 +494,8 @@ const styles = StyleSheet.create({
   headerTextContainer: { flex: 1 },
   headerTitle: { fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
   headerSubtitle: { fontSize: 16, color: 'rgba(255, 255, 255, 0.9)', fontWeight: '500' },
-  headerRight: { justifyContent: 'center', alignItems: 'flex-end' },
+  headerRight: { justifyContent: 'center', alignItems: 'flex-end', flexDirection: 'row', gap: 12 },
+  contentContainer: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40, paddingTop: 10 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
@@ -487,7 +510,9 @@ const styles = StyleSheet.create({
   typeIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   transactionInfo: { flex: 1 },
   amount: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
+  dateTimeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   date: { fontSize: 14 },
+  time: { fontSize: 12, fontWeight: '500' },
   transactionActions: { flexDirection: 'row', gap: 8 },
   actionButton: { width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center', alignItems: 'center' },
   deleteButton: { backgroundColor: 'rgba(239, 68, 68, 0.1)' },

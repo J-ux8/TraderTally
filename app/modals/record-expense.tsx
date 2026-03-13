@@ -65,14 +65,9 @@ export default function RecordExpenseScreen() {
 
     setLoading(true);
 
-    const getLocalDateString = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    const dateStr = getLocalDateString(date);
+    // Need correctly padded local date string
+    const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    const dateStr = offsetDate.toISOString();
 
     try {
       await recordExpense(numericAmount, expenseType.trim(), null, dateStr);
