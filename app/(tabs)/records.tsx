@@ -199,10 +199,10 @@ export default function RecordsScreen() {
         finalAmount,
         editCategory,
         editDescription.trim() || null,
-        editDate.toISOString().split("T")[0]
+        editDate.toISOString()
       );
       // Update in context
-      updateTransactionInContext(selectedTransaction.id, finalAmount, editCategory, editDescription.trim() || null, editDate.toISOString().split("T")[0]);
+      updateTransactionInContext(selectedTransaction.id, finalAmount, editCategory, editDescription.trim() || null, editDate.toISOString());
       closeEditModal();
       Alert.alert('Success', 'Transaction updated successfully! 🎉');
     } catch (error: any) {
@@ -464,7 +464,9 @@ export default function RecordsScreen() {
             <Calendar
               current={editDate.toISOString().split("T")[0]}
               onDayPress={(day) => {
-                setEditDate(new Date(day.dateString));
+                const [year, month, d] = day.dateString.split('-').map(Number);
+                const now = new Date();
+                setEditDate(new Date(year, month - 1, d, editDate.getHours(), editDate.getMinutes(), editDate.getSeconds()));
                 setDatePickerOpen(false);
               }}
               theme={{

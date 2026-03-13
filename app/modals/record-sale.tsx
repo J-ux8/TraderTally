@@ -101,9 +101,7 @@ export default function RecordSaleScreen() {
 
     setLoading(true);
 
-    // Need correctly padded local date string
-    const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    const dateStr = offsetDate.toISOString();
+    const dateStr = date.toISOString();
 
     try {
       await recordSale(numericAmount, category.trim(), description.trim() || null, dateStr);
@@ -248,7 +246,11 @@ export default function RecordSaleScreen() {
             <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
               <Calendar
                 current={dateStrForCalendar(tempDate)}
-                onDayPress={(day: any) => setTempDate(new Date(day.dateString))}
+                onDayPress={(day: any) => {
+                  const [year, month, d] = day.dateString.split('-').map(Number);
+                  const now = new Date();
+                  setTempDate(new Date(year, month - 1, d, now.getHours(), now.getMinutes(), now.getSeconds()));
+                }}
                 maxDate={dateStrForCalendar(new Date())}
                 theme={{ calendarBackground: colors.cardBackground, dayTextColor: colors.textColor, monthTextColor: colors.textColor, selectedDayBackgroundColor: '#1e3a8a' }}
                 markedDates={{ [dateStrForCalendar(tempDate)]: { selected: true } }}
