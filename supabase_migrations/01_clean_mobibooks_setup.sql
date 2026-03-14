@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     amount DECIMAL(10, 2) NOT NULL,
     category TEXT,
     description TEXT,
-    transaction_date DATE NOT NULL,
+    transaction_date TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     is_deleted INTEGER DEFAULT 0

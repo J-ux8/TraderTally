@@ -52,9 +52,11 @@ const TransactionItem = memo<TransactionItemProps>(({
   const formatTime = (dateString: string): string => {
     try {
       const date = new Date(dateString);
-      const hoursFixed = date.getHours().toString().padStart(2, '0');
-      const minsFixed = date.getMinutes().toString().padStart(2, '0');
-      return `${hoursFixed}:${minsFixed}`;
+      if (isNaN(date.getTime())) return '--:--';
+      return date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
     } catch (error) {
       return '--:--';
     }

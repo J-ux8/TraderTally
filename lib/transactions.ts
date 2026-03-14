@@ -33,7 +33,8 @@ export async function recordSale(
           amount: Math.abs(amount),
           category,
           description,
-          transaction_date: date || getLocalISOString()
+          transaction_date: date || new Date().toISOString(),
+          created_at: new Date().toISOString()
         })
         .select()
         .single();
@@ -92,7 +93,8 @@ export async function recordExpense(
       amount: -Math.abs(amount),
       category,
       description,
-      transaction_date: date || getLocalISOString()
+      transaction_date: date || new Date().toISOString(),
+      created_at: new Date().toISOString()
     })
     .select()
     .single();
@@ -141,7 +143,8 @@ export async function updateTransaction(
       amount,
       category,
       description,
-      transaction_date: date || getLocalISOString()
+      transaction_date: date || new Date().toISOString(),
+      updated_at: new Date().toISOString()
     })
     .eq('id', id);
   
@@ -187,7 +190,8 @@ export async function batchUpdateTransactions(
           amount: update.amount,
           category: update.category,
           description: update.description,
-          transaction_date: update.transaction_date
+          transaction_date: update.transaction_date || new Date().toISOString(),
+          updated_at: new Date().toISOString()
         })
         .eq('id', update.id)
     )
@@ -224,7 +228,8 @@ export async function batchInsertTransactions(
         amount: tx.amount,
         category: tx.category,
         description: tx.description,
-        transaction_date: tx.transaction_date
+        transaction_date: tx.transaction_date || new Date().toISOString(),
+        created_at: new Date().toISOString()
       }))
     )
     .select();
