@@ -160,6 +160,21 @@ function RootLayoutContent() {
             animation: 'slide_from_right'
           }} 
         />
+        <Stack.Screen 
+          name="modals/period-detail" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_bottom',
+            presentation: 'modal'
+          }} 
+        />
+        <Stack.Screen 
+          name="modals/day-transactions" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_right'
+          }} 
+        />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </NavigationThemeProvider>

@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
+import { startOfDay, startOfWeek, startOfMonth, toLocalTime } from '../lib/dateUtils';
 
 interface Transaction {
   amount: number;
-  transaction_date: string;
+  created_at: string;
+  category?: string | null;
 }
 
 interface Summary {
@@ -14,37 +16,21 @@ interface Summary {
 }
 
 export function useSummary(transactions: Transaction[]) {
-  const getDateRange = (type: 'daily' | 'weekly' | 'monthly') => {
+  const calculateSummary = (type: 'today' | 'week' | 'month'): Summary => {
     const now = new Date();
-    const start = new Date();
-    const end = new Date();
+    let startDate: Date;
 
     switch (type) {
-      case 'daily':
-        start.setHours(0, 0, 0, 0);
+      case 'today':
+        startDate = startOfDay(now);
         break;
-      case 'weekly':
-        // Get start of week (Sunday = 0, Monday = 1, etc.)
-        const dayOfWeek = now.getDay();
-        start.setDate(now.getDate() - dayOfWeek);
-        start.setHours(0, 0, 0, 0);
+      case 'week':
+        startDate = startOfWeek(now);
         break;
-      case 'monthly':
-        start.setDate(1);
-        start.setHours(0, 0, 0, 0);
+      case 'month':
+        startDate = startOfMonth(now);
         break;
     }
-
-    // Ensure end date includes the full day (end of today)
-    end.setHours(23, 59, 59, 999);
-
-    return { start, end };
-  };
-
-  const calculateSummary = (type: 'daily' | 'weekly' | 'monthly'): Summary => {
-    const { start, end } = getDateRange(type);
-    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
 
     let revenue = 0;
     let expenses = 0;
@@ -52,24 +38,18 @@ export function useSummary(transactions: Transaction[]) {
     const catTotals: Record<string, number> = {};
 
     transactions.forEach((t) => {
-      let match = false;
-      const transactionDate = new Date(t.transaction_date);
-
-      if (type === 'daily') {
-        const tDate = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
-        match = tDate.getTime() === startDateOnly.getTime();
-      } else {
-        const tDate = new Date(transactionDate.getFullYear(), transactionDate.getMonth(), transactionDate.getDate());
-        match = tDate >= startDateOnly && tDate < endDateOnly;
-      }
-
-      if (match) {
+      const createdAtLocal = toLocalTime(t.created_at);
+      
+      // Filter: created_at >= startDate && created_at <= now
+      if (createdAtLocal >= startDate && createdAtLocal <= now) {
         const amt = Number(t.amount);
-        if (amt > 0) revenue += amt;
-        else {
-          expenses += Math.abs(amt);
-          const cat = (t as any).category;
-          if (cat) catTotals[cat] = (catTotals[cat] || 0) + Math.abs(amt);
+        if (amt > 0) {
+          revenue += amt;
+        } else if (amt < 0) {
+          const absAmt = Math.abs(amt);
+          expenses += absAmt;
+          const cat = t.category;
+          if (cat) catTotals[cat] = (catTotals[cat] || 0) + absAmt;
         }
         transactionCount++;
       }
@@ -89,9 +69,9 @@ export function useSummary(transactions: Transaction[]) {
     };
   };
 
-  const daily = useMemo(() => calculateSummary('daily'), [transactions]);
-  const weekly = useMemo(() => calculateSummary('weekly'), [transactions]);
-  const monthly = useMemo(() => calculateSummary('monthly'), [transactions]);
+  const daily = useMemo(() => calculateSummary('today'), [transactions]);
+  const weekly = useMemo(() => calculateSummary('week'), [transactions]);
+  const monthly = useMemo(() => calculateSummary('month'), [transactions]);
 
   return { daily, weekly, monthly };
 }

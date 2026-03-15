@@ -27,7 +27,7 @@ export default function HomeScreen() {
   const { actions: { navigateToGroup } } = useGroupNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const { daily, weekly, monthly } = useSummary(transactions);
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
+  const [activeTab, setActiveTab] = useState<'today' | 'week' | 'month'>('today');
   const lastDateRef = useRef<string>(new Date().toDateString());
 
   const handleRefresh = useCallback(async () => {
@@ -121,9 +121,9 @@ export default function HomeScreen() {
   }, []);
 
   const tabs = useMemo(() => [
-    { id: 'daily' as const, label: 'Today', summary: daily, title: "Today's Profit" },
-    { id: 'weekly' as const, label: 'Week', summary: weekly, title: "This Week's Profit" },
-    { id: 'monthly' as const, label: 'Month', summary: monthly, title: "This Month's Profit" },
+    { id: 'today' as const, label: 'Today', summary: daily, title: "Today's Profit" },
+    { id: 'week' as const, label: 'This Week', summary: weekly, title: "This Week's Profit" },
+    { id: 'month' as const, label: 'This Month', summary: monthly, title: "This Month's Profit" },
   ], [daily, weekly, monthly]);
 
   const activeTabInfo = useMemo(() =>
@@ -201,9 +201,9 @@ export default function HomeScreen() {
       checkDate.setDate(today.getDate() - i);
       const checkTime = normalizeDate(checkDate);
       
-      // Check if there's a transaction on this date
+      // Check if there's a transaction on this date using created_at
       const hasTransaction = transactions.some(t => {
-        const txDate = new Date(t.transaction_date);
+        const txDate = new Date(t.created_at);
         return normalizeDate(txDate) === checkTime;
       });
       
@@ -298,36 +298,60 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* Period Tabs */}
-          <View style={[styles.tabsContainer, { backgroundColor: colors.cardBackground }]}>
+          {/* Period Profit Cards */}
+          <View style={styles.tabsContainer}>
             {tabs.map((tab) => (
               <TouchableOpacity
                 key={tab.id}
                 style={[
                   styles.tab,
-                  activeTab === tab.id && { backgroundColor: '#1e3a8a' },
+                  { backgroundColor: cardBackground },
+                  activeTab === tab.id && styles.tabActive,
                 ]}
-                onPress={() => setActiveTab(tab.id)}
+                onPress={() => {
+                  setActiveTab(tab.id);
+                  router.push({
+                    pathname: '/modals/period-detail',
+                    params: { period: tab.id }
+                  });
+                }}
                 activeOpacity={0.7}
               >
                 <Text
                   style={[
-                    styles.tabText,
-                    activeTab === tab.id && styles.tabTextActive,
+                    styles.tabLabel,
                     { color: activeTab === tab.id ? '#ffffff' : textSecondary },
                   ]}
                 >
                   {tab.label}
+                </Text>
+                <Text
+                  style={[
+                    styles.tabProfit,
+                    { color: activeTab === tab.id ? '#ffffff' : textColor },
+                  ]}
+                >
+                  K{Math.round(tab.summary.net).toLocaleString()}
                 </Text>
               </TouchableOpacity>
             ))}
           </View>
 
           {/* Summary Card */}
-          <SummaryCard
-            title={activeTabInfo.title}
-            summary={activeSummary}
-          />
+          <TouchableOpacity
+            onPress={() => {
+              router.push({
+                pathname: '/modals/period-detail',
+                params: { period: activeTab }
+              });
+            }}
+            activeOpacity={0.9}
+          >
+            <SummaryCard
+              title={activeTabInfo.title}
+              summary={activeSummary}
+            />
+          </TouchableOpacity>
 
           {/* Removed share card from here, moved to Reports */}
 
@@ -523,34 +547,39 @@ const styles = StyleSheet.create({
   },
   tabsContainer: {
     flexDirection: "row",
-    padding: 6,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    gap: 10,
   },
   tab: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 16,
     alignItems: "center",
-  },
-  tabActive: {
-    backgroundColor: "#1e3a8a",
-    shadowColor: "#1e3a8a",
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: "rgba(0, 0, 0, 0.05)",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
-  tabText: {
-    fontSize: 16,
-    fontWeight: "700",
+  tabActive: {
+    backgroundColor: "#1e3a8a",
+    borderColor: "#1e3a8a",
+    shadowColor: "#1e3a8a",
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  tabLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  tabProfit: {
+    fontSize: 15,
+    fontWeight: "800",
   },
   tabTextActive: {
     color: "#ffffff",
