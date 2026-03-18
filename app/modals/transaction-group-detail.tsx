@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { TransactionGroupDetail } from '@/components/transactions/TransactionGroupDetail';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useThemeColors } from '@/hooks/useThemeColors';
 import { Transaction } from '@/types/grouping';
 
 /**
@@ -19,6 +20,7 @@ import { Transaction } from '@/types/grouping';
  */
 export default function TransactionGroupDetailModal() {
   const { theme } = useTheme();
+  const colors = useThemeColors();
   const { groupedTransactions, getGroupById } = useTransactionsContext();
   const params = useLocalSearchParams<{
     groupId: string;
@@ -102,13 +104,22 @@ export default function TransactionGroupDetailModal() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
+    <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
       <Stack.Screen
         options={{
-          title: params.title || displayGroup.description || 'Transaction Group',
-          presentation: 'modal',
+          headerTitle: params.title || displayGroup.description || displayGroup.category || 'Transaction Detail',
+          headerTitleStyle: {
+            color: '#ffffff',
+            fontWeight: '800',
+            fontSize: 18,
+          },
+          headerStyle: {
+            backgroundColor: colors.headerBackground,
+          },
+          headerTintColor: '#ffffff',
           headerShown: true,
           headerBackTitle: 'Back',
+          headerShadowVisible: false,
         }}
       />
       

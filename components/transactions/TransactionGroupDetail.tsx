@@ -1,8 +1,8 @@
 /**
  * TransactionGroupDetail Component
  * 
- * Displays detailed view of a transaction group showing all individual transactions
- * within the group in chronological order with time, description, and amount.
+ * Displays a premium, modern detailed view of a transaction group showing
+ * all individual transactions within the group with enhanced visual hierarchy.
  */
 
 import React, { memo, useCallback } from 'react';
@@ -12,11 +12,23 @@ import {
   FlatList, 
   StyleSheet, 
   TouchableOpacity,
-  ListRenderItem
+  ListRenderItem,
+  Platform
 } from 'react-native';
 import { TransactionGroup, Transaction } from '@/types/grouping';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { 
+  Clock, 
+  ShoppingBag, 
+  TrendingUp, 
+  TrendingDown, 
+  Calendar,
+  ChevronRight,
+  ChevronLeft,
+  FileText,
+  Tag
+} from 'lucide-react-native';
 
 /**
  * Props for TransactionGroupDetail component
@@ -47,15 +59,19 @@ const TransactionItem = memo<TransactionItemProps>(({
   isLast = false 
 }) => {
   const { theme } = useTheme();
+  const colors = useThemeColors();
 
   // Format time from transaction date
   const formatTime = (dateString: string): string => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return '--:--';
+      
+      // Use local format
       return date.toLocaleTimeString([], {
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: true
       });
     } catch (error) {
       return '--:--';
@@ -66,16 +82,14 @@ const TransactionItem = memo<TransactionItemProps>(({
   const formatAmount = (amount: number): string => {
     const isNegative = amount < 0;
     const absAmount = Math.abs(amount);
-    const formatted = `K${absAmount.toFixed(0)}`;
+    const formatted = `K${absAmount.toLocaleString()}`;
     return isNegative ? `-${formatted}` : formatted;
   };
 
-  // Dynamic colors
-  const cardBackground = theme === 'dark' ? '#1e293b' : '#ffffff';
-  const textColor = theme === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = theme === 'dark' ? '#94a3b8' : '#64748b';
-  const borderColor = theme === 'dark' ? '#334155' : '#e2e8f0';
-  const amountColor = transaction.amount >= 0 ? '#10b981' : '#ef4444';
+  const isSale = transaction.amount >= 0;
+  const amountColor = isSale ? '#10b981' : '#ef4444';
+  const typeIconColor = isSale ? '#059669' : '#dc2626';
+  const typeBgColor = isSale ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
 
   const handlePress = useCallback(() => {
     onPress?.(transaction);
@@ -86,34 +100,61 @@ const TransactionItem = memo<TransactionItemProps>(({
       style={[
         styles.transactionItem,
         {
-          backgroundColor: cardBackground,
-          borderColor: borderColor,
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.borderColor,
         },
-        isFirst && styles.firstTransactionItem,
-        isLast && styles.lastTransactionItem,
       ]}
       onPress={handlePress}
       activeOpacity={onPress ? 0.7 : 1}
       disabled={!onPress}
-      accessibilityRole={onPress ? "button" : "text"}
-      accessibilityLabel={`${formatTime(transaction.transaction_date)}, ${transaction.description || 'No description'}, ${formatAmount(transaction.amount)}`}
     >
       <View style={styles.transactionContent}>
-        <View style={styles.transactionLeft}>
-          <Text style={[styles.transactionTime, { color: textSecondary }]}>
-            {formatTime(transaction.transaction_date)}
-          </Text>
-          <Text 
-            style={[styles.transactionDescription, { color: textColor }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
-            {transaction.description || 'No description'}
-          </Text>
+        <View style={[styles.typeIconContainer, { backgroundColor: typeBgColor }]}>
+          {isSale ? (
+            <TrendingUp size={20} color={typeIconColor} />
+          ) : (
+            <TrendingDown size={20} color={typeIconColor} />
+          )}
         </View>
-        <Text style={[styles.transactionAmount, { color: amountColor }]}>
-          {formatAmount(transaction.amount)}
-        </Text>
+
+        <View style={styles.transactionMain}>
+          <View style={styles.transactionHeaderRow}>
+            <Text 
+              style={[styles.transactionDescription, { color: colors.textColor }]}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+            >
+              {transaction.description || transaction.category || 'No description'}
+            </Text>
+            <Text style={[styles.transactionAmount, { color: amountColor }]}>
+              {formatAmount(transaction.amount)}
+            </Text>
+          </View>
+          
+          <View style={styles.transactionFooterRow}>
+            <View style={styles.timeContainer}>
+              <Clock size={12} color={colors.textSecondary} />
+              <Text style={[styles.transactionTime, { color: colors.textSecondary }]}>
+                {formatTime(transaction.transaction_date)}
+              </Text>
+            </View>
+            
+            {transaction.category && (
+              <View style={styles.categoryBadge}>
+                <Tag size={10} color={colors.textSecondary} />
+                <Text style={[styles.categoryText, { color: colors.textSecondary }]}>
+                  {transaction.category}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {onPress && (
+          <View style={styles.chevronContainer}>
+            <ChevronRight size={18} color={colors.textSecondary} strokeWidth={2.5} />
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -130,6 +171,7 @@ export const TransactionGroupDetail = memo<TransactionGroupDetailProps>(({
   showHeader = true
 }) => {
   const { theme } = useTheme();
+  const colors = useThemeColors();
 
   // Format date for header
   const formatDate = (dateString: string): string => {
@@ -158,7 +200,7 @@ export const TransactionGroupDetail = memo<TransactionGroupDetailProps>(({
   const formatTotalAmount = (amount: number): string => {
     const isNegative = amount < 0;
     const absAmount = Math.abs(amount);
-    const formatted = `K${absAmount.toFixed(0)}`;
+    const formatted = `K${absAmount.toLocaleString()}`;
     return isNegative ? `-${formatted}` : formatted;
   };
 
@@ -175,35 +217,66 @@ export const TransactionGroupDetail = memo<TransactionGroupDetailProps>(({
   // Key extractor
   const keyExtractor = useCallback((item: Transaction) => item.id, []);
 
-  // Dynamic colors
-  const backgroundColor = theme === 'dark' ? '#0f172a' : '#f8fafc';
-  const textColor = theme === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = theme === 'dark' ? '#94a3b8' : '#64748b';
-  const totalAmountColor = group.totalAmount >= 0 ? '#10b981' : '#ef4444';
+  // Performance - total sales and expenses in group
+  const salesTotal = group.transactions.filter(t => t.amount >= 0).reduce((s, t) => s + t.amount, 0);
+  const expensesTotal = group.transactions.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
 
   return (
-    <View style={[styles.container, { backgroundColor }]}>
-      {/* Header */}
+    <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
+      {/* Enhanced Header Section */}
       {showHeader && (
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <Text style={[styles.groupTitle, { color: textColor }]}>
-              {group.description || group.category || 'Transaction Group'}
-            </Text>
-            <Text style={[styles.totalAmount, { color: totalAmountColor }]}>
-              {formatTotalAmount(group.totalAmount)}
-            </Text>
+        <View style={[styles.header, { backgroundColor: colors.cardBackground }]}>
+          <View style={styles.headerTitleContainer}>
+            <View style={[styles.titleIcon, { backgroundColor: 'rgba(30, 58, 138, 0.1)' }]}>
+              <ShoppingBag size={24} color={colors.primaryColor} />
+            </View>
+            <View style={styles.titleTextContainer}>
+              <Text style={[styles.groupTitle, { color: colors.textColor }]} numberOfLines={2}>
+                {group.description || group.category || 'Transaction Group'}
+              </Text>
+              <View style={styles.dateBadge}>
+                <Calendar size={12} color={colors.textSecondary} />
+                <Text style={[styles.dateText, { color: colors.textSecondary }]}>
+                  {formatDate(group.date)}
+                </Text>
+              </View>
+            </View>
           </View>
-          <View style={styles.headerBottom}>
-            <Text style={[styles.dateText, { color: textSecondary }]}>
-              {formatDate(group.date)}
-            </Text>
-            <Text style={[styles.countText, { color: textSecondary }]}>
-              {group.transactionCount} {group.transactionCount === 1 ? 'transaction' : 'transactions'}
-            </Text>
+
+          <View style={styles.summaryContainer}>
+            <View style={styles.totalSection}>
+              <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>Total Balance</Text>
+              <Text style={[styles.totalAmountText, { color: group.totalAmount >= 0 ? '#10b981' : '#ef4444' }]}>
+                {formatTotalAmount(group.totalAmount)}
+              </Text>
+            </View>
+            
+            <View style={styles.summaryStatsRow}>
+              <View style={styles.statItem}>
+                <View style={[styles.statDot, { backgroundColor: '#10b981' }]} />
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>In: </Text>
+                <Text style={[styles.statValue, { color: colors.textColor }]}>K{salesTotal.toLocaleString()}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <View style={[styles.statDot, { backgroundColor: '#ef4444' }]} />
+                <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Out: </Text>
+                <Text style={[styles.statValue, { color: colors.textColor }]}>K{expensesTotal.toLocaleString()}</Text>
+              </View>
+              <View style={styles.statItem}>
+                <FileText size={12} color={colors.textSecondary} style={{ marginRight: 4 }} />
+                <Text style={[styles.statValue, { color: colors.textColor }]}>{group.transactionCount}</Text>
+              </View>
+            </View>
           </View>
         </View>
       )}
+
+      {/* Transactions list header */}
+      <View style={styles.listHeader}>
+        <Text style={[styles.listHeaderTitle, { color: colors.textSecondary }]}>
+          TRANSACTION HISTORY
+        </Text>
+      </View>
 
       {/* Transactions list */}
       <FlatList
@@ -225,79 +298,194 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    padding: 16,
+    padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(0, 0, 0, 0.05)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
-  headerTop: {
+  headerTitleContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 16,
+  },
+  titleIcon: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  titleTextContainer: {
+    flex: 1,
   },
   groupTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    flex: 1,
-    marginRight: 12,
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 4,
   },
-  totalAmount: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  headerBottom: {
+  dateBadge: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 6,
   },
   dateText: {
     fontSize: 14,
     fontWeight: '500',
   },
-  countText: {
-    fontSize: 14,
+  summaryContainer: {
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  totalSection: {
+    marginBottom: 12,
+  },
+  totalLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  totalAmountText: {
+    fontSize: 32,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  summaryStatsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
+  },
+  statItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  statDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statLabel: {
+    fontSize: 12,
     fontWeight: '500',
+  },
+  statValue: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  listHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 12,
+  },
+  listHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1.5,
   },
   listContent: {
     padding: 16,
+    paddingBottom: 40,
   },
   separator: {
-    height: 8,
+    height: 12,
   },
   transactionItem: {
-    borderRadius: 8,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 12,
-  },
-  firstTransactionItem: {
-    // Additional styling for first item if needed
-  },
-  lastTransactionItem: {
-    // Additional styling for last item if needed
+    padding: 16,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   transactionContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+  },
+  typeIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  transactionLeft: {
+  transactionMain: {
     flex: 1,
-    marginRight: 12,
   },
-  transactionTime: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginBottom: 2,
+  transactionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   transactionDescription: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 8,
   },
   transactionAmount: {
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'right',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  transactionFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  timeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  transactionTime: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  categoryText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  chevronContainer: {
+    marginLeft: 4,
   },
 });
 
-export default TransactionGroupDetail;
+export default TransactionGroupDetail;

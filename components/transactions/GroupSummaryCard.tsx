@@ -1,16 +1,16 @@
 /**
  * GroupSummaryCard Component
  * 
- * Displays a summary card for a transaction group showing description,
- * transaction count, and total amount. Follows the format:
- * "[Description] ([Count] transactions) [Total_Amount]"
+ * Displays a premium summary card for a transaction group.
+ * Optimized for readability and professional aesthetics.
  */
 
 import React, { memo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { TransactionGroup } from '@/types/grouping';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { ChevronRight, Layers, FileText } from 'lucide-react-native';
 
 /**
  * Props for GroupSummaryCard component
@@ -19,12 +19,12 @@ export interface GroupSummaryCardProps {
   group: TransactionGroup;
   onPress: () => void;
   style?: ViewStyle;
-  showDate?: boolean; // Whether to show the date in the card
-  compact?: boolean; // Compact layout for smaller spaces
+  showDate?: boolean;
+  compact?: boolean;
 }
 
 /**
- * GroupSummaryCard component for displaying transaction group summaries
+ * GroupSummaryCard component
  */
 export const GroupSummaryCard = memo<GroupSummaryCardProps>(({
   group,
@@ -36,34 +36,17 @@ export const GroupSummaryCard = memo<GroupSummaryCardProps>(({
   const { theme } = useTheme();
   const colors = useThemeColors();
 
-  // Format the amount with currency symbol
   const formatAmount = (amount: number): string => {
     const isNegative = amount < 0;
     const absAmount = Math.abs(amount);
-    const formatted = `K${absAmount.toFixed(0)}`;
+    const formatted = `K${absAmount.toLocaleString()}`;
     return isNegative ? `-${formatted}` : formatted;
   };
 
-  // Format the transaction count text
-  const getCountText = (): string => {
-    if (group.transactionCount === 1) {
-      return ''; // No count notation for single transactions
-    }
-    return ` (${group.transactionCount} transactions)`;
-  };
-
-  // Get the display description
   const getDisplayDescription = (): string => {
-    if (group.description) {
-      return group.description;
-    }
-    if (group.category) {
-      return group.category;
-    }
-    return 'Uncategorized';
+    return group.description || group.category || 'Uncategorized';
   };
 
-  // Format the date for display
   const formatDate = (dateString: string): string => {
     try {
       const date = new Date(dateString);
@@ -71,15 +54,8 @@ export const GroupSummaryCard = memo<GroupSummaryCardProps>(({
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
 
-      // Check if it's today
-      if (date.toDateString() === today.toDateString()) {
-        return 'Today';
-      }
-
-      // Check if it's yesterday
-      if (date.toDateString() === yesterday.toDateString()) {
-        return 'Yesterday';
-      }
+      if (date.toDateString() === today.toDateString()) return 'Today';
+      if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
 
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       return `${months[date.getMonth()]} ${date.getDate()}`;
@@ -88,15 +64,8 @@ export const GroupSummaryCard = memo<GroupSummaryCardProps>(({
     }
   };
 
-  // Determine if this is a sale (positive) or expense (negative)
   const isPositive = group.totalAmount >= 0;
-  const amountColor = isPositive ? '#10b981' : '#ef4444'; // Green for sales, red for expenses
-
-  // Dynamic colors based on theme
-  const cardBackground = theme === 'dark' ? '#1e293b' : '#ffffff';
-  const textColor = theme === 'dark' ? '#e2e8f0' : '#1e293b';
-  const textSecondary = theme === 'dark' ? '#94a3b8' : '#64748b';
-  const borderColor = theme === 'dark' ? '#334155' : '#e2e8f0';
+  const amountColor = isPositive ? '#10b981' : '#ef4444';
 
   return (
     <TouchableOpacity
@@ -104,75 +73,75 @@ export const GroupSummaryCard = memo<GroupSummaryCardProps>(({
         styles.container,
         compact && styles.compactContainer,
         {
-          backgroundColor: cardBackground,
-          borderColor: borderColor,
+          backgroundColor: colors.cardBackground,
+          borderColor: colors.borderColor,
         },
         style
       ]}
       onPress={onPress}
       activeOpacity={0.7}
-      accessibilityRole="button"
-      accessibilityLabel={`${getDisplayDescription()}${getCountText()}, total ${formatAmount(group.totalAmount)}`}
-      accessibilityHint="Tap to view transaction details"
     >
       <View style={styles.content}>
-        {/* Main content row */}
-        <View style={styles.mainRow}>
-          <View style={styles.leftContent}>
-            {/* Description and count */}
-            <Text 
-              style={[
-                styles.description, 
-                compact && styles.compactDescription,
-                { color: textColor }
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {getDisplayDescription()}
-              <Text style={[styles.countText, { color: textSecondary }]}>
-                {getCountText()}
+        <View style={styles.mainContent}>
+          <View style={styles.leftSection}>
+            <View style={styles.titleContainer}>
+              <Text 
+                style={[
+                  styles.description, 
+                  compact && styles.compactDescription,
+                  { color: colors.textColor }
+                ]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {getDisplayDescription()}
               </Text>
-            </Text>
-
-            {/* Category (if different from description) and date */}
-            {(group.category && group.category !== group.description) || showDate ? (
-              <View style={styles.metadataRow}>
-                {group.category && group.category !== group.description && (
-                  <Text 
-                    style={[styles.category, { color: textSecondary }]}
-                    numberOfLines={1}
-                  >
-                    {group.category}
+              
+              {!compact && group.transactionCount > 1 && (
+                <View style={styles.badge}>
+                  <Text style={[styles.badgeText, { color: colors.textSecondary }]}>
+                    {group.transactionCount}
                   </Text>
-                )}
-                {showDate && (
-                  <Text style={[styles.date, { color: textSecondary }]}>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.metadataRow}>
+              {group.category && group.category !== group.description && (
+                <Text style={[styles.category, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {group.category}
+                </Text>
+              )}
+              {showDate && (
+                <>
+                  {group.category && group.category !== group.description && (
+                    <Text style={[styles.dot, { color: colors.textSecondary }]}>•</Text>
+                  )}
+                  <Text style={[styles.date, { color: colors.textSecondary }]}>
                     {formatDate(group.date)}
                   </Text>
-                )}
-              </View>
-            ) : null}
+                </>
+              )}
+            </View>
           </View>
 
-          {/* Amount */}
-          <Text 
-            style={[
-              styles.amount,
-              compact && styles.compactAmount,
-              { color: amountColor }
-            ]}
-          >
-            {formatAmount(group.totalAmount)}
-          </Text>
+          <View style={styles.rightSection}>
+            <Text 
+              style={[
+                styles.amount,
+                compact && styles.compactAmount,
+                { color: amountColor }
+              ]}
+            >
+              {formatAmount(group.totalAmount)}
+            </Text>
+            <ChevronRight size={16} color={colors.textSecondary} strokeWidth={3} />
+          </View>
         </View>
 
-        {/* Transaction count indicator for compact mode */}
         {compact && group.transactionCount > 1 && (
-          <View style={styles.compactCountIndicator}>
-            <Text style={[styles.compactCountText, { color: textSecondary }]}>
-              {group.transactionCount}×
-            </Text>
+          <View style={[styles.multiBadge, { backgroundColor: colors.backgroundColor }]}>
+            <Layers size={8} color={colors.textSecondary} />
           </View>
         )}
       </View>
@@ -184,80 +153,108 @@ GroupSummaryCard.displayName = 'GroupSummaryCard';
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    marginVertical: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    marginVertical: 6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 1.5,
+      },
+    }),
   },
   compactContainer: {
-    marginVertical: 2,
-    borderRadius: 8,
+    marginVertical: 4,
+    borderRadius: 12,
   },
   content: {
     padding: 16,
-    position: 'relative',
   },
-  mainRow: {
+  mainContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
-  leftContent: {
+  leftSection: {
     flex: 1,
     marginRight: 12,
   },
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
   description: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: 17,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   compactDescription: {
-    fontSize: 14,
+    fontSize: 15,
     marginBottom: 0,
   },
-  countText: {
-    fontSize: 14,
-    fontWeight: '400',
+  badge: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    minWidth: 20,
+    alignItems: 'center',
+  },
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
   metadataRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    gap: 6,
   },
   category: {
     fontSize: 12,
-    fontWeight: '500',
-    marginRight: 8,
+    fontWeight: '600',
+    opacity: 0.8,
+  },
+  dot: {
+    fontSize: 10,
+    opacity: 0.5,
   },
   date: {
     fontSize: 12,
-    fontWeight: '400',
+    fontWeight: '500',
+    opacity: 0.7,
+  },
+  rightSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   amount: {
     fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'right',
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   compactAmount: {
     fontSize: 16,
   },
-  compactCountIndicator: {
+  multiBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    top: -6,
+    left: 8,
+    width: 16,
+    height: 16,
     borderRadius: 8,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  compactCountText: {
-    fontSize: 10,
-    fontWeight: '600',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#ffffff',
   },
 });
 
-export default GroupSummaryCard;
+export default GroupSummaryCard;

@@ -42,7 +42,7 @@ export function useGroupNavigation(): UseGroupNavigationReturn {
       const params: GroupDetailParams = {
         groupId: group.id,
         groupKey: group.groupKey,
-        title: group.description || 'Transaction Group'
+        title: group.description || group.category || 'Transaction Group'
       };
 
       router.push({
