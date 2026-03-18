@@ -67,6 +67,8 @@ export class SyncEngine {
    */
   private static async push(): Promise<void> {
     for (const table of this.syncTables) {
+      if (!NetworkMonitor.getStatus()) return; // Abort if network lost mid-sync
+
       const pending = await LocalDB.getPendingSync<any>(table, 50);
       if (pending.length === 0) continue;
 
@@ -88,13 +90,13 @@ export class SyncEngine {
             });
 
           if (error) {
-            console.error(`[SyncEngine] Error pushing record ${record.id} in ${table}:`, error.message);
+            console.log(`[SyncEngine] Error pushing record ${record.id} in ${table}:`, error.message);
             await LocalDB.markFailed(table, record.id);
           } else {
             await LocalDB.markSynced(table, record.id);
           }
         } catch (e) {
-          console.error(`[SyncEngine] Unexpected error pushing record ${record.id}:`, e);
+          console.log(`[SyncEngine] Unexpected error pushing record ${record.id}:`, e);
           await LocalDB.markFailed(table, record.id);
         }
       }
@@ -109,6 +111,7 @@ export class SyncEngine {
     const now = new Date().toISOString();
 
     for (const table of this.syncTables) {
+      if (!NetworkMonitor.getStatus()) return; // Abort if network lost mid-sync
       try {
         let query = supabase
           .from(table)
@@ -122,7 +125,7 @@ export class SyncEngine {
         const { data, error } = await query;
 
         if (error) {
-          console.error(`[SyncEngine] Error pulling data for ${table}:`, error.message);
+          console.log(`[SyncEngine] Error pulling data for ${table}:`, error.message);
           continue;
         }
 
@@ -131,7 +134,7 @@ export class SyncEngine {
           await LocalDB.upsertFromServer(table, data);
         }
       } catch (e) {
-        console.error(`[SyncEngine] Unexpected error pulling ${table}:`, e);
+        console.log(`[SyncEngine] Unexpected error pulling ${table}:`, e);
       }
     }
 
