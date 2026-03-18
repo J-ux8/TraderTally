@@ -29,6 +29,13 @@ export class SyncEngine {
       return;
     }
 
+    // 2.5 Check authentication
+    const userId = await LocalDB.getUserId();
+    if (!userId) {
+      console.log('[SyncEngine] User not authenticated, skipping sync...');
+      return;
+    }
+
     try {
       this.isSyncing = true;
       console.log('[SyncEngine] Starting sync process...');

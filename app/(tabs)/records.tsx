@@ -91,12 +91,12 @@ const TransactionItem = React.memo(({
           </TouchableOpacity>
         </View>
       </View>
-      {transaction.category && (
+      {!!transaction.category && (
         <View style={styles.categoryContainer}>
           <Text style={dynamicStyles.category}>{transaction.category}</Text>
         </View>
       )}
-      {transaction.description && (
+      {!!transaction.description && (
         <Text style={dynamicStyles.description}>{transaction.description}</Text>
       )}
     </View>

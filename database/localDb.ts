@@ -21,7 +21,7 @@ export class LocalDB {
   /**
    * Get current authenticated user ID
    */
-  private static async getUserId(): Promise<string | null> {
+  public static async getUserId(): Promise<string | null> {
     try {
       // getSession() checks local storage first and doesn't require network
       const { data: { session } } = await supabase.auth.getSession();
@@ -197,9 +197,13 @@ export class LocalDB {
    * Get Pending Sync
    */
   static async getPendingSync<T>(table: string, limit: number = 50): Promise<T[]> {
+    const userId = await this.getUserId();
+    if (!userId) return [];
+
     const db = await getDatabase();
     return await db.getAllAsync<T>(
-      `SELECT * FROM ${table} WHERE sync_status IN ('pending', 'failed') AND retry_count < 5 LIMIT ?`,
+      `SELECT * FROM ${table} WHERE user_id = ? AND sync_status IN ('pending', 'failed') AND retry_count < 5 LIMIT ?`,
+      userId,
       limit
     );
   }

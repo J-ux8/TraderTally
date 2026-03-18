@@ -51,9 +51,7 @@ export function useDebts() {
       triggerSync().catch(console.error);
     } catch (error: any) {
       console.error('[useDebts] Error loading debts:', error);
-      if (lastLoadTime > 0) {
-        setError(error.message || 'Failed to load debts');
-      }
+      setError(error.message || 'Failed to load debts');
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
