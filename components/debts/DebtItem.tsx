@@ -91,7 +91,7 @@ export const DebtItem = React.memo(function DebtItem({ debt, onSettle, onClick, 
                 <Text style={styles.overdueText}>Overdue</Text>
               </View>
             )}
-            {debt.is_settled && (
+            {!!debt.is_settled && (
               <View style={styles.settledBadge}>
                 <CheckCircle2 size={14} color="#1e3a8a" />
                 <Text style={styles.settledText}>Settled</Text>
@@ -99,7 +99,7 @@ export const DebtItem = React.memo(function DebtItem({ debt, onSettle, onClick, 
             )}
           </View>
         </View>
-        {debt.note && (
+        {!!debt.note && (
           <Text style={[styles.note, debt.is_settled ? styles.noteSettled : undefined]} numberOfLines={2}>
             {debt.note}
           </Text>

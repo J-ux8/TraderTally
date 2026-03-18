@@ -21,16 +21,20 @@ export class LocalDB {
   /**
    * Get current authenticated user ID
    */
-  private static async getUserId(): Promise<string> {
-    // getSession() checks local storage first and doesn't require network
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user?.id) return session.user.id;
+  private static async getUserId(): Promise<string | null> {
+    try {
+      // getSession() checks local storage first and doesn't require network
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user?.id) return session.user.id;
 
-    // Fallback to getUser() which might hit the network
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user?.id) return user.id;
+      // Fallback to getUser() which might hit the network
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) return user.id;
+    } catch (e) {
+      console.warn('[LocalDB] Auth check failed:', e);
+    }
 
-    throw new Error('User not authenticated');
+    return null;
   }
 
   /**
@@ -49,6 +53,8 @@ export class LocalDB {
   ): Promise<T & LocalBaseModel> {
     const db = await getDatabase();
     const userId = await this.getUserId();
+    if (!userId) throw new Error('Cannot create record: User not authenticated');
+
     const now = new Date().toISOString();
     
     const record: T & LocalBaseModel = {
@@ -130,6 +136,11 @@ export class LocalDB {
     const db = await getDatabase();
     const userId = await this.getUserId();
     
+    if (!userId) {
+      console.log(`[LocalDB] No userId for ${table}, returning empty.`);
+      return [];
+    }
+    
     return await db.getAllAsync<T>(
       `SELECT * FROM ${table} WHERE user_id = ? AND is_deleted = 0 ORDER BY updated_at DESC`,
       userId
@@ -200,6 +211,8 @@ export class LocalDB {
     const db = await getDatabase();
     try {
       const userId = await this.getUserId();
+      if (!userId) return null;
+
       const result = await db.getFirstAsync<{ last_sync_time: string }>(
         'SELECT last_sync_time FROM sync_metadata WHERE user_id = ?',
         userId
@@ -213,6 +226,8 @@ export class LocalDB {
   static async updateLastSyncTime(time: string): Promise<void> {
     const db = await getDatabase();
     const userId = await this.getUserId();
+    if (!userId) return;
+
     await db.runAsync(
       'INSERT OR REPLACE INTO sync_metadata (user_id, last_sync_time) VALUES (?, ?)',
       userId,
@@ -239,10 +254,28 @@ export class LocalDB {
   static async upsertFromServer(table: string, records: any[]): Promise<void> {
     const db = await getDatabase();
     
+    // Get valid columns for this table to filter out remote-only columns
+    const tableInfo = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+    const validColumns = tableInfo.map(c => c.name);
+    console.log(`[LocalDB] Valid columns for ${table}:`, validColumns.join(', '));
+
     // Process in a single transaction for performance
     await db.withTransactionAsync(async () => {
       for (const record of records) {
-        // Check if local version is newer
+        // Map 'deleted' to 'is_deleted' if necessary
+        if (record.deleted !== undefined && !record.is_deleted && validColumns.includes('is_deleted')) {
+          record.is_deleted = record.deleted ? 1 : 0;
+        }
+
+        // Filter record to only contain columns that exist locally
+        const filteredRecord: any = {};
+        for (const col of validColumns) {
+          if (record[col] !== undefined) {
+            filteredRecord[col] = record[col];
+          }
+        }
+
+        // Use filteredRecord for the rest of the logic
         const local = await db.getFirstAsync<LocalBaseModel>(
           `SELECT updated_at, sync_status FROM ${table} WHERE id = ?`,
           record.id
@@ -255,9 +288,9 @@ export class LocalDB {
 
           if (serverTime > localTime) {
             // Server version is newer
-            const columns = Object.keys(record);
+            const columns = Object.keys(filteredRecord);
             const setClause = columns.map(col => `${col} = ?`).join(', ');
-            const values = this.mapValues([...Object.values(record), record.id]);
+            const values = this.mapValues([...Object.values(filteredRecord), record.id]);
             
             await db.runAsync(
               `UPDATE ${table} SET ${setClause}, sync_status = 'synced' WHERE id = ?`,
@@ -266,9 +299,10 @@ export class LocalDB {
           }
         } else {
           // New record from server
-          const columns = [...Object.keys(record), 'sync_status'];
+          filteredRecord.sync_status = 'synced';
+          const columns = Object.keys(filteredRecord);
           const placeholders = columns.map(() => '?').join(', ');
-          const values = this.mapValues([...Object.values(record), 'synced']);
+          const values = this.mapValues(Object.values(filteredRecord));
 
           await db.runAsync(
             `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,

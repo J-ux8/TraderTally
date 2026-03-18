@@ -2,6 +2,8 @@ import { supabase } from '../lib/supabase';
 import { LocalDB, SyncStatus } from '../database/localDb';
 import { NetworkMonitor } from './NetworkMonitor';
 
+console.log('>>> [SYNC] ENGINE LOADED - STACK VERSION: 5.0 <<<');
+
 /**
  * Sync Engine
  * 
@@ -17,7 +19,7 @@ export class SyncEngine {
   static async syncAll(): Promise<void> {
     // 1. Acquire global lock
     if (this.isSyncing) {
-      console.log('[SyncEngine] Sync already in progress, skipping...');
+      // console.log('[SyncEngine] Sync already in progress, skipping...');
       return;
     }
     

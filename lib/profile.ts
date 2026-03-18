@@ -25,6 +25,33 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 }
 
 /**
+ * Create a new user profile locally
+ */
+export async function createUserProfile(
+  id: string,
+  email: string,
+  fullName: string,
+  phoneNumber: string,
+  businessType: string
+): Promise<UserProfile> {
+  // Check if session is already active
+  const existingProfile = await LocalDB.getById<UserProfile>('profiles', id);
+  if (existingProfile) return existingProfile;
+
+  // Create new profile locally
+  const record = await LocalDB.create<UserProfile>('profiles', {
+    id: id,
+    full_name: fullName.trim(),
+    email: email.trim(),
+    phone_number: phoneNumber.trim(),
+    business_type: businessType
+  } as any);
+
+  SyncEngine.syncAll().catch(console.error);
+  return record;
+}
+
+/**
  * Update user profile
  */
 export async function updateUserProfile(
