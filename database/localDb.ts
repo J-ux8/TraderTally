@@ -1,0 +1,281 @@
+import { getDatabase } from '../lib/database';
+import { supabase } from '../lib/supabase';
+import { v4 as uuidv4 } from 'uuid';
+
+export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
+
+export interface LocalBaseModel {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  is_deleted: number;
+  sync_status: SyncStatus;
+  retry_count: number;
+}
+
+/**
+ * Local Database access layer
+ */
+export class LocalDB {
+  /**
+   * Get current authenticated user ID
+   */
+  private static async getUserId(): Promise<string> {
+    // getSession() checks local storage first and doesn't require network
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user?.id) return session.user.id;
+
+    // Fallback to getUser() which might hit the network
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.id) return user.id;
+
+    throw new Error('User not authenticated');
+  }
+
+  /**
+   * Safe value mapper for SQLite (converts undefined to null)
+   */
+  private static mapValues(values: any[]): any[] {
+    return values.map(v => (v === undefined ? null : v));
+  }
+
+  /**
+   * Generic Create
+   */
+  static async create<T extends Record<string, any>>(
+    table: string,
+    data: Omit<T, keyof LocalBaseModel>
+  ): Promise<T & LocalBaseModel> {
+    const db = await getDatabase();
+    const userId = await this.getUserId();
+    const now = new Date().toISOString();
+    
+    const record: T & LocalBaseModel = {
+      ...data,
+      id: uuidv4(),
+      user_id: userId,
+      created_at: now,
+      updated_at: now,
+      is_deleted: 0,
+      sync_status: 'pending',
+      retry_count: 0
+    } as any;
+
+    const columns = Object.keys(record);
+    const placeholders = columns.map(() => '?').join(', ');
+    const values = this.mapValues(Object.values(record));
+
+    await db.runAsync(
+      `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
+      ...values
+    );
+
+    return record;
+  }
+
+  /**
+   * Generic Update
+   */
+  static async update<T extends Record<string, any>>(
+    table: string,
+    id: string,
+    data: Partial<Omit<T, keyof LocalBaseModel>>
+  ): Promise<void> {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+    
+    const updates = {
+      ...data,
+      updated_at: now,
+      sync_status: 'pending'
+    } as any;
+
+    const columns = Object.keys(updates);
+    const setClause = columns.map(col => `${col} = ?`).join(', ');
+    const values = this.mapValues([...Object.values(updates), id]);
+
+    await db.runAsync(
+      `UPDATE ${table} SET ${setClause} WHERE id = ?`,
+      ...values
+    );
+  }
+
+  /**
+   * Soft Delete
+   */
+  static async delete(table: string, id: string): Promise<void> {
+    const db = await getDatabase();
+    const now = new Date().toISOString();
+
+    await db.runAsync(
+      `UPDATE ${table} SET is_deleted = 1, updated_at = ?, sync_status = 'pending' WHERE id = ?`,
+      now,
+      id
+    );
+  }
+
+  /**
+   * Hardware (Force) Delete - only used for actual cleanup after sync
+   */
+  static async forceDelete(table: string, id: string): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync(`DELETE FROM ${table} WHERE id = ?`, id);
+  }
+
+  /**
+   * Get All (User scoped, not deleted)
+   */
+  static async getAll<T>(table: string): Promise<T[]> {
+    const db = await getDatabase();
+    const userId = await this.getUserId();
+    
+    return await db.getAllAsync<T>(
+      `SELECT * FROM ${table} WHERE user_id = ? AND is_deleted = 0 ORDER BY updated_at DESC`,
+      userId
+    );
+  }
+
+  /**
+   * Get By ID
+   */
+  static async getById<T>(table: string, id: string): Promise<T | null> {
+    const db = await getDatabase();
+    return await db.getFirstAsync<T>(
+      `SELECT * FROM ${table} WHERE id = ?`,
+      id
+    );
+  }
+
+  /**
+   * Mark as syncing
+   */
+  static async markSyncing(table: string, ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const db = await getDatabase();
+    const placeholders = ids.map(() => '?').join(', ');
+    await db.runAsync(
+      `UPDATE ${table} SET sync_status = 'syncing' WHERE id IN (${placeholders})`,
+      ...ids
+    );
+  }
+
+  /**
+   * Mark as synced
+   */
+  static async markSynced(table: string, id: string): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync(
+      `UPDATE ${table} SET sync_status = 'synced', retry_count = 0 WHERE id = ?`,
+      id
+    );
+  }
+
+  /**
+   * Mark as failed
+   */
+  static async markFailed(table: string, id: string): Promise<void> {
+    const db = await getDatabase();
+    await db.runAsync(
+      `UPDATE ${table} SET sync_status = 'failed', retry_count = retry_count + 1 WHERE id = ?`,
+      id
+    );
+  }
+
+  /**
+   * Get Pending Sync
+   */
+  static async getPendingSync<T>(table: string, limit: number = 50): Promise<T[]> {
+    const db = await getDatabase();
+    return await db.getAllAsync<T>(
+      `SELECT * FROM ${table} WHERE sync_status IN ('pending', 'failed') AND retry_count < 5 LIMIT ?`,
+      limit
+    );
+  }
+
+  /**
+   * Sync Metadata operations
+   */
+  static async getLastSyncTime(): Promise<string | null> {
+    const db = await getDatabase();
+    try {
+      const userId = await this.getUserId();
+      const result = await db.getFirstAsync<{ last_sync_time: string }>(
+        'SELECT last_sync_time FROM sync_metadata WHERE user_id = ?',
+        userId
+      );
+      return result?.last_sync_time || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static async updateLastSyncTime(time: string): Promise<void> {
+    const db = await getDatabase();
+    const userId = await this.getUserId();
+    await db.runAsync(
+      'INSERT OR REPLACE INTO sync_metadata (user_id, last_sync_time) VALUES (?, ?)',
+      userId,
+      time
+    );
+  }
+
+  /**
+   * Reset Sync Status (for app start recovery)
+   */
+  static async recoverSyncStatus(): Promise<void> {
+    const db = await getDatabase();
+    const tables = ['profiles', 'transactions', 'categories', 'debts', 'transaction_templates'];
+    for (const table of tables) {
+      await db.runAsync(
+        `UPDATE ${table} SET sync_status = 'pending' WHERE sync_status = 'syncing'`
+      );
+    }
+  }
+
+  /**
+   * Batch upsert from server
+   */
+  static async upsertFromServer(table: string, records: any[]): Promise<void> {
+    const db = await getDatabase();
+    
+    // Process in a single transaction for performance
+    await db.withTransactionAsync(async () => {
+      for (const record of records) {
+        // Check if local version is newer
+        const local = await db.getFirstAsync<LocalBaseModel>(
+          `SELECT updated_at, sync_status FROM ${table} WHERE id = ?`,
+          record.id
+        );
+
+        if (local) {
+          // Conflict resolution: Latest updated_at wins
+          const localTime = new Date(local.updated_at).getTime();
+          const serverTime = new Date(record.updated_at).getTime();
+
+          if (serverTime > localTime) {
+            // Server version is newer
+            const columns = Object.keys(record);
+            const setClause = columns.map(col => `${col} = ?`).join(', ');
+            const values = this.mapValues([...Object.values(record), record.id]);
+            
+            await db.runAsync(
+              `UPDATE ${table} SET ${setClause}, sync_status = 'synced' WHERE id = ?`,
+              ...values
+            );
+          }
+        } else {
+          // New record from server
+          const columns = [...Object.keys(record), 'sync_status'];
+          const placeholders = columns.map(() => '?').join(', ');
+          const values = this.mapValues([...Object.values(record), 'synced']);
+
+          await db.runAsync(
+            `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
+            ...values
+          );
+        }
+      }
+    });
+  }
+}

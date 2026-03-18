@@ -1,5 +1,5 @@
-import { supabase } from '@/lib/supabase';
 import { getUserCategories, addCategory, deleteCategory } from '@/lib/categories';
+import { useSync } from '@/context/SyncContext';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 export interface Category {
@@ -25,6 +25,7 @@ const CategoriesContext = createContext<CategoriesContextType | null>(null);
 export function CategoriesProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
+  const { triggerSync } = useSync();
 
   const loadCategories = useCallback(async () => {
     try {
@@ -32,10 +33,8 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       const data = await getUserCategories();
       setCategories(data);
     } catch (error) {
-      // Don't crash on auth errors, just set empty state
       if (error instanceof Error && (error.message.includes('not authenticated') || error.message.includes('Not authenticated'))) {
         setCategories([]);
-        // Don't log authentication errors as they're expected during app startup
       } else {
         console.error('Error loading categories:', error);
       }
@@ -46,24 +45,12 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
 
   useEffect(() => {
     loadCategories();
-    
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        loadCategories();
-      } else {
-        setCategories([]);
-      }
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
   }, [loadCategories]);
 
   const refresh = useCallback(async () => {
     await loadCategories();
-  }, [loadCategories]);
+    triggerSync().catch(console.error);
+  }, [loadCategories, triggerSync]);
 
   const handleAddCategory = async (name: string): Promise<Category> => {
     const result = await addCategory(name);

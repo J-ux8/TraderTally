@@ -17,11 +17,14 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 }
 
 async function setupDatabase(database: SQLite.SQLiteDatabase) {
+  // Execute all schema definitions
   await database.execAsync(SCHEMA.transactions);
   await database.execAsync(SCHEMA.categories);
   await database.execAsync(SCHEMA.debts);
   await database.execAsync(SCHEMA.security_settings);
   await database.execAsync(SCHEMA.transaction_templates);
+  await database.execAsync(SCHEMA.sync_metadata);
+  await database.execAsync(SCHEMA.profiles);
 }
 
 export async function wipeDatabase() {
@@ -29,41 +32,26 @@ export async function wipeDatabase() {
     console.log('[Database] Starting database wipe...');
     
     if (!db) {
-      console.log('[Database] Opening database for wipe');
       db = await SQLite.openDatabaseAsync('mobibooks.db');
     }
     
-    // Drop all tables in a single transaction for safety
-    console.log('[Database] Dropping all tables...');
+    // Drop all tables
     await db.execAsync(`
       DROP TABLE IF EXISTS transactions;
       DROP TABLE IF EXISTS categories;
       DROP TABLE IF EXISTS debts;
       DROP TABLE IF EXISTS security_settings;
       DROP TABLE IF EXISTS transaction_templates;
+      DROP TABLE IF EXISTS sync_metadata;
+      DROP TABLE IF EXISTS profiles;
       DROP TABLE IF EXISTS schema_version;
     `);
     
-    console.log('[Database] Tables dropped successfully');
-    
-    // Close the database connection
     await db.closeAsync();
     db = null;
-    
     console.log('[Database] Database wiped successfully');
   } catch (error: any) {
     console.error('[Database] Error wiping database:', error);
-    
-    // If wipe fails, force close and reset
-    try {
-      if (db) {
-        await db.closeAsync();
-      }
-    } catch (closeError) {
-      // Ignore close errors
-    }
     db = null;
-    
-    console.log('[Database] Database connection closed despite errors');
   }
 }

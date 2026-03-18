@@ -1,7 +1,7 @@
-import { supabase } from '@/lib/supabase';
 import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib, batchUpdateTransactions, batchDeleteTransactions } from '@/lib/transactions';
 import { TransactionGroup, Transaction as GroupingTransaction } from '@/types/grouping';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
+import { useSync } from '@/context/SyncContext';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 interface Transaction {
@@ -71,6 +71,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     return transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
   }, [transactions]);
 
+  const { triggerSync } = useSync();
+
   const loadTransactions = useCallback(async () => {
     // Prevent concurrent loads
     if (isLoadingRef.current) return;
@@ -78,15 +80,6 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     
     try {
       setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      // Only load if user is authenticated
-      if (!user) {
-        setTransactions([]);
-        setLoading(false);
-        return;
-      }
-      
       const data = await getUserTransactions();
       setTransactions(data as Transaction[]);
     } catch (error) {
@@ -104,25 +97,14 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     hasInitializedRef.current = true;
 
     loadTransactions();
-    
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        loadTransactions();
-      } else {
-        setTransactions([]);
-      }
-    });
-
-    return () => {
-      subscription?.unsubscribe();
-    };
   }, [loadTransactions]);
 
   const refresh = useCallback(async () => {
     isLoadingRef.current = false; // Reset flag to allow refresh
     await loadTransactions();
-  }, [loadTransactions]);
+    // Manual refresh also triggers sync engine
+    triggerSync().catch(console.error);
+  }, [loadTransactions, triggerSync]);
 
   const handleRecordSale = useCallback(async (amount: number, category: string | null, description: string | null, date?: string) => {
     const result = await recordSale(amount, category, description, date);

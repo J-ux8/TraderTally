@@ -181,18 +181,22 @@ function RootLayoutContent() {
   );
 }
 
+import { SyncProvider } from '@/context/SyncContext';
+
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <TransactionsProvider>
-        <CategoriesProvider>
-          <TemplatesProvider>
-            <ToastProvider>
-              <RootLayoutContent />
-            </ToastProvider>
-          </TemplatesProvider>
-        </CategoriesProvider>
-      </TransactionsProvider>
+      <SyncProvider>
+        <TransactionsProvider>
+          <CategoriesProvider>
+            <TemplatesProvider>
+              <ToastProvider>
+                <RootLayoutContent />
+              </ToastProvider>
+            </TemplatesProvider>
+          </CategoriesProvider>
+        </TransactionsProvider>
+      </SyncProvider>
     </ThemeProvider>
   );
 }

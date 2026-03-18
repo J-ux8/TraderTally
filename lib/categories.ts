@@ -1,53 +1,35 @@
-import { supabase } from "./supabase";
+import { LocalDB, LocalBaseModel } from "../database/localDb";
+import { SyncEngine } from "../sync/syncEngine";
 
-export interface Category {
-  id: string;
-  user_id: string;
+export interface Category extends LocalBaseModel {
   name: string;
   normalized_name: string;
-  created_at: string;
-  updated_at: string;
-  is_deleted: number;
 }
 
+/**
+ * Get user categories
+ */
 export async function getUserCategories(): Promise<Category[]> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  
-  const { data, error } = await supabase
-    .from('categories')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('is_deleted', 0)
-    .order('name');
-  
-  if (error) throw error;
-  return data || [];
+  return await LocalDB.getAll<Category>('categories');
 }
 
+/**
+ * Add a new category
+ */
 export async function addCategory(name: string): Promise<Category> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  
-  const { data, error } = await supabase
-    .from('categories')
-    .insert({
-      user_id: user.id,
-      name: name.trim(),
-      normalized_name: name.trim().toLowerCase()
-    })
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
+  const record = await LocalDB.create<Category>('categories', {
+    name: name.trim(),
+    normalized_name: name.trim().toLowerCase()
+  } as any);
+
+  SyncEngine.syncAll().catch(console.error);
+  return record;
 }
 
+/**
+ * Delete category (Soft delete)
+ */
 export async function deleteCategory(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('categories')
-    .update({ is_deleted: 1 })
-    .eq('id', id);
-  
-  if (error) throw error;
+  await LocalDB.delete('categories', id);
+  SyncEngine.syncAll().catch(console.error);
 }

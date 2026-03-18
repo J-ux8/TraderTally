@@ -1,67 +1,45 @@
-import { supabase } from "./supabase";
+import { LocalDB, LocalBaseModel } from "../database/localDb";
+import { SyncEngine } from "../sync/syncEngine";
 
-export interface Debt {
-  id: string;
-  user_id: string;
+export interface Debt extends LocalBaseModel {
   customer_name: string;
   amount: number;
   due_date: string | null;
   note: string | null;
   is_settled: number;
-  created_at: string;
-  updated_at: string;
-  is_deleted: number;
 }
 
+/**
+ * Get user debts
+ */
 export async function getUserDebts(limit?: number, offset?: number): Promise<Debt[]> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  
-  let query = supabase
-    .from('debts')
-    .select('id,user_id,customer_name,amount,due_date,note,is_settled,created_at,updated_at,is_deleted')
-    .eq('user_id', user.id)
-    .eq('is_deleted', 0)
-    .order('created_at', { ascending: false });
-  
-  if (limit) {
-    query = query.limit(limit);
-  }
-  if (offset) {
-    query = query.range(offset, offset + (limit || 50) - 1);
-  }
-  
-  const { data, error } = await query;
-  
-  if (error) throw error;
-  return data || [];
+  return await LocalDB.getAll<Debt>('debts');
 }
 
+/**
+ * Add a new debt
+ */
 export async function addDebt(
   customer_name: string,
   amount: number,
   due_date?: string,
   note?: string
 ): Promise<Debt> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  
-  const { data, error } = await supabase
-    .from('debts')
-    .insert({
-      user_id: user.id,
-      customer_name,
-      amount,
-      due_date: due_date || null,
-      note: note || null
-    })
-    .select()
-    .single();
-  
-  if (error) throw error;
-  return data;
+  const record = await LocalDB.create<Debt>('debts', {
+    customer_name,
+    amount,
+    due_date: due_date || null,
+    note: note || null,
+    is_settled: 0
+  } as any);
+
+  SyncEngine.syncAll().catch(console.error);
+  return record;
 }
 
+/**
+ * Update existing debt
+ */
 export async function updateDebt(
   id: string,
   customer_name: string,
@@ -69,105 +47,77 @@ export async function updateDebt(
   due_date?: string,
   note?: string
 ): Promise<void> {
-  const { error } = await supabase
-    .from('debts')
-    .update({
-      customer_name,
-      amount,
-      due_date: due_date || null,
-      note: note || null
-    })
-    .eq('id', id);
-  
-  if (error) throw error;
+  await LocalDB.update('debts', id, {
+    customer_name,
+    amount,
+    due_date: due_date || null,
+    note: note || null
+  });
+
+  SyncEngine.syncAll().catch(console.error);
 }
 
+/**
+ * Settle debt
+ */
 export async function settleDebt(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('debts')
-    .update({ is_settled: 1 })
-    .eq('id', id);
-  
-  if (error) throw error;
+  await LocalDB.update('debts', id, { is_settled: 1 } as any);
+  SyncEngine.syncAll().catch(console.error);
 }
 
+/**
+ * Delete debt (Soft delete)
+ */
 export async function deleteDebt(id: string): Promise<void> {
-  const { error } = await supabase
-    .from('debts')
-    .update({ is_deleted: 1 })
-    .eq('id', id);
-  
-  if (error) throw error;
+  await LocalDB.delete('debts', id);
+  SyncEngine.syncAll().catch(console.error);
 }
 
-// Batch operations for performance
+/**
+ * Batch operations
+ */
 export async function batchSettleDebts(ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
-  
-  await Promise.all(
-    ids.map(id =>
-      supabase
-        .from('debts')
-        .update({ is_settled: 1 })
-        .eq('id', id)
-    )
-  );
+  for (const id of ids) {
+    await LocalDB.update('debts', id, { is_settled: 1 } as any);
+  }
+  SyncEngine.syncAll().catch(console.error);
 }
 
 export async function batchDeleteDebts(ids: string[]): Promise<void> {
-  if (ids.length === 0) return;
-  
-  await Promise.all(
-    ids.map(id =>
-      supabase
-        .from('debts')
-        .update({ is_deleted: 1 })
-        .eq('id', id)
-    )
-  );
+  for (const id of ids) {
+    await LocalDB.delete('debts', id);
+  }
+  SyncEngine.syncAll().catch(console.error);
 }
 
 export async function batchUpdateDebts(
   updates: Array<{ id: string; customer_name: string; amount: number; due_date?: string; note?: string }>
 ): Promise<void> {
-  if (updates.length === 0) return;
-  
-  await Promise.all(
-    updates.map(update =>
-      supabase
-        .from('debts')
-        .update({
-          customer_name: update.customer_name,
-          amount: update.amount,
-          due_date: update.due_date || null,
-          note: update.note || null
-        })
-        .eq('id', update.id)
-    )
-  );
+  for (const update of updates) {
+    await LocalDB.update('debts', update.id, {
+      customer_name: update.customer_name,
+      amount: update.amount,
+      due_date: update.due_date,
+      note: update.note
+    });
+  }
+  SyncEngine.syncAll().catch(console.error);
 }
 
 export async function batchInsertDebts(
   debts: Array<{ customer_name: string; amount: number; due_date?: string; note?: string }>
 ): Promise<Debt[]> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Not authenticated');
-  
-  if (debts.length === 0) return [];
-  
-  const { data, error } = await supabase
-    .from('debts')
-    .insert(
-      debts.map(debt => ({
-        user_id: user.id,
-        customer_name: debt.customer_name,
-        amount: debt.amount,
-        due_date: debt.due_date || null,
-        note: debt.note || null
-      }))
-    )
-    .select();
-  
-  if (error) throw error;
-  return data || [];
+  const results: Debt[] = [];
+  for (const debt of debts) {
+    const res = await LocalDB.create<Debt>('debts', {
+      customer_name: debt.customer_name,
+      amount: debt.amount,
+      due_date: debt.due_date,
+      note: debt.note,
+      is_settled: 0
+    } as any);
+    results.push(res);
+  }
+  SyncEngine.syncAll().catch(console.error);
+  return results;
 }

@@ -1,246 +1,72 @@
 import { supabase } from "./supabase";
+import { LocalDB, LocalBaseModel } from "../database/localDb";
+import { SyncEngine } from "../sync/syncEngine";
 
-export interface UserProfile {
-  id: string;
+export interface UserProfile extends LocalBaseModel {
   full_name: string;
   email: string;
   phone_number: string;
   business_type: string;
-  created_at: string;
-  updated_at: string;
 }
-
-// In-memory cache for profile data
-let profileCache: { [userId: string]: { data: UserProfile | null; timestamp: number } } = {};
-const PROFILE_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function getUserProfile(): Promise<UserProfile | null> {
   try {
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      return null;
-    }
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return null;
 
-    // Check cache first
-    const cached = profileCache[user.id];
-    if (cached && Date.now() - cached.timestamp < PROFILE_CACHE_TTL) {
-      return cached.data;
-    }
-
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id,full_name,email,phone_number,business_type,created_at,updated_at")
-      .eq("id", user.id)
-      .single();
-
-    if (error) {
-      // If profile doesn't exist, try to create a default one
-      if (error.code === 'PGRST116') {
-        try {
-          const profile = await createDefaultProfile(user.id, user.email || '');
-          // Cache the result
-          if (profile) {
-            profileCache[user.id] = { data: profile, timestamp: Date.now() };
-          }
-          return profile;
-        } catch (createError) {
-          return null;
-        }
-      }
-      return null;
-    }
-
-    // Cache the result
-    profileCache[user.id] = { data, timestamp: Date.now() };
-    return data;
+    // Fetch from local db first
+    const localProfile = await LocalDB.getById<UserProfile>('profiles', userId);
+    return localProfile;
   } catch (error) {
     console.error('[Profile] Error loading profile:', error);
     return null;
   }
 }
 
-// Invalidate profile cache (call after updates)
-export function invalidateProfileCache(userId?: string) {
-  if (userId) {
-    delete profileCache[userId];
-  } else {
-    profileCache = {};
-  }
-}
-
-// Create profile for new user (called after email verification)
-export async function createUserProfile(
-  userId: string,
-  email: string,
-  fullName: string,
-  phoneNumber: string,
-  businessType: string
-): Promise<UserProfile | null> {
-  try {
-    // First check if profile already exists
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
-    if (existing) {
-      return existing;
-    }
-
-    // Try using database function first (bypasses RLS)
-    const { data: functionData, error: functionError } = await supabase.rpc("insert_user_profile", {
-      p_user_id: userId,
-      p_email: email,
-      p_full_name: fullName.trim(),
-      p_phone_number: phoneNumber.trim(),
-      p_business_type: businessType,
-    });
-
-    if (!functionError) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (!error && data) {
-        return data;
-      }
-    }
-
-    // Fallback to direct insert
-    const { data, error } = await supabase
-      .from("profiles")
-      .insert({
-        id: userId,
-        full_name: fullName.trim(),
-        email: email,
-        phone_number: phoneNumber.trim(),
-        business_type: businessType,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      if (error.code === "42501") {
-        throw new Error("Profile creation failed due to RLS. Please run the SQL migration: fix_profiles_rls.sql");
-      }
-      throw error;
-    }
-
-    return data;
-  } catch (error) {
-    console.error("Error creating profile:", error);
-    throw error;
-  }
-}
-
-// Create default profile for user
-async function createDefaultProfile(userId: string, userEmail: string): Promise<UserProfile | null> {
-  try {
-    // Try using the database function (bypasses RLS)
-    const { data: functionData, error: functionError } = await supabase.rpc("insert_user_profile", {
-      p_user_id: userId,
-      p_email: userEmail,
-      p_full_name: '',
-      p_phone_number: '',
-      p_business_type: 'Other',
-    });
-
-    if (!functionError && functionData) {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (!error && data) {
-        return data;
-      }
-    }
-
-    // Fallback to direct insert
-    const { data, error } = await supabase
-      .from("profiles")
-      .insert({
-        id: userId,
-        full_name: '',
-        email: userEmail,
-        phone_number: '',
-        business_type: 'Other',
-      })
-      .select()
-      .single();
-
-    if (error) {
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    return null;
-  }
-}
-
-// Update user profile
+/**
+ * Update user profile
+ */
 export async function updateUserProfile(
   fullName: string,
   phoneNumber: string,
   businessType: string
 ): Promise<UserProfile> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("User not authenticated");
+  const { data: { session } } = await supabase.auth.getSession();
+  const userId = session?.user?.id;
+  if (!userId) throw new Error("User not authenticated");
 
-  // First check if profile exists
   const existingProfile = await getUserProfile();
   
   if (!existingProfile) {
-    // Create new profile if it doesn't exist
-    const { data, error } = await supabase
-      .from("profiles")
-      .insert({
-        id: user.id,
-        full_name: fullName.trim(),
-        email: user.email || '',
-        phone_number: phoneNumber.trim(),
-        business_type: businessType,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw error;
-    }
-
-    // Invalidate cache
-    invalidateProfileCache(user.id);
-    return data;
-  }
-
-  // Update existing profile
-  const { data, error } = await supabase
-    .from("profiles")
-    .update({
+    // Create new profile locally
+    const record = await LocalDB.create<UserProfile>('profiles', {
+      id: userId, // Ensure we use auth user id
       full_name: fullName.trim(),
+      email: session.user.email || '',
       phone_number: phoneNumber.trim(),
-      business_type: businessType,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("id", user.id)
-    .select()
-    .single();
+      business_type: businessType
+    } as any);
 
-  if (error) {
-    throw error;
+    SyncEngine.syncAll().catch(console.error);
+    return record;
   }
 
-  // Invalidate cache after update
-  invalidateProfileCache(user.id);
-  return data;
+  // Update existing profile locally
+  await LocalDB.update('profiles', userId, {
+    full_name: fullName.trim(),
+    phone_number: phoneNumber.trim(),
+    business_type: businessType
+  });
+
+  const updated = await getUserProfile();
+  SyncEngine.syncAll().catch(console.error);
+  return updated!;
 }
 
-// Update password
+/**
+ * Update password (still requires online for security verification)
+ */
 export async function updatePassword(
   currentPassword: string,
   newPassword: string
@@ -248,23 +74,17 @@ export async function updatePassword(
   const { data: { user } } = await supabase.auth.getUser();
   if (!user || !user.email) throw new Error("User not authenticated");
 
-  // First verify current password by attempting to sign in
   const { error: signInError } = await supabase.auth.signInWithPassword({
     email: user.email,
     password: currentPassword,
   });
 
-  if (signInError) {
-    throw new Error("Current password is incorrect");
-  }
+  if (signInError) throw new Error("Current password is incorrect");
 
-  // Update password
   const { error: updateError } = await supabase.auth.updateUser({
     password: newPassword,
   });
 
-  if (updateError) {
-    throw updateError;
-  }
+  if (updateError) throw updateError;
 }
 

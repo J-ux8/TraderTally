@@ -2,6 +2,7 @@ import { getLocalISOString } from '@/lib/dateUtils';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { addDebt, deleteDebt, getUserDebts, settleDebt, updateDebt, batchSettleDebts, batchDeleteDebts, batchUpdateDebts } from '@/lib/debts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSync } from '@/context/SyncContext';
 
 const DEBTS_PAGE_SIZE = 50;
 
@@ -15,6 +16,7 @@ export function useDebts() {
   const isLoadingRef = useRef(false);
   const hasInitializedRef = useRef(false);
   const { recordSale } = useTransactionsContext();
+  const { triggerSync } = useSync();
 
   // Memoize debt calculations
   const debtStats = useMemo(() => {
@@ -44,18 +46,19 @@ export function useDebts() {
       setDebts(data || []);
       setHasMore((data?.length || 0) >= DEBTS_PAGE_SIZE);
       setLastLoadTime(Date.now());
+      
+      // Background sync
+      triggerSync().catch(console.error);
     } catch (error: any) {
       console.error('[useDebts] Error loading debts:', error);
-      // Only set error if we already have loaded before (not initial load)
       if (lastLoadTime > 0) {
         setError(error.message || 'Failed to load debts');
       }
-      // Keep existing debts on error instead of clearing
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
     }
-  }, []);
+  }, [lastLoadTime, triggerSync]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingRef.current || !hasMore) return;
