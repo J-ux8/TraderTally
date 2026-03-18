@@ -2,6 +2,7 @@ import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, r
 import { TransactionGroup, Transaction as GroupingTransaction } from '@/types/grouping';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useSync } from '@/context/SyncContext';
+import { supabase } from '@/lib/supabase';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 interface Transaction {
@@ -92,11 +93,23 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => {
-    // Only initialize once
-    if (hasInitializedRef.current) return;
-    hasInitializedRef.current = true;
+    // 1. Initial load
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      loadTransactions();
+    }
 
-    loadTransactions();
+    // 2. Listen for auth changes to reload transactions
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        console.log('[Transactions] Auth changed, reloading transactions...');
+        loadTransactions();
+      } else if (event === 'SIGNED_OUT') {
+        setTransactions([]);
+      }
+    });
+
+    return () => authSub.unsubscribe();
   }, [loadTransactions]);
 
   const refresh = useCallback(async () => {

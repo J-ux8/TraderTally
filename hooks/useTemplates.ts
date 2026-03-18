@@ -9,6 +9,7 @@ import {
   useTemplateForTransaction,
 } from '@/lib/templates';
 import { useSync } from '@/context/SyncContext';
+import { supabase } from '@/lib/supabase';
 
 export interface UseTemplatesReturn {
   templates: Template[];
@@ -47,9 +48,20 @@ export function useTemplates(): UseTemplatesReturn {
     }
   }, []);
 
-  // Load templates on mount
+  // Load templates on mount and handle auth changes
   useEffect(() => {
     loadTemplates();
+
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        console.log('[Templates] Auth changed, reloading templates...');
+        loadTemplates();
+      } else if (event === 'SIGNED_OUT') {
+        setTemplates([]);
+      }
+    });
+
+    return () => authSub.unsubscribe();
   }, [loadTemplates]);
 
   const refresh = useCallback(async () => {

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, Rea
 import { SyncEngine } from '../sync/syncEngine';
 import { NetworkMonitor } from '../sync/NetworkMonitor';
 import { LocalDB } from '../database/localDb';
+import { supabase } from '../lib/supabase';
 
 export type GlobalSyncStatus = 'synced' | 'syncing' | 'offline' | 'failed';
 
@@ -71,9 +72,18 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     }, 60000);
 
+    // 6. Listen for auth changes to trigger sync
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN') {
+        console.log('[SyncContext] User signed in, triggering sync...');
+        triggerSync();
+      }
+    });
+
     return () => {
       unsubscribe();
       clearInterval(interval);
+      authSub.unsubscribe();
     };
   }, [triggerSync]);
 

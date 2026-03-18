@@ -1,6 +1,8 @@
-import { getUserCategories, addCategory, deleteCategory } from '@/lib/categories';
+import { getUserCategories, addCategory, deleteCategory, seedDefaultCategories } from '@/lib/categories';
 import { useSync } from '@/context/SyncContext';
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { LocalDB } from '@/database/localDb';
+import { supabase } from '@/lib/supabase';
+import React, { createContext, useCallback, useContext, useEffect, useState, useRef } from 'react';
 
 export interface Category {
   id: string;
@@ -26,11 +28,22 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const { triggerSync } = useSync();
+  const hasInitializedRef = useRef(false);
 
   const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getUserCategories();
+      let data = await getUserCategories();
+      
+      if (data.length === 0) {
+        const userId = await LocalDB.getUserId();
+        if (userId) {
+          console.log('[Categories] Seeding default categories...');
+          await seedDefaultCategories();
+          data = await getUserCategories();
+        }
+      }
+
       setCategories(data);
     } catch (error) {
       if (error instanceof Error && (error.message.includes('not authenticated') || error.message.includes('Not authenticated'))) {
@@ -44,7 +57,23 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   useEffect(() => {
-    loadCategories();
+    // 1. Initial load
+    if (!hasInitializedRef.current) {
+      hasInitializedRef.current = true;
+      loadCategories();
+    }
+
+    // 2. Listen for auth changes to reload categories
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        console.log('[Categories] Auth changed, reloading categories...');
+        loadCategories();
+      } else if (event === 'SIGNED_OUT') {
+        setCategories([]);
+      }
+    });
+
+    return () => authSub.unsubscribe();
   }, [loadCategories]);
 
   const refresh = useCallback(async () => {

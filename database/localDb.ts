@@ -1,6 +1,6 @@
 import { getDatabase } from '../lib/database';
 import { supabase } from '../lib/supabase';
-import { v4 as uuidv4 } from 'uuid';
+import * as Crypto from 'expo-crypto';
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
@@ -59,7 +59,7 @@ export class LocalDB {
     
     const record: T & LocalBaseModel = {
       ...data,
-      id: uuidv4(),
+      id: Crypto.randomUUID(),
       user_id: userId,
       created_at: now,
       updated_at: now,
@@ -201,8 +201,10 @@ export class LocalDB {
     if (!userId) return [];
 
     const db = await getDatabase();
+    const idColumn = table === 'profiles' ? 'id' : 'user_id';
+    
     return await db.getAllAsync<T>(
-      `SELECT * FROM ${table} WHERE user_id = ? AND sync_status IN ('pending', 'failed') AND retry_count < 5 LIMIT ?`,
+      `SELECT * FROM ${table} WHERE ${idColumn} = ? AND sync_status IN ('pending', 'failed') AND retry_count < 5 LIMIT ?`,
       userId,
       limit
     );

@@ -33,3 +33,28 @@ export async function deleteCategory(id: string): Promise<void> {
   await LocalDB.delete('categories', id);
   SyncEngine.syncAll().catch(console.error);
 }
+
+/**
+ * Seed Default Categories
+ */
+export async function seedDefaultCategories(): Promise<void> {
+  const current = await getUserCategories();
+  if (current.length > 0) return;
+
+  const defaults = [
+    'Sale',
+    'Stock / Inventory',
+    'Rent / Stall Fee',
+    'Salaries / Helpers',
+    'Transport / Fuel',
+    'Utilities',
+    'Maintenance / Repairs',
+    'Business Supplies',
+    'Market Levy / Tax',
+    'Other'
+  ];
+
+  for (const name of defaults) {
+    await addCategory(name);
+  }
+}
