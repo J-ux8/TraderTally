@@ -1,5 +1,6 @@
 import { getDatabase } from '../lib/database';
 import { supabase } from '../lib/supabase';
+import { NetworkMonitor } from '../sync/NetworkMonitor';
 import * as Crypto from 'expo-crypto';
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
@@ -27,11 +28,13 @@ export class LocalDB {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user?.id) return session.user.id;
 
-      // Fallback to getUser() which might hit the network
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.id) return user.id;
+      // Only fallback to getUser() if online and we have no session
+      if (NetworkMonitor.getStatus()) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.id) return user.id;
+      }
     } catch (e) {
-      console.warn('[LocalDB] Auth check failed:', e);
+      console.log('[LocalDB] Auth check failed:', e);
     }
 
     return null;
@@ -176,8 +179,9 @@ export class LocalDB {
    */
   static async markSynced(table: string, id: string): Promise<void> {
     const db = await getDatabase();
+    // Only mark as synced if it hasn't been modified (to 'pending') in the meantime
     await db.runAsync(
-      `UPDATE ${table} SET sync_status = 'synced', retry_count = 0 WHERE id = ?`,
+      `UPDATE ${table} SET sync_status = 'synced', retry_count = 0 WHERE id = ? AND sync_status = 'syncing'`,
       id
     );
   }

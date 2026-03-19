@@ -18,26 +18,26 @@ export function OfflineIndicator({ alwaysShow = false, compact = false }: Offlin
       case 'offline':
         return {
           icon: 'cloud-offline-outline' as any,
-          label: 'Offline',
-          color: '#ef4444',
+          label: 'Local Mode',
+          color: '#ef4444', // Red-500
         };
       case 'syncing':
         return {
           icon: 'sync-outline' as any,
           label: 'Syncing...',
-          color: '#3b82f6',
+          color: '#3b82f6', // Blue-500
         };
       case 'failed':
         return {
           icon: 'alert-circle-outline' as any,
-          label: 'Sync Failed',
-          color: '#f59e0b',
+          label: 'Not Synced',
+          color: '#f59e0b', // Amber-500
         };
       default:
         return {
           icon: 'cloud-done-outline' as any,
           label: 'Synced',
-          color: '#10b981',
+          color: '#10b981', // Emerald-500
         };
     }
   };

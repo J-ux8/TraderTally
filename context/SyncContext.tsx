@@ -58,6 +58,7 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Automatically sync on reconnection
         triggerSync();
       } else {
+        console.log('[SyncContext] Network went offline, updating status');
         setSyncStatus('offline');
       }
     });

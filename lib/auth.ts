@@ -1,6 +1,11 @@
 import { supabase } from "./supabase";
+import { NetworkMonitor } from "../sync/NetworkMonitor";
 
 export async function signIn(email: string, password: string) {
+  if (!NetworkMonitor.getStatus()) {
+    throw new Error("You are offline. Please check your internet connection.");
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -20,6 +25,10 @@ export async function registerWithProfile(
   phoneNumber: string,
   businessType: string
 ) {
+  if (!NetworkMonitor.getStatus()) {
+    throw new Error("You are offline. Please check your internet connection.");
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -62,6 +71,10 @@ export async function signOut() {
  * Initiates password reset process.
  */
 export async function forgotPassword(email: string) {
+  if (!NetworkMonitor.getStatus()) {
+    throw new Error("You are offline. Please check your internet connection.");
+  }
+
   const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: undefined,
   });
@@ -77,6 +90,10 @@ export async function forgotPassword(email: string) {
  * Updates the password for the current session user.
  */
 export async function updatePassword(newPassword: string) {
+  if (!NetworkMonitor.getStatus()) {
+    throw new Error("You are offline. Please check your internet connection.");
+  }
+
   const { data, error } = await supabase.auth.updateUser({
     password: newPassword,
   });

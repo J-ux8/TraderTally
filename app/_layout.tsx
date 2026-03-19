@@ -36,31 +36,38 @@ function RootLayoutContent() {
   }, [pathname, lastBackgroundTime]);
 
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-    if (
-      appState.current.match(/inactive|background/) &&
-      nextAppState === 'active'
-    ) {
-      // App has come to foreground
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+    try {
+      if (
+        appState.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        // App has come to foreground
+        // Use getSession as it's more offline-friendly (checks cache)
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        
+        if (!user) return;
 
-      const settings = await getSecuritySettings(user.id);
-      if (settings.appLockEnabled) {
-        const now = Date.now();
-        const inactiveTime = lastBackgroundTime ? now - lastBackgroundTime : 0;
+        const settings = await getSecuritySettings(user.id);
+        if (settings.appLockEnabled) {
+          const now = Date.now();
+          const inactiveTime = lastBackgroundTime ? now - lastBackgroundTime : 0;
 
-        // Lock if background for more than 5 minutes (300000ms)
-        if (inactiveTime > 300000 && pathname !== '/unlock' && pathname !== '/welcome' && !pathname.includes('Authentication')) {
-          router.replace('/unlock');
+          // Lock if background for more than 5 minutes (300000ms)
+          if (inactiveTime > 300000 && pathname !== '/unlock' && pathname !== '/welcome' && !pathname.includes('Authentication')) {
+            router.replace('/unlock');
+          }
         }
       }
-    }
 
-    if (nextAppState.match(/inactive|background/)) {
-      setLastBackgroundTime(Date.now());
-    }
+      if (nextAppState.match(/inactive|background/)) {
+        setLastBackgroundTime(Date.now());
+      }
 
-    appState.current = nextAppState;
+      appState.current = nextAppState;
+    } catch (error) {
+      console.log('[RootLayout] App state change error handled:', error);
+    }
   };
 
   return (
