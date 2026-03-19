@@ -24,7 +24,7 @@ interface TransactionsContextType {
   recordSale: (amount: number, category: string | null, description: string | null, transaction_date?: string) => Promise<any>;
   recordExpense: (amount: number, category: string | null, description: string | null, transaction_date?: string) => Promise<any>;
   totalProfit: number;
-  
+
   // New grouping functionality
   groupedTransactions: TransactionGroup[];
   groupingEnabled: boolean;
@@ -78,7 +78,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     // Prevent concurrent loads
     if (isLoadingRef.current) return;
     isLoadingRef.current = true;
-    
+
     try {
       setLoading(true);
       const data = await getUserTransactions();
@@ -123,15 +123,19 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     const result = await recordSale(amount, category, description, date);
     // Optimistic UI update
     setTransactions(prev => [result as Transaction, ...prev]);
+    // Trigger background sync push
+    triggerSync().catch(console.error);
     return result;
-  }, []);
+  }, [triggerSync]);
 
   const handleRecordExpense = useCallback(async (amount: number, category: string | null, description: string | null, date?: string) => {
     const result = await recordExpense(amount, category, description, date);
     // Optimistic UI update
     setTransactions(prev => [result as Transaction, ...prev]);
+    // Trigger background sync push
+    triggerSync().catch(console.error);
     return result;
-  }, []);
+  }, [triggerSync]);
 
   const handleUpdateTransaction = useCallback(async (id: string, amount: number, category: string | null, description: string | null, date?: string) => {
     // Optimistic UI update
@@ -140,35 +144,35 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         ? { ...tx, amount, category, description, transaction_date: date || tx.transaction_date, updated_at: new Date().toISOString() }
         : tx
     ));
-    
+
     // Debounce the actual save
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
-    
+
     debounceTimerRef.current = setTimeout(async () => {
       try {
         await updateTxLib(id, amount, category, description, date);
+        // Trigger background sync push
+        triggerSync().catch(console.error);
       } catch (error) {
         console.error('Error updating transaction:', error);
-        // Reload on error to sync state
-        await loadTransactions();
       }
-    }, 500);
-  }, [loadTransactions]);
+    }, 1000);
+  }, [triggerSync]);
 
   const handleRemoveTransaction = useCallback(async (id: string) => {
     // Optimistic UI update
     setTransactions(prev => prev.filter(tx => tx.id !== id));
-    
+
     try {
       await deleteTxLib(id);
+      // Trigger background sync push
+      triggerSync().catch(console.error);
     } catch (error) {
       console.error('Error deleting transaction:', error);
-      // Reload on error to sync state
-      await loadTransactions();
     }
-  }, [loadTransactions]);
+  }, [triggerSync]);
 
   // Toggle grouping functionality
   const toggleGrouping = useCallback(() => {
@@ -196,7 +200,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         recordSale: handleRecordSale,
         recordExpense: handleRecordExpense,
         totalProfit,
-        
+
         // Grouping functionality
         groupedTransactions,
         groupingEnabled,

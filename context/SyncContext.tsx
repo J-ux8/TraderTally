@@ -34,10 +34,18 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setSyncStatus('syncing');
     try {
-      await SyncEngine.syncAll();
-      const lastTime = await LocalDB.getLastSyncTime();
-      setLastSyncedAt(lastTime);
-      setSyncStatus('synced');
+      const success = await SyncEngine.syncAll();
+      if (success) {
+        const lastTime = await LocalDB.getLastSyncTime();
+        setLastSyncedAt(lastTime);
+        setSyncStatus('synced');
+      } else if (!NetworkMonitor.getStatus()) {
+        setSyncStatus('offline');
+      } else if (!SyncEngine.getProcessingStatus()) {
+        // Not syncing and not offline -> probably auth issue or just finished
+        setSyncStatus('synced');
+      }
+      // If still syncing from another trigger, do nothing (keep 'syncing')
     } catch (error) {
       console.error('[SyncContext] Sync error:', error);
       setSyncStatus('failed');

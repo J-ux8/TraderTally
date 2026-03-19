@@ -16,24 +16,21 @@ export class SyncEngine {
   /**
    * Main sync orchestration
    */
-  static async syncAll(): Promise<void> {
+  static async syncAll(): Promise<boolean> {
     // 1. Acquire global lock
     if (this.isSyncing) {
-      // console.log('[SyncEngine] Sync already in progress, skipping...');
-      return;
+      return false;
     }
     
     // 2. Check online status
     if (!NetworkMonitor.getStatus()) {
-      console.log('[SyncEngine] Device offline, skipping sync...');
-      return;
+      return false;
     }
 
     // 2.5 Check authentication
     const userId = await LocalDB.getUserId();
     if (!userId) {
-      console.log('[SyncEngine] User not authenticated, skipping sync...');
-      return;
+      return false;
     }
 
     try {
@@ -50,6 +47,7 @@ export class SyncEngine {
       await this.pull();
 
       console.log('[SyncEngine] Sync completed successfully');
+      return true;
       
       // Notify listeners (will be handled by context)
     } catch (error) {

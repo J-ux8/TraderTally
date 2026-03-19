@@ -56,7 +56,7 @@ export function useDebts() {
       setLoading(false);
       isLoadingRef.current = false;
     }
-  }, [lastLoadTime, triggerSync]);
+  }, [triggerSync]);
 
   const loadMore = useCallback(async () => {
     if (isLoadingRef.current || !hasMore) return;
@@ -94,8 +94,10 @@ export function useDebts() {
     const newDebt = await addDebt(customerName, amount, dueDate || undefined, note || undefined);
     // Optimistic UI update - add to beginning
     setDebts(prev => [newDebt, ...prev]);
+    // Trigger background sync push
+    triggerSync().catch(console.error);
     return newDebt;
-  }, []);
+  }, [triggerSync]);
 
   const handleUpdateDebt = useCallback(async (
     id: string,
@@ -115,12 +117,14 @@ export function useDebts() {
     
     try {
       await updateDebt(id, data.customer_name, data.amount, data.due_date || undefined, data.note || undefined);
+      // Trigger background sync push
+      triggerSync().catch(console.error);
     } catch (error) {
       console.error('Error updating debt:', error);
       // Reload on error to sync state
       await refresh(true);
     }
-  }, [refresh]);
+  }, [refresh, triggerSync]);
 
   const handleSettleDebt = useCallback(async (id: string) => {
     const debtToSettle = debts.find(d => d.id === id);
@@ -134,6 +138,8 @@ export function useDebts() {
 
     try {
       await settleDebt(id);
+      // Trigger background sync push
+      triggerSync().catch(console.error);
 
       // Recording the sale as a transaction ONLY when settled (paid)
       try {
@@ -151,7 +157,7 @@ export function useDebts() {
       // Reload on error to sync state
       await refresh(true);
     }
-  }, [debts, recordSale, refresh]);
+  }, [debts, recordSale, refresh, triggerSync]);
 
   const handleDeleteDebt = useCallback(async (id: string) => {
     // Optimistic UI update
@@ -159,12 +165,14 @@ export function useDebts() {
     
     try {
       await deleteDebt(id);
+      // Trigger background sync push
+      triggerSync().catch(console.error);
     } catch (error) {
       console.error('Error deleting debt:', error);
       // Reload on error to sync state
       await refresh(true);
     }
-  }, [refresh]);
+  }, [refresh, triggerSync]);
 
   // Batch operations
   const handleBatchSettleDebts = useCallback(async (ids: string[]) => {
@@ -177,11 +185,13 @@ export function useDebts() {
     
     try {
       await batchSettleDebts(ids);
+      // Trigger background sync push
+      triggerSync().catch(console.error);
     } catch (error) {
       console.error('Error batch settling debts:', error);
       await refresh(true);
     }
-  }, [refresh]);
+  }, [refresh, triggerSync]);
 
   const handleBatchDeleteDebts = useCallback(async (ids: string[]) => {
     // Optimistic UI update
@@ -189,11 +199,13 @@ export function useDebts() {
     
     try {
       await batchDeleteDebts(ids);
+      // Trigger background sync push
+      triggerSync().catch(console.error);
     } catch (error) {
       console.error('Error batch deleting debts:', error);
       await refresh(true);
     }
-  }, [refresh]);
+  }, [refresh, triggerSync]);
 
   return {
     debts,

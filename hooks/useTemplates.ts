@@ -74,13 +74,14 @@ export function useTemplates(): UseTemplatesReturn {
       setError(null);
       const newTemplate = await createTemplateLib(input);
       setTemplates((prev) => [newTemplate, ...prev]);
+      triggerSync().catch(console.error); // Added triggerSync
       return newTemplate;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create template';
       setError(message);
       throw err;
     }
-  }, []);
+  }, [triggerSync]);
 
   const handleUpdateTemplate = useCallback(async (id: string, input: TemplateInput): Promise<Template> => {
     try {
@@ -89,25 +90,27 @@ export function useTemplates(): UseTemplatesReturn {
       setTemplates((prev) =>
         prev.map((t) => (t.id === id ? updated : t))
       );
+      triggerSync().catch(console.error); // Added triggerSync
       return updated;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update template';
       setError(message);
       throw err;
     }
-  }, []);
+  }, [triggerSync]);
 
   const handleDeleteTemplate = useCallback(async (id: string): Promise<void> => {
     try {
       setError(null);
       await deleteTemplateLib(id);
       setTemplates((prev) => prev.filter((t) => t.id !== id));
+      triggerSync().catch(console.error); // Added triggerSync
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to delete template';
       setError(message);
       throw err;
     }
-  }, []);
+  }, [triggerSync]);
 
   const handleUseTemplate = useCallback(async (id: string): Promise<Template> => {
     try {
