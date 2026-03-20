@@ -58,7 +58,7 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
     await database.execAsync(SCHEMA.TABLES.sync_metadata);
   }
 
-  const tablesToSync = ['transactions', 'categories', 'debts', 'transaction_templates'];
+  const tablesToSync = ['transactions', 'categories', 'debts', 'transaction_templates', 'customers'];
   
   for (const table of tablesToSync) {
     try {
@@ -90,6 +90,22 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
       if (!columns.includes('retry_count')) {
         console.log(`[Database] Migrating ${table}: adding retry_count column`);
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN retry_count INTEGER DEFAULT 0`);
+      }
+
+      if (table === 'transactions' && !columns.includes('customer_id')) {
+        console.log(`[Database] Migrating transactions: adding customer_id`);
+        await database.execAsync(`ALTER TABLE transactions ADD COLUMN customer_id TEXT`);
+      }
+
+      if (table === 'debts') {
+        if (!columns.includes('customer_id')) {
+          console.log(`[Database] Migrating debts: adding customer_id`);
+          await database.execAsync(`ALTER TABLE debts ADD COLUMN customer_id TEXT`);
+        }
+        if (!columns.includes('customer_phone')) {
+          console.log(`[Database] Migrating debts: adding customer_phone`);
+          await database.execAsync(`ALTER TABLE debts ADD COLUMN customer_phone TEXT`);
+        }
       }
     } catch (e) {
       console.error(`[Database] Migration failed for ${table}:`, e);

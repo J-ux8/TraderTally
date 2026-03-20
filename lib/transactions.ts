@@ -7,6 +7,7 @@ export interface Transaction extends LocalBaseModel {
   category: string | null;
   description: string | null;
   transaction_date: string;
+  customer_id: string | null;
 }
 
 /**
@@ -16,13 +17,15 @@ export async function recordSale(
   amount: number,
   category: string | null,
   description: string | null,
-  date?: string
+  date?: string,
+  customerId?: string
 ): Promise<Transaction> {
   const record = await LocalDB.create<Transaction>('transactions', {
     amount: Math.abs(amount),
     category,
     description,
-    transaction_date: date || new Date().toISOString()
+    transaction_date: date || new Date().toISOString(),
+    customer_id: customerId || null
   } as any);
 
   // Trigger background sync (non-blocking)
@@ -37,13 +40,15 @@ export async function recordExpense(
   amount: number,
   category: string | null,
   description: string | null,
-  date?: string
+  date?: string,
+  customerId?: string
 ): Promise<Transaction> {
   const record = await LocalDB.create<Transaction>('transactions', {
     amount: -Math.abs(amount),
     category,
     description,
-    transaction_date: date || new Date().toISOString()
+    transaction_date: date || new Date().toISOString(),
+    customer_id: customerId || null
   } as any);
 
   // Trigger background sync (non-blocking)
@@ -68,13 +73,15 @@ export async function updateTransaction(
   amount: number,
   category: string | null,
   description: string | null,
-  date?: string
+  date?: string,
+  customerId?: string
 ): Promise<void> {
   await LocalDB.update('transactions', id, {
     amount,
     category,
     description,
-    transaction_date: date || new Date().toISOString()
+    transaction_date: date || new Date().toISOString(),
+    customer_id: customerId || null
   });
 
   // Trigger background sync (non-blocking)

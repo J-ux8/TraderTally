@@ -3,7 +3,7 @@ import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useDebts } from "@/hooks/useDebts";
 import { useToastContext } from "@/contexts/ToastContext";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Calendar as CalendarIcon, FileText, Plus, User } from "lucide-react-native";
+import { ArrowLeft, Calendar as CalendarIcon, FileText, Phone, Plus, User } from "lucide-react-native";
 import { useCallback, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
@@ -14,6 +14,7 @@ export default function AddDebtScreen() {
   const { createDebt: createDebtFromHook, refresh: refreshDebts } = useDebts();
   const { success: showSuccess, error: showError } = useToastContext();
   const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
   const [amount, setAmount] = useState(params.amount || "");
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [note, setNote] = useState(params.note || "");
@@ -25,6 +26,7 @@ export default function AddDebtScreen() {
     useCallback(() => {
       // Clear form when screen is focused
       setCustomerName("");
+      setCustomerPhone("");
       setAmount("");
       setDueDate(null);
       setNote("");
@@ -58,7 +60,8 @@ export default function AddDebtScreen() {
         customerName.trim(),
         numericAmount,
         dueDate ? getLocalISOString(dueDate).split("T")[0] : null,
-        note.trim() || null
+        note.trim() || null,
+        customerPhone.trim() || undefined
       );
 
       await refreshDebts(true);
@@ -149,6 +152,22 @@ export default function AddDebtScreen() {
                 placeholderTextColor="#999"
                 autoCapitalize="words"
                 autoFocus
+              />
+            </View>
+          </View>
+
+          {/* Customer Phone */}
+          <View style={styles.card}>
+            <Text style={styles.label}>Phone Number (WhatsApp)</Text>
+            <View style={styles.inputContainer}>
+              <Phone size={20} color="#666" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                value={customerPhone}
+                onChangeText={setCustomerPhone}
+                placeholder="e.g. 0970000000"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
               />
             </View>
           </View>

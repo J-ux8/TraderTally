@@ -1,9 +1,10 @@
 import { getLocalISOString } from '@/lib/dateUtils';
 import { Debt } from '@/lib/debts';
-import { Calendar as CalendarIcon, Trash2, X } from 'lucide-react-native';
+import { Calendar as CalendarIcon, Trash2, X, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { Alert, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Calendar } from 'react-native-calendars';
+import { router } from 'expo-router';
 
 interface EditDebtSheetProps {
   debt: Debt | null;
@@ -14,12 +15,14 @@ interface EditDebtSheetProps {
     amount: number;
     due_date: string | null;
     note: string | null;
+    customer_phone?: string;
   }) => void;
   onDelete: (id: string) => void;
 }
 
 export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: EditDebtSheetProps) {
   const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [note, setNote] = useState('');
@@ -29,6 +32,7 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
   useEffect(() => {
     if (debt) {
       setCustomerName(debt.customer_name);
+      setCustomerPhone(debt.customer_phone || '');
       setAmount(String(debt.amount));
       setDueDate(debt.due_date ? new Date(debt.due_date) : null);
       setNote(debt.note || '');
@@ -62,6 +66,7 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
       amount: numericAmount,
       due_date: dueDate ? getLocalISOString(dueDate).split('T')[0] : null,
       note: note.trim() || null,
+      customer_phone: customerPhone.trim() || undefined,
     });
 
     onOpenChange(false);
@@ -137,6 +142,20 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
           </View>
 
           <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {debt.customer_id && (
+              <TouchableOpacity
+                style={styles.historyButton}
+                onPress={() => {
+                  onOpenChange(false);
+                  router.push(`/customers/${debt.customer_id}` as any);
+                }}
+                activeOpacity={0.7}
+              >
+                <User size={18} color="#1e3a8a" />
+                <Text style={styles.historyButtonText}>View Full Customer History</Text>
+              </TouchableOpacity>
+            )}
+
             {/* Customer Name */}
             <View style={styles.inputCard}>
               <Text style={styles.label}>Customer Name</Text>
@@ -147,6 +166,19 @@ export function EditDebtSheet({ debt, open, onOpenChange, onSave, onDelete }: Ed
                 placeholder="Enter customer name"
                 placeholderTextColor="#999"
                 autoCapitalize="words"
+              />
+            </View>
+
+            {/* Customer Phone */}
+            <View style={styles.inputCard}>
+              <Text style={styles.label}>Phone Number (WhatsApp)</Text>
+              <TextInput
+                style={styles.input}
+                value={customerPhone}
+                onChangeText={setCustomerPhone}
+                placeholder="e.g. 0970000000"
+                placeholderTextColor="#999"
+                keyboardType="phone-pad"
               />
             </View>
 
@@ -491,6 +523,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  historyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(30, 58, 138, 0.05)',
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 20,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 58, 138, 0.1)',
+  },
+  historyButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1e3a8a',
   },
   modalOverlay: {
     flex: 1,

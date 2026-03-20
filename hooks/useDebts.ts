@@ -89,9 +89,10 @@ export function useDebts() {
     customerName: string,
     amount: number,
     dueDate: string | null,
-    note: string | null
+    note: string | null,
+    customerPhone?: string
   ) => {
-    const newDebt = await addDebt(customerName, amount, dueDate || undefined, note || undefined);
+    const newDebt = await addDebt(customerName, amount, dueDate || undefined, note || undefined, customerPhone);
     // Optimistic UI update - add to beginning
     setDebts(prev => [newDebt, ...prev]);
     // Trigger background sync push
@@ -106,6 +107,7 @@ export function useDebts() {
       amount: number;
       due_date: string | null;
       note: string | null;
+      customer_phone?: string;
     }
   ) => {
     // Optimistic UI update
@@ -116,7 +118,7 @@ export function useDebts() {
     ));
     
     try {
-      await updateDebt(id, data.customer_name, data.amount, data.due_date || undefined, data.note || undefined);
+      await updateDebt(id, data.customer_name, data.amount, data.due_date || undefined, data.note || undefined, data.customer_phone);
       // Trigger background sync push
       triggerSync().catch(console.error);
     } catch (error) {
@@ -147,7 +149,8 @@ export function useDebts() {
           debtToSettle.amount,
           'Debt Payment',
           `Settled: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
-          getLocalISOString().split('T')[0]
+          getLocalISOString().split('T')[0],
+          debtToSettle.customer_id
         );
       } catch (txError) {
         console.error('Error recording transaction for settled debt:', txError);

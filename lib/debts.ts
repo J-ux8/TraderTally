@@ -1,8 +1,11 @@
 import { LocalDB, LocalBaseModel } from "../database/localDb";
 import { SyncEngine } from "../sync/syncEngine";
+import { getOrCreateCustomer } from "./customers";
 
 export interface Debt extends LocalBaseModel {
   customer_name: string;
+  customer_phone: string | null;
+  customer_id: string | null;
   amount: number;
   due_date: string | null;
   note: string | null;
@@ -16,6 +19,7 @@ export async function getUserDebts(limit?: number, offset?: number): Promise<Deb
   return await LocalDB.getAll<Debt>('debts');
 }
 
+
 /**
  * Add a new debt
  */
@@ -23,10 +27,22 @@ export async function addDebt(
   customer_name: string,
   amount: number,
   due_date?: string,
-  note?: string
+  note?: string,
+  customer_phone?: string
 ): Promise<Debt> {
+  // Try to link a customer
+  let customerId = null;
+  try {
+    const customer = await getOrCreateCustomer(customer_name, customer_phone);
+    customerId = customer.id;
+  } catch (e) {
+    console.error('[Debts] Failed to link customer:', e);
+  }
+
   const record = await LocalDB.create<Debt>('debts', {
     customer_name,
+    customer_phone: customer_phone || null,
+    customer_id: customerId,
     amount,
     due_date: due_date || null,
     note: note || null,
@@ -45,10 +61,12 @@ export async function updateDebt(
   customer_name: string,
   amount: number,
   due_date?: string,
-  note?: string
+  note?: string,
+  customer_phone?: string
 ): Promise<void> {
   await LocalDB.update('debts', id, {
     customer_name,
+    customer_phone: customer_phone || null,
     amount,
     due_date: due_date || null,
     note: note || null

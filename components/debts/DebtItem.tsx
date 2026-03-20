@@ -1,7 +1,7 @@
 import { Debt } from '@/lib/debts';
 import { AlertCircle, Calendar, CheckCircle2, MessageSquare, User } from 'lucide-react-native';
 import React from 'react';
-import { Alert, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface DebtItemProps {
   debt: Debt;
@@ -40,8 +40,16 @@ export const DebtItem = React.memo(function DebtItem({ debt, onSettle, onClick, 
     const message = `Hi ${debt.customer_name}, this is a friendly reminder that you have an outstanding balance of K ${amount} at ${business}. Due date: ${formattedDueDate}. Thank you! 🙏`;
 
     const encodedMessage = encodeURIComponent(message);
-    const whatsappUrl = `whatsapp://send?text=${encodedMessage}`;
-    const smsUrl = `sms:?body=${encodedMessage}`;
+    
+    // If we have a phone number, send directly to that number
+    const phone = debt.customer_phone ? debt.customer_phone.replace(/[^0-9]/g, '') : '';
+    const whatsappUrl = phone 
+      ? `whatsapp://send?phone=${phone}&text=${encodedMessage}`
+      : `whatsapp://send?text=${encodedMessage}`;
+    
+    const smsUrl = phone
+      ? `sms:${phone}${Platform.OS === 'ios' ? '&' : '?'}body=${encodedMessage}`
+      : `sms:?body=${encodedMessage}`;
 
     try {
       const canOpenWhatsApp = await Linking.canOpenURL(whatsappUrl);

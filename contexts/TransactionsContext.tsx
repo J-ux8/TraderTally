@@ -13,16 +13,17 @@ interface Transaction {
   transaction_date: string;
   created_at: string;
   user_id: string;
+  customer_id: string | null;
 }
 
 interface TransactionsContextType {
   transactions: Transaction[];
   loading: boolean;
   refresh: () => Promise<void>;
-  updateTransaction: (id: string, amount: number, category: string | null, description: string | null, date?: string) => Promise<void>;
+  updateTransaction: (id: string, amount: number, category: string | null, description: string | null, date?: string, customerId?: string) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
-  recordSale: (amount: number, category: string | null, description: string | null, transaction_date?: string) => Promise<any>;
-  recordExpense: (amount: number, category: string | null, description: string | null, transaction_date?: string) => Promise<any>;
+  recordSale: (amount: number, category: string | null, description: string | null, transaction_date?: string, customerId?: string) => Promise<any>;
+  recordExpense: (amount: number, category: string | null, description: string | null, transaction_date?: string, customerId?: string) => Promise<any>;
   totalProfit: number;
 
   // New grouping functionality
@@ -119,8 +120,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     triggerSync().catch(console.error);
   }, [loadTransactions, triggerSync]);
 
-  const handleRecordSale = useCallback(async (amount: number, category: string | null, description: string | null, date?: string) => {
-    const result = await recordSale(amount, category, description, date);
+  const handleRecordSale = useCallback(async (amount: number, category: string | null, description: string | null, date?: string, customerId?: string) => {
+    const result = await recordSale(amount, category, description, date, customerId);
     // Optimistic UI update
     setTransactions(prev => [result as Transaction, ...prev]);
     // Trigger background sync push
@@ -128,8 +129,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     return result;
   }, [triggerSync]);
 
-  const handleRecordExpense = useCallback(async (amount: number, category: string | null, description: string | null, date?: string) => {
-    const result = await recordExpense(amount, category, description, date);
+  const handleRecordExpense = useCallback(async (amount: number, category: string | null, description: string | null, date?: string, customerId?: string) => {
+    const result = await recordExpense(amount, category, description, date, customerId);
     // Optimistic UI update
     setTransactions(prev => [result as Transaction, ...prev]);
     // Trigger background sync push
@@ -137,11 +138,11 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     return result;
   }, [triggerSync]);
 
-  const handleUpdateTransaction = useCallback(async (id: string, amount: number, category: string | null, description: string | null, date?: string) => {
+  const handleUpdateTransaction = useCallback(async (id: string, amount: number, category: string | null, description: string | null, date?: string, customerId?: string) => {
     // Optimistic UI update
     setTransactions(prev => prev.map(tx =>
       tx.id === id
-        ? { ...tx, amount, category, description, transaction_date: date || tx.transaction_date, updated_at: new Date().toISOString() }
+        ? { ...tx, amount, category, description, transaction_date: date || tx.transaction_date, customer_id: customerId || tx.customer_id, updated_at: new Date().toISOString() }
         : tx
     ));
 
@@ -152,7 +153,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
     debounceTimerRef.current = setTimeout(async () => {
       try {
-        await updateTxLib(id, amount, category, description, date);
+        await updateTxLib(id, amount, category, description, date, customerId);
         // Trigger background sync push
         triggerSync().catch(console.error);
       } catch (error) {

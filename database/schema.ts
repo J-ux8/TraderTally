@@ -12,7 +12,8 @@ export const SCHEMA = {
         updated_at TEXT NOT NULL,
         is_deleted INTEGER DEFAULT 0,
         sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
-        retry_count INTEGER DEFAULT 0
+        retry_count INTEGER DEFAULT 0,
+        customer_id TEXT
       );
     `,
     categories: `
@@ -41,7 +42,9 @@ export const SCHEMA = {
         updated_at TEXT NOT NULL,
         is_deleted INTEGER DEFAULT 0,
         sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
-        retry_count INTEGER DEFAULT 0
+        retry_count INTEGER DEFAULT 0,
+        customer_phone TEXT,
+        customer_id TEXT
       );
     `,
     security_settings: `
@@ -88,6 +91,22 @@ export const SCHEMA = {
         retry_count INTEGER DEFAULT 0
       );
     `,
+    customers: `
+      CREATE TABLE IF NOT EXISTS customers (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        phone TEXT,
+        email TEXT,
+        address TEXT,
+        notes TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0
+      );
+    `,
   },
   INDEXES: {
     transactions: `
@@ -113,6 +132,11 @@ export const SCHEMA = {
     `,
     profiles: `
       CREATE INDEX IF NOT EXISTS idx_profiles_updated_at ON profiles(updated_at);
+    `,
+    customers: `
+      CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id);
+      CREATE INDEX IF NOT EXISTS idx_customers_updated_at ON customers(updated_at);
+      CREATE INDEX IF NOT EXISTS idx_customers_sync ON customers(sync_status);
     `,
   }
 };

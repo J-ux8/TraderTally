@@ -5,11 +5,12 @@ import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Calendar as CalendarIcon, ShoppingBag } from "lucide-react-native";
+import { ArrowLeft, Calendar as CalendarIcon, ShoppingBag, User } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getOrCreateCustomer } from '@/lib/customers';
 
 export default function RecordSaleScreen() {
   const colors = useThemeColors();
@@ -24,6 +25,7 @@ export default function RecordSaleScreen() {
   
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("");
+  const [customerName, setCustomerName] = useState("");
 
   const [paymentMode, setPaymentMode] = useState<'Paid' | 'Credit'>('Paid');
   const [description, setDescription] = useState("");
@@ -46,6 +48,7 @@ export default function RecordSaleScreen() {
         // Reset form for new entry
         setAmount("");
         setCategory("");
+        setCustomerName("");
         setPaymentMode('Paid');
         setDescription("");
         setDate(new Date());
@@ -104,7 +107,17 @@ export default function RecordSaleScreen() {
     const dateStr = getLocalISOString(date);
 
     try {
-      await recordSale(numericAmount, category.trim(), description.trim() || null, dateStr);
+      let customerId = undefined;
+      if (customerName.trim()) {
+        try {
+          const customer = await getOrCreateCustomer(customerName.trim());
+          customerId = customer.id;
+        } catch (e) {
+          console.error('[RecordSale] Failed to link customer:', e);
+        }
+      }
+
+      await recordSale(numericAmount, category.trim(), description.trim() || null, dateStr, customerId);
 
       showSuccess('Sale Recorded', {
         amount: numericAmount,
@@ -167,6 +180,20 @@ export default function RecordSaleScreen() {
         </View>
 
         <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Customer (optional)</Text>
+            <View style={[styles.inputContainer, { borderColor: colors.borderColor, backgroundColor: colors.inputBackground }]}>
+              <User size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
+              <TextInput
+                style={[styles.textInput, { color: colors.textColor }]}
+                value={customerName}
+                onChangeText={setCustomerName}
+                placeholder="Name of customer"
+                placeholderTextColor={colors.textSecondary}
+              />
+            </View>
+          </View>
+
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Amount received (ZMW)</Text>
             <View style={styles.amountContainer}>
