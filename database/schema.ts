@@ -22,6 +22,7 @@ export const SCHEMA = {
         user_id TEXT NOT NULL,
         name TEXT NOT NULL,
         normalized_name TEXT NOT NULL,
+        type TEXT DEFAULT 'expense',
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         is_deleted INTEGER DEFAULT 0,

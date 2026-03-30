@@ -4,6 +4,7 @@ import { SyncEngine } from "../sync/syncEngine";
 export interface Category extends LocalBaseModel {
   name: string;
   normalized_name: string;
+  type: 'expense' | 'income';
 }
 
 /**
@@ -16,10 +17,11 @@ export async function getUserCategories(): Promise<Category[]> {
 /**
  * Add a new category
  */
-export async function addCategory(name: string): Promise<Category> {
+export async function addCategory(name: string, type: 'expense' | 'income' = 'expense'): Promise<Category> {
   const record = await LocalDB.create<Category>('categories', {
     name: name.trim(),
-    normalized_name: name.trim().toLowerCase()
+    normalized_name: name.trim().toLowerCase(),
+    type
   } as any);
 
   SyncEngine.syncAll().catch(console.error);
@@ -34,27 +36,4 @@ export async function deleteCategory(id: string): Promise<void> {
   SyncEngine.syncAll().catch(console.error);
 }
 
-/**
- * Seed Default Categories
- */
-export async function seedDefaultCategories(): Promise<void> {
-  const current = await getUserCategories();
-  if (current.length > 0) return;
 
-  const defaults = [
-    'Sale',
-    'Stock / Inventory',
-    'Rent / Stall Fee',
-    'Salaries / Helpers',
-    'Transport / Fuel',
-    'Utilities',
-    'Maintenance / Repairs',
-    'Business Supplies',
-    'Market Levy / Tax',
-    'Other'
-  ];
-
-  for (const name of defaults) {
-    await addCategory(name);
-  }
-}

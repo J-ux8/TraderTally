@@ -3,7 +3,7 @@ import {
     View, Text, TextInput, TouchableOpacity, Modal,
     StyleSheet, ActivityIndicator, Alert, ScrollView
 } from 'react-native';
-import { Check, Plus, ShoppingCart, TrendingDown } from 'lucide-react-native';
+import { Check, Plus, ShoppingCart, TrendingDown, Trash2 } from 'lucide-react-native';
 import { useCategoriesContext } from '@/contexts/CategoriesContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 
@@ -15,7 +15,7 @@ interface CategorySelectorProps {
 
 export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'income' }: CategorySelectorProps) => {
     const colors = useThemeColors();
-    const { categories, addCategory: addCategoryToContext } = useCategoriesContext();
+    const { categories, addCategory: addCategoryToContext, removeCategory } = useCategoriesContext();
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
 
@@ -47,7 +47,7 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
             const trimmedName = newCatName.trim();
 
             // Use context to add category
-            const newCat = await addCategoryToContext(trimmedName);
+            const newCat = await addCategoryToContext(trimmedName, type);
             onSelect(newCat.name); // Auto-select new category
 
             setModalVisible(false);
@@ -98,22 +98,53 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
             {dropdownVisible && (
                 <View style={[styles.dropdownContainer, { borderColor: colors.borderColor, backgroundColor: colors.cardBackground }]}>
                     <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="always">
-                        {categories.map((cat) => (
-                            <TouchableOpacity
-                                key={cat.id}
-                                style={[styles.option, { borderBottomColor: colors.borderColor, backgroundColor: selectedCategoryName === cat.name ? 'rgba(30, 58, 138, 0.05)' : 'transparent' }]}
-                                onPress={() => {
-                                    onSelect(cat.name);
-                                    setDropdownVisible(false);
-                                }}
-                            >
-                                <Text style={[styles.optionText, { color: colors.textColor }]}>{cat.name}</Text>
-                                {selectedCategoryName === cat.name && <Check size={18} color="#1e3a8a" />}
-                            </TouchableOpacity>
-                        ))}
-                        {categories.length === 0 && (
+                        {categories
+                            .filter(cat => cat.type === type)
+                            .map((cat) => (
+                                <View
+                                    key={cat.id}
+                                    style={[styles.option, { borderBottomColor: colors.borderColor, backgroundColor: selectedCategoryName === cat.name ? 'rgba(30, 58, 138, 0.05)' : 'transparent' }]}
+                                >
+                                    <TouchableOpacity
+                                        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16 }}
+                                        onPress={() => {
+                                            onSelect(cat.name);
+                                            setDropdownVisible(false);
+                                        }}
+                                    >
+                                        <Text style={[styles.optionText, { color: colors.textColor }]}>{cat.name}</Text>
+                                        {selectedCategoryName === cat.name && <Check size={18} color="#1e3a8a" />}
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={{ padding: 12 }}
+                                        onPress={() => {
+                                            Alert.alert(
+                                                "Delete Category",
+                                                `Are you sure you want to delete "${cat.name}"?`,
+                                                [
+                                                    { text: "Cancel", style: "cancel" },
+                                                    {
+                                                        text: "Delete",
+                                                        style: "destructive",
+                                                        onPress: () => {
+                                                            removeCategory(cat.id);
+                                                            if (selectedCategoryName === cat.name) {
+                                                                onSelect('');
+                                                            }
+                                                        }
+                                                    }
+                                                ]
+                                            );
+                                        }}
+                                    >
+                                        <Trash2 size={18} color="#ef4444" />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        {categories.filter(cat => cat.type === type).length === 0 && (
                             <View style={styles.option}>
-                                <Text style={[styles.optionText, { color: colors.textSecondary }]}>No categories found</Text>
+                                <Text style={[styles.optionText, { color: colors.textSecondary }]}>No {type} categories found</Text>
                             </View>
                         )}
                     </ScrollView>
@@ -124,7 +155,7 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
             <Modal visible={modalVisible} animationType="slide" transparent>
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}>
-                        <Text style={[styles.modalTitle, { color: colors.textColor }]}>New Category</Text>
+                        <Text style={[styles.modalTitle, { color: colors.textColor }]}>New {type.charAt(0).toUpperCase() + type.slice(1)} Category</Text>
 
                         <TextInput
                             style={[styles.input, { color: colors.textColor, borderColor: colors.borderColor, backgroundColor: colors.inputBackground }]}
@@ -133,7 +164,7 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
                                 setNewCatName(t);
                                 setErrorText('');
                             }}
-                            placeholder="e.g. Food, Transport"
+                            placeholder={type === 'expense' ? "e.g. Transport, Rent" : "e.g. Sale, Consultancy"}
                             placeholderTextColor={colors.textSecondary}
                             maxLength={50}
                             autoFocus

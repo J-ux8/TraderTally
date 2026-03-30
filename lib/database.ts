@@ -92,6 +92,13 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN retry_count INTEGER DEFAULT 0`);
       }
 
+      if (table === 'categories' && !columns.includes('type')) {
+        console.log(`[Database] Migrating categories: adding type column`);
+        await database.execAsync(`ALTER TABLE categories ADD COLUMN type TEXT DEFAULT 'expense'`);
+        // One-time fix: Mark "Sale" as income if it exists
+        await database.execAsync(`UPDATE categories SET type = 'income' WHERE normalized_name = 'sale'`);
+      }
+      
       if (table === 'transactions' && !columns.includes('customer_id')) {
         console.log(`[Database] Migrating transactions: adding customer_id`);
         await database.execAsync(`ALTER TABLE transactions ADD COLUMN customer_id TEXT`);

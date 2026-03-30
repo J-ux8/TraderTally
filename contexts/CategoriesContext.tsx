@@ -1,4 +1,4 @@
-import { getUserCategories, addCategory, deleteCategory, seedDefaultCategories } from '@/lib/categories';
+import { getUserCategories, addCategory, deleteCategory } from '@/lib/categories';
 import { useSync } from '@/context/SyncContext';
 import { LocalDB } from '@/database/localDb';
 import { supabase } from '@/lib/supabase';
@@ -9,6 +9,7 @@ export interface Category {
   user_id: string;
   name: string;
   normalized_name: string;
+  type: 'expense' | 'income';
   created_at: string;
   updated_at: string;
   is_deleted: number;
@@ -18,7 +19,7 @@ interface CategoriesContextType {
   categories: Category[];
   loading: boolean;
   refresh: () => Promise<void>;
-  addCategory: (name: string) => Promise<Category>;
+  addCategory: (name: string, type?: 'expense' | 'income') => Promise<Category>;
   removeCategory: (id: string) => Promise<void>;
 }
 
@@ -35,15 +36,7 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
       setLoading(true);
       let data = await getUserCategories();
       
-      if (data.length === 0) {
-        const userId = await LocalDB.getUserId();
-        if (userId) {
-          console.log('[Categories] Seeding default categories...');
-          await seedDefaultCategories();
-          data = await getUserCategories();
-        }
-      }
-
+      // No automatic seeding. Users start with an empty category list.
       setCategories(data);
     } catch (error) {
       if (error instanceof Error && (error.message.includes('not authenticated') || error.message.includes('Not authenticated'))) {
@@ -81,8 +74,8 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
     triggerSync().catch(console.error);
   }, [loadCategories, triggerSync]);
 
-  const handleAddCategory = async (name: string): Promise<Category> => {
-    const result = await addCategory(name);
+  const handleAddCategory = async (name: string, type?: 'expense' | 'income'): Promise<Category> => {
+    const result = await addCategory(name, type);
     await loadCategories();
     return result;
   };

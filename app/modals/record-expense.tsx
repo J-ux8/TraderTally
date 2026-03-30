@@ -1,10 +1,11 @@
+import { CategorySelector } from '@/components/CategorySelector';
 import { getLocalISOString } from '@/lib/dateUtils';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Calendar as CalendarIcon, Check, Plus, TrendingDown } from "lucide-react-native";
+import { ArrowLeft, Calendar as CalendarIcon, TrendingDown } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
@@ -24,7 +25,6 @@ export default function RecordExpenseScreen() {
   const [amount, setAmount] = useState("");
   const [expenseType, setExpenseType] = useState<string>("");
   const [date, setDate] = useState<Date>(new Date());
-  const [showDropdown, setShowDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
@@ -37,14 +37,12 @@ export default function RecordExpenseScreen() {
         setExpenseType(params.category || "");
         setDate(new Date());
         setDatePickerOpen(false);
-        setShowDropdown(false);
       } else {
         // Reset form for new entry
         setAmount("");
         setExpenseType("");
         setDate(new Date());
         setDatePickerOpen(false);
-        setShowDropdown(false);
       }
     }, [params.templateId, params.amount, params.category])
   );
@@ -148,50 +146,11 @@ export default function RecordExpenseScreen() {
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Expense Type</Text>
-
-            <TouchableOpacity
-              style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor, height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 2 }]}
-              onPress={() => setShowDropdown(!showDropdown)}
-              activeOpacity={0.7}
-            >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TrendingDown size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
-                <Text style={[styles.dropdownButtonText, { color: expenseType ? colors.textColor : colors.textSecondary, fontSize: 16, fontWeight: '600' }]}>
-                  {expenseType || 'Select expense type'}
-                </Text>
-              </View>
-              <Plus size={20} color={colors.textSecondary} style={{ transform: [{ rotate: showDropdown ? '45deg' : '0deg' }] }} />
-            </TouchableOpacity>
-
-            {showDropdown && (
-              <View style={{ marginTop: 8, borderRadius: 12, borderWidth: 1, borderColor: colors.borderColor, overflow: 'hidden' }}>
-                <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="always">
-                  {[
-                    'Stock / Inventory',
-                    'Rent / Stall Fee',
-                    'Salaries / Helpers',
-                    'Transport / Fuel',
-                    'Utilities',
-                    'Maintenance / Repairs',
-                    'Business Supplies',
-                    'Market Levy / Tax',
-                    'Other'
-                  ].map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={{ padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: colors.borderColor, backgroundColor: expenseType === type ? 'rgba(30, 58, 138, 0.05)' : 'transparent' }}
-                      onPress={() => {
-                        setExpenseType(type);
-                        setShowDropdown(false);
-                      }}
-                    >
-                      <Text style={{ fontSize: 16, fontWeight: '500', color: colors.textColor }}>{type}</Text>
-                      {expenseType === type && <Check size={18} color="#1e3a8a" />}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
+            <CategorySelector
+              selectedCategoryName={expenseType}
+              onSelect={setExpenseType}
+              type="expense"
+            />
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
