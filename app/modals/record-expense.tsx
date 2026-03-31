@@ -1,15 +1,26 @@
-import { CategorySelector } from '@/components/CategorySelector';
 import { getLocalISOString } from '@/lib/dateUtils';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Calendar as CalendarIcon, TrendingDown } from "lucide-react-native";
+import { ArrowLeft, Calendar as CalendarIcon, TrendingDown, Plus, Check } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const EXPENSE_TYPES = [
+  'Stock / Inventory',
+  'Rent / Stall Fee',
+  'Salaries / Helpers',
+  'Transport / Fuel',
+  'Utilities',
+  'Maintenance / Repairs',
+  'Business Supplies',
+  'Market Levy / Tax',
+  'Other'
+];
 
 export default function RecordExpenseScreen() {
   const colors = useThemeColors();
@@ -24,8 +35,10 @@ export default function RecordExpenseScreen() {
   
   const [amount, setAmount] = useState("");
   const [expenseType, setExpenseType] = useState<string>("");
+  const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
 
@@ -35,16 +48,20 @@ export default function RecordExpenseScreen() {
       if (params.templateId && params.amount) {
         setAmount(params.amount);
         setExpenseType(params.category || "");
+        setDescription(params.description || "");
         setDate(new Date());
         setDatePickerOpen(false);
+        setShowDropdown(false);
       } else {
         // Reset form for new entry
         setAmount("");
         setExpenseType("");
+        setDescription("");
         setDate(new Date());
         setDatePickerOpen(false);
+        setShowDropdown(false);
       }
-    }, [params.templateId, params.amount, params.category])
+    }, [params.templateId, params.amount, params.category, params.description])
   );
 
   const handleAmountChange = (value: string) => {
@@ -62,11 +79,16 @@ export default function RecordExpenseScreen() {
       return;
     }
 
+    if (!expenseType) {
+      showError('Select Type', { message: 'Please select an expense type' });
+      return;
+    }
+
     setLoading(true);
     const dateStr = getLocalISOString(date);
 
     try {
-      await recordExpense(numericAmount, expenseType.trim(), null, dateStr);
+      await recordExpense(numericAmount, expenseType.trim(), description.trim(), dateStr);
       showSuccess('Expense Recorded', {
         amount: numericAmount,
         category: expenseType.trim(),
@@ -120,7 +142,7 @@ export default function RecordExpenseScreen() {
               <View style={styles.headerIcon}><TrendingDown size={20} color="#ffffff" /></View>
               <View>
                 <Text style={styles.headerTitle}>Record Expense</Text>
-                <Text style={styles.headerSubtitle}>Track your spending</Text>
+                <Text style={styles.headerSubtitle}>Track your business costs</Text>
               </View>
             </View>
             <OfflineIndicator />
@@ -145,12 +167,55 @@ export default function RecordExpenseScreen() {
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Expense Type</Text>
-            <CategorySelector
-              selectedCategoryName={expenseType}
-              onSelect={setExpenseType}
-              type="expense"
-            />
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Type of Expense</Text>
+            <TouchableOpacity 
+              style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor }]}
+              onPress={() => setShowDropdown(!showDropdown)}
+              activeOpacity={0.7}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TrendingDown size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
+                <Text style={[styles.dropdownButtonText, { color: expenseType ? colors.textColor : colors.textSecondary }]}>
+                  {expenseType || 'Select expense type...'}
+                </Text>
+              </View>
+              <Plus size={20} color={colors.textSecondary} style={{ transform: [{ rotate: showDropdown ? '45deg' : '0deg' }] }} />
+            </TouchableOpacity>
+
+            {showDropdown && (
+              <View style={[styles.dropdownContainer, { borderColor: colors.borderColor, backgroundColor: colors.cardBackground, marginTop: 8 }]}>
+                <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="always">
+                  {EXPENSE_TYPES.map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      style={[styles.option, { borderBottomColor: colors.borderColor, backgroundColor: expenseType === type ? 'rgba(30, 58, 138, 0.05)' : 'transparent' }]}
+                      onPress={() => {
+                        setExpenseType(type);
+                        setShowDropdown(false);
+                      }}
+                    >
+                      <Text style={[styles.optionText, { color: colors.textColor }]}>{type}</Text>
+                      {expenseType === type && <Check size={18} color="#1e3a8a" />}
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            )}
+          </View>
+
+          <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Notes / Description</Text>
+            <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor, height: 100, alignItems: 'flex-start', paddingTop: 12 }]}>
+              <TextInput
+                style={[styles.textInput, { color: colors.textColor, textAlignVertical: 'top' }]}
+                value={description}
+                onChangeText={setDescription}
+                placeholder="What was this expense for?"
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
@@ -215,13 +280,13 @@ const styles = StyleSheet.create({
   amountContainer: { position: 'relative' },
   amountPrefix: { position: 'absolute', left: 16, top: '50%', marginTop: -24, fontSize: 32, fontWeight: '800', zIndex: 1 },
   amountInput: { width: '100%', height: 80, paddingLeft: 56, fontSize: 36, fontWeight: '800', borderRadius: 16, borderWidth: 2, borderColor: 'rgba(30, 58, 138, 0.3)', backgroundColor: 'rgba(30, 58, 138, 0.05)' },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 2, paddingHorizontal: 16, height: 56 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 2, paddingHorizontal: 16 },
   textInput: { flex: 1, fontSize: 16, fontWeight: '500' },
   dropdownButton: { height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 2 },
   dropdownButtonText: { fontSize: 16, fontWeight: '600' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   dropdownContainer: { borderRadius: 16, borderWidth: 1, maxHeight: 400, overflow: 'hidden' },
-  option: { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  option: { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
   optionText: { fontSize: 16, fontWeight: '600' },
   dateButton: { height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 2 },
   dateButtonText: { fontSize: 16, fontWeight: '600' },
@@ -230,24 +295,4 @@ const styles = StyleSheet.create({
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   modalContent: { padding: 20, borderRadius: 24 },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#eee' },
-  categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    backgroundColor: 'transparent',
-  },
-  categoryChipActive: {
-    backgroundColor: '#1e3a8a',
-    borderColor: '#1e3a8a',
-  },
-  categoryChipText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  categoryChipTextActive: {
-    color: '#fff',
-  },
 });

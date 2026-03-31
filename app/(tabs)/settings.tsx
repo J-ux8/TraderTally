@@ -182,7 +182,7 @@ export default function SettingsScreen() {
           onPress: async () => {
             try {
               await signOut();
-              router.replace("/Authentication/login");
+              // Redirect is now handled globally by useNavigationGuard
             } catch (error: any) {
               Alert.alert("Error", error.message || "Failed to logout");
             }

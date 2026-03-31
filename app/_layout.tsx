@@ -26,6 +26,13 @@ function RootLayoutContent() {
   const appState = useRef(AppState.currentState);
   const [lastBackgroundTime, setLastBackgroundTime] = useState<number | null>(null);
   const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  const lastBackgroundTimeRef = useRef(lastBackgroundTime);
+
+  useEffect(() => {
+    pathnameRef.current = pathname;
+    lastBackgroundTimeRef.current = lastBackgroundTime;
+  }, [pathname, lastBackgroundTime]);
 
   // Add navigation guard
   useNavigationGuard();
@@ -33,7 +40,7 @@ function RootLayoutContent() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     return () => subscription.remove();
-  }, [pathname, lastBackgroundTime]);
+  }, []); // Only subscribe once on mount
 
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
     try {
@@ -51,10 +58,11 @@ function RootLayoutContent() {
         const settings = await getSecuritySettings(user.id);
         if (settings.appLockEnabled) {
           const now = Date.now();
-          const inactiveTime = lastBackgroundTime ? now - lastBackgroundTime : 0;
+          const inactiveTime = lastBackgroundTimeRef.current ? now - lastBackgroundTimeRef.current : 0;
 
           // Lock if background for more than 5 minutes (300000ms)
-          if (inactiveTime > 300000 && pathname !== '/unlock' && pathname !== '/welcome' && !pathname.includes('Authentication')) {
+          const currentPath = pathnameRef.current;
+          if (inactiveTime > 300000 && currentPath !== '/unlock' && currentPath !== '/welcome' && !currentPath.includes('Authentication')) {
             router.replace('/unlock');
           }
         }

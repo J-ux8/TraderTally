@@ -28,7 +28,7 @@ const CategoriesContext = createContext<CategoriesContextType | null>(null);
 export function CategoriesProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
-  const { triggerSync } = useSync();
+  const { triggerSync, lastSyncedAt } = useSync();
   const hasInitializedRef = useRef(false);
 
   const loadCategories = useCallback(async () => {
@@ -68,6 +68,14 @@ export function CategoriesProvider({ children }: { children: React.ReactNode }) 
 
     return () => authSub.unsubscribe();
   }, [loadCategories]);
+
+  // Handle reloads when sync finishes
+  useEffect(() => {
+    if (lastSyncedAt) {
+      console.log('[Categories] Sync detected, reloading data...');
+      loadCategories();
+    }
+  }, [lastSyncedAt, loadCategories]);
 
   const refresh = useCallback(async () => {
     await loadCategories();

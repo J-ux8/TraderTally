@@ -285,6 +285,21 @@ export class LocalDB {
           }
         }
 
+        // Special handling for categories: infer type if missing from server
+        if (table === 'categories' && filteredRecord.type === undefined) {
+          const name = (filteredRecord.name || '').toLowerCase();
+          if (
+            name.includes('sale') || 
+            name.includes('income') || 
+            name.includes('revenue') || 
+            name.includes('profit')
+          ) {
+            filteredRecord.type = 'income';
+          } else {
+            filteredRecord.type = 'expense';
+          }
+        }
+
         // Use filteredRecord for the rest of the logic
         const local = await db.getFirstAsync<LocalBaseModel>(
           `SELECT updated_at, sync_status FROM ${table} WHERE id = ?`,

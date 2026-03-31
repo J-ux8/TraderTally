@@ -92,10 +92,32 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN retry_count INTEGER DEFAULT 0`);
       }
 
-      if (table === 'categories' && !columns.includes('type')) {
-        console.log(`[Database] Migrating categories: adding type column`);
-        await database.execAsync(`ALTER TABLE categories ADD COLUMN type TEXT DEFAULT 'expense'`);
-        // One-time fix: Mark "Sale" as income if it exists
+      if (table === 'categories') {
+        if (!columns.includes('type')) {
+          console.log(`[Database] Migrating categories: adding type column`);
+          await database.execAsync(`ALTER TABLE categories ADD COLUMN type TEXT DEFAULT 'expense'`);
+        }
+        
+        // Ensure custom categories are correctly typed as income if they aren't standard expenses
+        // This fix runs every time to catch any mis-categorized local records
+        await database.execAsync(`
+          UPDATE categories 
+          SET type = 'income' 
+          WHERE type = 'expense' 
+          AND normalized_name NOT IN (
+            'rent', 'stall fee', 'rent / stall fee',
+            'stock', 'inventory', 'stock / inventory',
+            'salaries', 'helpers', 'salaries / helpers',
+            'transport', 'fuel', 'transport / fuel',
+            'utilities', 'electricity', 'water',
+            'maintenance', 'repairs', 'maintenance / repairs',
+            'supplies', 'business supplies',
+            'tax', 'levy', 'market levy', 'market levy / tax',
+            'other'
+          )
+        `);
+
+        // Explicitly ensure 'sale' is always income
         await database.execAsync(`UPDATE categories SET type = 'income' WHERE normalized_name = 'sale'`);
       }
       

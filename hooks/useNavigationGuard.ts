@@ -18,48 +18,44 @@ export function useNavigationGuard() {
         const { data: { session } } = await supabase.auth.getSession();
         const isAuthenticated = !!session?.user;
         
-        // Define protected routes
-        const authRoutes = ['/welcome', '/Authentication/login', '/Authentication/register'];
+        // Define route categories
+        const authRoutes = ['/welcome', '/Authentication/login', '/Authentication/register', '/Authentication/verify-email'];
         const protectedRoutes = ['/(tabs)', '/unlock'];
         
-        // Check if user is on auth route while authenticated
-        if (isAuthenticated && authRoutes.some(route => pathname.startsWith(route))) {
-          console.log('[NavigationGuard] Redirecting authenticated user from auth route to app');
+        const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
+        const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+
+        // Redirect logic
+        if (isAuthenticated && isAuthRoute) {
+          console.log('[NavigationGuard] Redirecting authenticated user to app');
           router.replace('/(tabs)');
-          return;
-        }
-        
-        // Check if user is on protected route while not authenticated
-        if (!isAuthenticated && protectedRoutes.some(route => pathname.startsWith(route))) {
-          console.log('[NavigationGuard] Redirecting unauthenticated user from protected route to welcome');
+        } else if (!isAuthenticated && isProtectedRoute) {
+          console.log('[NavigationGuard] Redirecting unauthenticated user to welcome');
           router.replace('/welcome');
-          return;
         }
       } catch (error) {
         console.error('[NavigationGuard] Error checking navigation permissions:', error);
       }
     };
 
-    // Small delay to ensure navigation system is ready
-    const timer = setTimeout(checkNavigationPermissions, 100);
-    
-    return () => clearTimeout(timer);
+    checkNavigationPermissions();
   }, [pathname]);
 
-  // Listen for auth state changes
+  // Global Auth State Change Listener
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       const isAuthenticated = !!session?.user;
       
       if (event === 'SIGNED_IN' && isAuthenticated) {
-        // User just signed in, redirect to app
         router.replace('/(tabs)');
-      } else if (event === 'SIGNED_OUT' && !isAuthenticated) {
-        // User just signed out, redirect to welcome
-        router.replace('/welcome');
+      } else if (event === 'SIGNED_OUT' || (event === 'USER_UPDATED' && !isAuthenticated)) {
+        // Precise logout redirection to the login screen for smoothness
+        if (!pathname.includes('Authentication') && pathname !== '/welcome') {
+          router.replace('/Authentication/login');
+        }
       }
     });
 
     return () => subscription?.unsubscribe();
-  }, []);
+  }, [pathname]);
 }

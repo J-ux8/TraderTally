@@ -60,10 +60,12 @@ export async function registerWithProfile(
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-
-  if (error) {
-    throw error;
+  try {
+    // Attempt to notify the server (may fail if offline)
+    await supabase.auth.signOut();
+  } catch (error) {
+    console.warn('[Auth] Sign out server call failed (probably offline), proceeding with local logout:', error);
+    // Even if it fails, the local session is usually cleared by the supabase client
   }
 }
 
