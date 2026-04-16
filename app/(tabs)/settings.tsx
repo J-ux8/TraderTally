@@ -1,6 +1,6 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
-import { signOut } from '@/lib/auth';
+import { signOut, deleteAccount } from '@/lib/auth';
 import { getUserProfile, updatePassword, updateUserProfile, UserProfile } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import { router, useFocusEffect } from 'expo-router';
@@ -26,7 +26,7 @@ import {
   FileText
 } from 'lucide-react-native';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
-import { getDatabase } from '@/lib/database';
+import { getDatabase, wipeDatabase } from '@/lib/database';
 import * as FileSystem from 'expo-file-system';
 // @ts-ignore - documentDirectory is sometimes missing from types in certain SDK versions
 const { documentDirectory } = FileSystem;
@@ -64,6 +64,7 @@ export default function SettingsScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   // Edit Profile Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -192,17 +193,27 @@ export default function SettingsScreen() {
     );
   }
 
-  function handleDeleteAccount() {
+  async function handleDeleteAccount() {
     Alert.alert(
       "Delete Account",
-      "Are you sure you want to delete your account? This action cannot be undone.",
+      "Are you sure you want to delete your account? This action cannot be undone and will erase all your synced data.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
-          onPress: () => {
-            Alert.alert("Info", "Account deletion feature coming soon. Please contact soporte.");
+          onPress: async () => {
+            setIsDeletingAccount(true);
+            try {
+              await deleteAccount();
+              await wipeDatabase();
+              // No need to redirect manually, global guard will catch the signout
+              Alert.alert("Account Deleted", "Your account and all associated data have been deleted.");
+            } catch (err: any) {
+              Alert.alert("Error", err.message || "Failed to delete account. Please try again.");
+            } finally {
+              setIsDeletingAccount(false);
+            }
           },
         },
       ]
@@ -470,14 +481,21 @@ export default function SettingsScreen() {
               style={[dynamicStyles.settingItem, styles.dangerItem]}
               onPress={handleDeleteAccount}
               activeOpacity={0.7}
+              disabled={isDeletingAccount}
             >
               <View style={styles.settingLeft}>
                 <View style={[styles.settingIcon, styles.dangerIcon]}>
-                  <Trash2 size={20} color="#ef4444" />
+                  {isDeletingAccount ? (
+                    <ActivityIndicator size="small" color="#ef4444" />
+                  ) : (
+                    <Trash2 size={20} color="#ef4444" />
+                  )}
                 </View>
-                <Text style={[dynamicStyles.settingLabel, styles.dangerText]}>Delete Account</Text>
+                <Text style={[dynamicStyles.settingLabel, styles.dangerText]}>
+                  {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
+                </Text>
               </View>
-              <ChevronRight size={20} color="#ef4444" />
+              {!isDeletingAccount && <ChevronRight size={20} color="#ef4444" />}
             </TouchableOpacity>
           </View>
         </View>

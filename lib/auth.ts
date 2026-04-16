@@ -106,3 +106,22 @@ export async function updatePassword(newPassword: string) {
 
   return data;
 }
+
+/**
+ * Deletes the user account permanently across both the backend and local session.
+ */
+export async function deleteAccount() {
+  if (!NetworkMonitor.getStatus()) {
+    throw new Error("You are offline. Please check your internet connection.");
+  }
+
+  // Use the RPC function to bypass RLS limitations and allow the user to delete themselves
+  const { error } = await supabase.rpc('delete_user');
+
+  if (error) {
+    throw error;
+  }
+
+  // Clear local session afterwards
+  await signOut();
+}
