@@ -14,7 +14,9 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { Activity, LogOut, Store, Plus } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
+import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { Template } from '@/lib/templates';
 import { TransactionGroup } from '@/types/grouping';
 
@@ -242,8 +244,13 @@ export default function HomeScreen() {
             <View style={styles.heroTop}>
               <View style={styles.heroLeft}>
                 <View style={styles.iconContainer}>
-                  <Store size={24} color="#ffffff" />
+                  <Image
+                    source={require('../../assets/images/icon.png')}
+                    style={{ width: 32, height: 32 }}
+                    contentFit="contain"
+                  />
                 </View>
+
                 <View>
                   <Text style={styles.heroTitle}>MobiBooks</Text>
                   <Text style={styles.heroDate}>{formatDate(new Date())}</Text>

@@ -1,8 +1,10 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
 import { signOut, deleteAccount } from '@/lib/auth';
-import { getUserProfile, updatePassword, updateUserProfile, UserProfile } from '@/lib/profile';
+import { getUserProfile, updatePassword, updateUserProfile, UserProfile, createUserProfile } from '@/lib/profile';
+import { LocalDB } from '@/database/localDb';
 import { supabase } from '@/lib/supabase';
+
 import { router, useFocusEffect } from 'expo-router';
 import {
   Bell,
@@ -115,7 +117,14 @@ export default function SettingsScreen() {
         setFullName(profileData.full_name || '');
         setPhoneNumber(profileData.phone_number || '');
         setBusinessType(profileData.business_type || 'Other');
+        
+        // If profile was found in metadata but NOT in local DB, save it locally now
+        const local = await LocalDB.getById('profiles', user.id);
+        if (!local && profileData.full_name) {
+          await createUserProfile(user.id, user.id, profileData.full_name, profileData.phone_number, profileData.business_type);
+        }
       }
+
     } catch (error) {
       console.error("Error loading profile:", error);
     }

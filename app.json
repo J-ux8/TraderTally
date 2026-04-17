@@ -5,7 +5,14 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#1e3a8a"
+    },
+
     "scheme": "mobibooks",
+
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -31,10 +38,12 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff",
+          "backgroundColor": "#1e3a8a",
           "dark": {
-            "backgroundColor": "#151718"
+            "backgroundColor": "#1e3a8a"
           }
+
+
         }
       ],
       "@react-native-community/datetimepicker",

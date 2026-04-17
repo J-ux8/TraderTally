@@ -17,12 +17,30 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 
     // Fetch from local db first
     const localProfile = await LocalDB.getById<UserProfile>('profiles', userId);
-    return localProfile;
+    if (localProfile) return localProfile;
+
+    // Fallback: Check user metadata if local profile is missing
+    const user = session.user;
+    if (user.user_metadata?.full_name) {
+      return {
+        id: user.id,
+        full_name: user.user_metadata.full_name,
+        email: user.email || '',
+        phone_number: user.user_metadata.phone_number || '',
+        business_type: user.user_metadata.business_type || 'Other',
+        created_at: user.created_at,
+        updated_at: user.updated_at || user.created_at,
+        sync_status: 'synced'
+      } as UserProfile;
+    }
+
+    return null;
   } catch (error) {
     console.error('[Profile] Error loading profile:', error);
     return null;
   }
 }
+
 
 /**
  * Create a new user profile locally

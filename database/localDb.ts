@@ -62,8 +62,7 @@ export class LocalDB {
     
     const record: T & LocalBaseModel = {
       ...data,
-      id: Crypto.randomUUID(),
-      user_id: userId,
+      id: data.id || Crypto.randomUUID(),
       created_at: now,
       updated_at: now,
       is_deleted: 0,
@@ -71,14 +70,34 @@ export class LocalDB {
       retry_count: 0
     } as any;
 
-    const columns = Object.keys(record);
+    // Only add user_id if the table has that column (profiles uses id as user_id)
+    if (table !== 'profiles') {
+      (record as any).user_id = userId;
+    }
+
+    // Only add user_id to columns if the table has that column (profiles uses id as user_id)
+    const dbRecord: any = { ...record };
+    if (table === 'profiles') {
+      delete dbRecord.user_id;
+    } else {
+      dbRecord.user_id = userId;
+    }
+
+    const columns = Object.keys(dbRecord);
     const placeholders = columns.map(() => '?').join(', ');
-    const values = this.mapValues(Object.values(record));
+    const values = this.mapValues(Object.values(dbRecord));
 
     await db.runAsync(
-      `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
+      `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
       ...values
     );
+
+    // After DB operation, ensure the returned object has user_id for interface compatibility
+    if (table === 'profiles') {
+      (record as any).user_id = record.id;
+    } else {
+      (record as any).user_id = userId;
+    }
 
     return record;
   }
@@ -144,10 +163,18 @@ export class LocalDB {
       return [];
     }
     
-    return await db.getAllAsync<T>(
-      `SELECT * FROM ${table} WHERE user_id = ? AND is_deleted = 0 ORDER BY updated_at DESC`,
+    const idColumn = table === 'profiles' ? 'id' : 'user_id';
+    
+    const records = await db.getAllAsync<T>(
+      `SELECT * FROM ${table} WHERE ${idColumn} = ? AND is_deleted = 0 ORDER BY updated_at DESC`,
       userId
     );
+
+    if (table === 'profiles') {
+      records.forEach((r: any) => r.user_id = r.id);
+    }
+
+    return records;
   }
 
   /**
@@ -155,10 +182,16 @@ export class LocalDB {
    */
   static async getById<T>(table: string, id: string): Promise<T | null> {
     const db = await getDatabase();
-    return await db.getFirstAsync<T>(
+    const result = await db.getFirstAsync<T>(
       `SELECT * FROM ${table} WHERE id = ?`,
       id
     );
+    
+    if (result && table === 'profiles') {
+      (result as any).user_id = (result as any).id;
+    }
+    
+    return result;
   }
 
   /**
@@ -207,11 +240,17 @@ export class LocalDB {
     const db = await getDatabase();
     const idColumn = table === 'profiles' ? 'id' : 'user_id';
     
-    return await db.getAllAsync<T>(
+    const records = await db.getAllAsync<T>(
       `SELECT * FROM ${table} WHERE ${idColumn} = ? AND sync_status IN ('pending', 'failed') AND retry_count < 5 LIMIT ?`,
       userId,
       limit
     );
+
+    if (table === 'profiles') {
+      records.forEach((r: any) => r.user_id = r.id);
+    }
+
+    return records;
   }
 
   /**
@@ -330,7 +369,7 @@ export class LocalDB {
           const values = this.mapValues(Object.values(filteredRecord));
 
           await db.runAsync(
-            `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
+            `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
             ...values
           );
         }

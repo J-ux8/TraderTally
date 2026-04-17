@@ -12,7 +12,9 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import { Image } from 'expo-image';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 const { width, height } = Dimensions.get('window');
 
@@ -150,9 +152,20 @@ export default function WelcomeScreen() {
                                 <View style={styles.decorCircle1} />
                                 <View style={styles.decorCircle2} />
                                 <View style={styles.decorCircle3} />
-                                <View style={[styles.iconContainer, { borderColor: 'rgba(255,255,255,0.3)' }]}>
-                                    <IconComponent size={56} color="#ffffff" />
+                                <View style={[styles.iconContainer, 
+                                    { borderColor: 'rgba(255,255,255,0.3)', backgroundColor: item.id === '1' ? 'transparent' : 'rgba(255,255,255,0.15)' }]}>
+                                    {item.id === '1' ? (
+                                        <Image
+                                            source={require('../assets/images/icon.png')}
+                                            style={{ width: 100, height: 100 }}
+                                            contentFit="contain"
+                                        />
+                                    ) : (
+                                        <IconComponent size={56} color="#ffffff" />
+                                    )}
                                 </View>
+
+
                                 <Text style={styles.slideSubtitle}>{item.subtitle}</Text>
                             </View>
                             <View style={styles.slideContent}>

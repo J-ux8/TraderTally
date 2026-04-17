@@ -3,7 +3,9 @@ import { router } from "expo-router";
 import { ArrowRight, Lock, Mail, Store } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -104,8 +106,13 @@ export default function LoginScreen() {
           <View style={styles.headerContent}>
             <View style={styles.headerIconContainer}>
               <View style={styles.headerIcon}>
-                <Store size={28} color="#ffffff" />
+                <Image
+                  source={require('../../assets/images/icon.png')}
+                  style={{ width: 48, height: 48 }}
+                  contentFit="contain"
+                />
               </View>
+
               <View style={styles.headerTextContainer}>
                 <Text style={styles.headerTitle}>Welcome Back</Text>
                 <Text style={styles.headerSubtitle}>Sign in to continue</Text>
