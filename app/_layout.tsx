@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -8,7 +9,9 @@ import { TransactionsProvider } from '@/contexts/TransactionsContext';
 import { CategoriesProvider } from '@/contexts/CategoriesContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { TemplatesProvider } from '@/contexts/TemplatesContext';
+import { CartProvider } from '@/contexts/CartContext';
 import { useNavigationGuard } from '@/hooks/useNavigationGuard';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React from 'react';
 
 export const unstable_settings = {
@@ -190,6 +193,14 @@ function RootLayoutContent() {
             animation: 'slide_from_right'
           }} 
         />
+        <Stack.Screen 
+          name="modals/new-sale" 
+          options={{ 
+            headerShown: false, 
+            animation: 'slide_from_bottom',
+            presentation: 'fullScreenModal'
+          }} 
+        />
       </Stack>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
     </NavigationThemeProvider>
@@ -200,18 +211,22 @@ import { SyncProvider } from '@/context/SyncContext';
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <SyncProvider>
-        <TransactionsProvider>
-          <CategoriesProvider>
-            <TemplatesProvider>
-              <ToastProvider>
-                <RootLayoutContent />
-              </ToastProvider>
-            </TemplatesProvider>
-          </CategoriesProvider>
-        </TransactionsProvider>
-      </SyncProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <SyncProvider>
+          <TransactionsProvider>
+            <CategoriesProvider>
+              <TemplatesProvider>
+                <CartProvider>
+                  <ToastProvider>
+                    <RootLayoutContent />
+                  </ToastProvider>
+                </CartProvider>
+              </TemplatesProvider>
+            </CategoriesProvider>
+          </TransactionsProvider>
+        </SyncProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

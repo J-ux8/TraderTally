@@ -1,4 +1,3 @@
-import { getLocalISOString } from "./dateUtils";
 import { LocalDB, LocalBaseModel } from "../database/localDb";
 import { SyncEngine } from "../sync/syncEngine";
 
@@ -8,6 +7,7 @@ export interface Transaction extends LocalBaseModel {
   description: string | null;
   transaction_date: string;
   customer_id: string | null;
+  linked_sale_id: string | null;
 }
 
 /**
@@ -18,14 +18,16 @@ export async function recordSale(
   category: string | null,
   description: string | null,
   date?: string,
-  customerId?: string
+  customerId?: string,
+  linkedSaleId?: string
 ): Promise<Transaction> {
   const record = await LocalDB.create<Transaction>('transactions', {
     amount: Math.abs(amount),
     category,
     description,
     transaction_date: date || new Date().toISOString(),
-    customer_id: customerId || null
+    customer_id: customerId || null,
+    linked_sale_id: linkedSaleId || null
   } as any);
 
   // Trigger background sync (non-blocking)
@@ -41,14 +43,16 @@ export async function recordExpense(
   category: string | null,
   description: string | null,
   date?: string,
-  customerId?: string
+  customerId?: string,
+  linkedSaleId?: string
 ): Promise<Transaction> {
   const record = await LocalDB.create<Transaction>('transactions', {
     amount: -Math.abs(amount),
     category,
     description,
     transaction_date: date || new Date().toISOString(),
-    customer_id: customerId || null
+    customer_id: customerId || null,
+    linked_sale_id: linkedSaleId || null
   } as any);
 
   // Trigger background sync (non-blocking)

@@ -80,9 +80,9 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
                     <Plus size={20} color={colors.textSecondary} style={{ transform: [{ rotate: dropdownVisible ? '45deg' : '0deg' }] }} />
                 </TouchableOpacity>
 
-                {/* "+" Button */}
+                {/* "Add New" Button */}
                 <TouchableOpacity
-                    style={styles.addButton}
+                    style={[styles.addNewButton, { backgroundColor: colors.primaryColor }]}
                     onPress={() => {
                         setModalVisible(true);
                         setDropdownVisible(false);
@@ -90,7 +90,8 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
                         setNewCatName('');
                     }}
                 >
-                    <Plus size={24} color="#FFF" />
+                    <Text style={styles.addNewText}>Add New</Text>
+                    <Plus size={16} color="#FFF" />
                 </TouchableOpacity>
             </View>
 
@@ -204,7 +205,8 @@ const styles = StyleSheet.create({
     row: { flexDirection: 'row', alignItems: 'center', gap: 10 },
     dropdownButton: { flex: 1, height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 2 },
     dropdownButtonText: { fontSize: 16, fontWeight: '600' },
-    addButton: { backgroundColor: '#1e3a8a', height: 56, width: 56, justifyContent: 'center', alignItems: 'center', borderRadius: 12 },
+    addNewButton: { height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderRadius: 12, gap: 8 },
+    addNewText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
     dropdownContainer: { marginTop: 8, borderRadius: 12, borderWidth: 1, overflow: 'hidden' },
     option: { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
     optionText: { fontSize: 16, fontWeight: '500' },

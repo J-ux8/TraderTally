@@ -1,5 +1,5 @@
 import { getLocalISOString } from '@/lib/dateUtils';
-import { CategorySelector } from '@/components/CategorySelector';
+import { ProductSelector } from '@/components/ProductSelector';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
@@ -11,6 +11,9 @@ import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, T
 import { Calendar } from 'react-native-calendars';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getOrCreateCustomer } from '@/lib/customers';
+import { Product } from '@/lib/products';
+import { completeSale } from '@/lib/sales';
+import { CartItem } from '@/contexts/CartContext';
 
 export default function RecordSaleScreen() {
   const colors = useThemeColors();
@@ -24,8 +27,9 @@ export default function RecordSaleScreen() {
   }>();
   
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState("");
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
 
   const [paymentMode, setPaymentMode] = useState<'Paid' | 'Credit'>('Paid');
   const [description, setDescription] = useState("");
@@ -36,51 +40,31 @@ export default function RecordSaleScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      // Pre-fill from template if provided
       if (params.templateId && params.amount) {
         setAmount(params.amount);
-        setCategory(params.category || "");
         setDescription(params.description || "");
         setPaymentMode('Paid');
         setDate(new Date());
         setDatePickerOpen(false);
       } else {
-        // Reset form for new entry
         setAmount("");
-        setCategory("");
+        setSelectedProduct(null);
         setCustomerName("");
+        setCustomerPhone("");
         setPaymentMode('Paid');
         setDescription("");
         setDate(new Date());
         setDatePickerOpen(false);
       }
-    }, [params.templateId, params.amount, params.category, params.description])
+    }, [params.templateId, params.amount, params.description])
   );
 
   useEffect(() => {
-    if (paymentMode === 'Credit') {
-      const numericAmount = parseFloat(amount);
-      if (amount && !isNaN(numericAmount) && numericAmount > 0) {
-        // Redirect to credit book with initial values
-        router.push({
-          pathname: '/(tabs)/debts',
-          params: {
-            amount: amount,
-            note: description,
-            isSale: 'true',
-            category: category
-          }
-        });
-        // Reset payment mode so it doesn't loop when they come back
-        setPaymentMode('Paid');
-      } else {
-        if (amount) {
-          Alert.alert('Incomplete Amount', 'Please set a valid amount before moving to Credit Book.');
-          setPaymentMode('Paid');
-        }
-      }
+    if (paymentMode === 'Credit' && !customerName.trim()) {
+      showError('Customer Required', { message: 'Credit sales require a customer name' });
+      setPaymentMode('Paid');
     }
-  }, [paymentMode, amount, description, category]);
+  }, [paymentMode]);
 
 
   const handleAmountChange = (value: string) => {
@@ -98,30 +82,48 @@ export default function RecordSaleScreen() {
       return;
     }
 
-    if (!category.trim()) {
-      showError('Missing Category', { message: 'Please enter a category or item name' });
+    if (!selectedProduct) {
+      showError('Missing Product', { message: 'Please select or create a product' });
+      return;
+    }
+    
+    if (paymentMode === 'Credit' && !customerName.trim()) {
+      showError('Customer Required', { message: 'Please enter a customer name for credit sales.' });
       return;
     }
 
     setLoading(true);
-    const dateStr = getLocalISOString(date);
 
     try {
       let customerId = undefined;
       if (customerName.trim()) {
         try {
-          const customer = await getOrCreateCustomer(customerName.trim());
+          const customer = await getOrCreateCustomer(customerName.trim(), customerPhone.trim());
           customerId = customer.id;
         } catch (e) {
           console.error('[RecordSale] Failed to link customer:', e);
         }
       }
 
-      await recordSale(numericAmount, category.trim(), description.trim() || null, dateStr, customerId);
+      const cartItem: CartItem = {
+         product_id: selectedProduct.id,
+         name: selectedProduct.name,
+         price: numericAmount,
+         quantity: 1
+      };
 
-      showSuccess('Sale Recorded', {
+      await completeSale(
+        [cartItem], 
+        numericAmount, 
+        paymentMode, 
+        customerId, 
+        customerName.trim(), 
+        customerPhone.trim(),
+        getLocalISOString(date)
+      );
+
+      showSuccess(paymentMode === 'Credit' ? 'Credit Sale Recorded' : 'Sale Recorded', {
         amount: numericAmount,
-        category: category.trim(),
         message: 'Transaction saved successfully',
       });
       router.back();
@@ -192,6 +194,22 @@ export default function RecordSaleScreen() {
                 placeholderTextColor={colors.textSecondary}
               />
             </View>
+            
+            {paymentMode === 'Credit' && (
+              <>
+                <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>Customer Phone (Optional)</Text>
+                <View style={[styles.inputContainer, { borderColor: colors.borderColor, backgroundColor: colors.inputBackground }]}>
+                  <TextInput
+                    style={[styles.textInput, { color: colors.textColor }]}
+                    value={customerPhone}
+                    onChangeText={setCustomerPhone}
+                    placeholder="e.g. 0970000000"
+                    keyboardType="phone-pad"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+                </View>
+              </>
+            )}
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
@@ -211,12 +229,16 @@ export default function RecordSaleScreen() {
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Category / Item Name</Text>
-            <CategorySelector
-              selectedCategoryName={category}
-              onSelect={setCategory}
-              type="income"
-            />
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Select Product</Text>
+            <View style={{ zIndex: 10 }}>
+              <ProductSelector
+                selectedProduct={selectedProduct}
+                onSelect={(prod) => {
+                  setSelectedProduct(prod);
+                  if (prod && !amount) setAmount(prod.price.toString());
+                }}
+              />
+            </View>
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>

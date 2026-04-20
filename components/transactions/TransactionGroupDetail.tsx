@@ -147,6 +147,14 @@ const TransactionItem = memo<TransactionItemProps>(({
                 </Text>
               </View>
             )}
+
+            <View style={{ flex: 1 }} />
+
+            <View style={styles.txnIdBadge}>
+              <Text style={[styles.txnIdText, { color: colors.textSecondary }]}>
+                #{transaction.id ? transaction.id.split('-')[0].substring(0, 8).toUpperCase() : 'UNKNOWN'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -482,6 +490,19 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 11,
     fontWeight: '600',
+  },
+  txnIdBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.02)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  txnIdText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   chevronContainer: {
     marginLeft: 4,

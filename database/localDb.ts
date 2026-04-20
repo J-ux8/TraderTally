@@ -1,7 +1,7 @@
 import { getDatabase } from '../lib/database';
 import { supabase } from '../lib/supabase';
 import { NetworkMonitor } from '../sync/NetworkMonitor';
-import * as Crypto from 'expo-crypto';
+import { randomUUID } from 'expo-crypto';
 
 export type SyncStatus = 'pending' | 'syncing' | 'synced' | 'failed';
 
@@ -62,7 +62,7 @@ export class LocalDB {
     
     const record: T & LocalBaseModel = {
       ...data,
-      id: data.id || Crypto.randomUUID(),
+      id: data.id || randomUUID(),
       created_at: now,
       updated_at: now,
       is_deleted: 0,
@@ -289,7 +289,7 @@ export class LocalDB {
    */
   static async recoverSyncStatus(): Promise<void> {
     const db = await getDatabase();
-    const tables = ['profiles', 'transactions', 'categories', 'debts', 'transaction_templates'];
+    const tables = ['profiles', 'transactions', 'categories', 'debts', 'transaction_templates', 'products', 'sales', 'sale_items'];
     for (const table of tables) {
       await db.runAsync(
         `UPDATE ${table} SET sync_status = 'pending' WHERE sync_status = 'syncing'`

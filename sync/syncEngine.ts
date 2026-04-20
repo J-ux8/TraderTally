@@ -11,7 +11,17 @@ console.log('>>> [SYNC] ENGINE LOADED - STACK VERSION: 5.0 <<<');
  */
 export class SyncEngine {
   private static isSyncing: boolean = false;
-  private static syncTables = ['profiles', 'transactions', 'categories', 'debts', 'transaction_templates'];
+  private static syncTables = [
+    'profiles', 
+    'categories', 
+    'products', 
+    'debts', 
+    'customers', 
+    'transaction_templates', 
+    'sales', 
+    'sale_items', 
+    'transactions'
+  ];
 
   /**
    * Main sync orchestration

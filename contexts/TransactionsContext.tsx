@@ -120,8 +120,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     triggerSync().catch(console.error);
   }, [loadTransactions, triggerSync]);
 
-  const handleRecordSale = useCallback(async (amount: number, category: string | null, description: string | null, date?: string, customerId?: string) => {
-    const result = await recordSale(amount, category, description, date, customerId);
+  const handleRecordSale = useCallback(async (amount: number, category: string | null, description: string | null, date?: string, customerId?: string, linkedSaleId?: string) => {
+    const result = await recordSale(amount, category, description, date, customerId, linkedSaleId);
     // Optimistic UI update
     setTransactions(prev => [result as Transaction, ...prev]);
     // Trigger background sync push
@@ -129,8 +129,8 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     return result;
   }, [triggerSync]);
 
-  const handleRecordExpense = useCallback(async (amount: number, category: string | null, description: string | null, date?: string, customerId?: string) => {
-    const result = await recordExpense(amount, category, description, date, customerId);
+  const handleRecordExpense = useCallback(async (amount: number, category: string | null, description: string | null, date?: string, customerId?: string, linkedSaleId?: string) => {
+    const result = await recordExpense(amount, category, description, date, customerId, linkedSaleId);
     // Optimistic UI update
     setTransactions(prev => [result as Transaction, ...prev]);
     // Trigger background sync push

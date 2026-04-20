@@ -10,7 +10,9 @@ export interface Debt extends LocalBaseModel {
   due_date: string | null;
   note: string | null;
   is_settled: number;
+  type: 'receivable' | 'payable';
 }
+
 
 /**
  * Get user debts
@@ -28,7 +30,8 @@ export async function addDebt(
   amount: number,
   due_date?: string,
   note?: string,
-  customer_phone?: string
+  customer_phone?: string,
+  type: 'receivable' | 'payable' = 'receivable'
 ): Promise<Debt> {
   // Try to link a customer
   let customerId = null;
@@ -46,7 +49,8 @@ export async function addDebt(
     amount,
     due_date: due_date || null,
     note: note || null,
-    is_settled: 0
+    is_settled: 0,
+    type
   } as any);
 
   SyncEngine.syncAll().catch(console.error);
@@ -62,14 +66,16 @@ export async function updateDebt(
   amount: number,
   due_date?: string,
   note?: string,
-  customer_phone?: string
+  customer_phone?: string,
+  type?: 'receivable' | 'payable'
 ): Promise<void> {
   await LocalDB.update('debts', id, {
     customer_name,
     customer_phone: customer_phone || null,
     amount,
     due_date: due_date || null,
-    note: note || null
+    note: note || null,
+    ...(type && { type })
   });
 
   SyncEngine.syncAll().catch(console.error);
@@ -109,21 +115,22 @@ export async function batchDeleteDebts(ids: string[]): Promise<void> {
 }
 
 export async function batchUpdateDebts(
-  updates: Array<{ id: string; customer_name: string; amount: number; due_date?: string; note?: string }>
+  updates: Array<{ id: string; customer_name: string; amount: number; due_date?: string; note?: string; type?: 'receivable' | 'payable' }>
 ): Promise<void> {
   for (const update of updates) {
     await LocalDB.update('debts', update.id, {
       customer_name: update.customer_name,
       amount: update.amount,
       due_date: update.due_date,
-      note: update.note
+      note: update.note,
+      ...(update.type && { type: update.type })
     });
   }
   SyncEngine.syncAll().catch(console.error);
 }
 
 export async function batchInsertDebts(
-  debts: Array<{ customer_name: string; amount: number; due_date?: string; note?: string }>
+  debts: Array<{ customer_name: string; amount: number; due_date?: string; note?: string; type?: 'receivable' | 'payable' }>
 ): Promise<Debt[]> {
   const results: Debt[] = [];
   for (const debt of debts) {
@@ -132,7 +139,8 @@ export async function batchInsertDebts(
       amount: debt.amount,
       due_date: debt.due_date,
       note: debt.note,
-      is_settled: 0
+      is_settled: 0,
+      type: debt.type || 'receivable'
     } as any);
     results.push(res);
   }

@@ -71,6 +71,12 @@ const TransactionItem = React.memo(({
             <View style={styles.dateTimeContainer}>
               <Text style={dynamicStyles.date}>{formatDate(transaction.transaction_date)}</Text>
               <Text style={dynamicStyles.time}>{formatTime(transaction.transaction_date)}</Text>
+              
+              <View style={styles.txnIdBadge}>
+                <Text style={styles.txnIdText}>
+                  #{transaction.id ? transaction.id.split('-')[0].substring(0, 8).toUpperCase() : 'UNKNOWN'}
+                </Text>
+              </View>
             </View>
           </View>
         </View>
@@ -506,9 +512,11 @@ const styles = StyleSheet.create({
   typeIcon: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   transactionInfo: { flex: 1 },
   amount: { fontSize: 20, fontWeight: '700', marginBottom: 4 },
-  dateTimeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  date: { fontSize: 14 },
+  dateTimeContainer: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  date: { fontSize: 13 },
   time: { fontSize: 12, fontWeight: '500' },
+  txnIdBadge: { backgroundColor: 'rgba(0,0,0,0.03)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(0,0,0,0.05)' },
+  txnIdText: { fontSize: 10, fontWeight: '700', color: '#666', letterSpacing: 0.5 },
   transactionActions: { flexDirection: 'row', gap: 8 },
   actionButton: { width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(16, 185, 129, 0.1)', justifyContent: 'center', alignItems: 'center' },
   deleteButton: { backgroundColor: 'rgba(239, 68, 68, 0.1)' },

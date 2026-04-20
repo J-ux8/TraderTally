@@ -15,7 +15,7 @@ export function useDebts() {
   const [hasMore, setHasMore] = useState(true);
   const isLoadingRef = useRef(false);
   const hasInitializedRef = useRef(false);
-  const { recordSale } = useTransactionsContext();
+  const { recordSale, recordExpense } = useTransactionsContext();
   const { triggerSync } = useSync();
 
   // Memoize debt calculations
@@ -27,6 +27,8 @@ export function useDebts() {
     return {
       unsettled,
       settled,
+      receivablesValue: unsettled.filter(d => (d.type || 'receivable') === 'receivable').reduce((sum, d) => sum + (d.amount || 0), 0),
+      payablesValue: unsettled.filter(d => d.type === 'payable').reduce((sum, d) => sum + (d.amount || 0), 0),
       totalAmount,
       count: unsettled.length,
     };
@@ -90,9 +92,10 @@ export function useDebts() {
     amount: number,
     dueDate: string | null,
     note: string | null,
-    customerPhone?: string
+    customerPhone?: string,
+    type?: 'receivable' | 'payable'
   ) => {
-    const newDebt = await addDebt(customerName, amount, dueDate || undefined, note || undefined, customerPhone);
+    const newDebt = await addDebt(customerName, amount, dueDate || undefined, note || undefined, customerPhone, type || 'receivable');
     // Optimistic UI update - add to beginning
     setDebts(prev => [newDebt, ...prev]);
     // Trigger background sync push
@@ -108,6 +111,7 @@ export function useDebts() {
       due_date: string | null;
       note: string | null;
       customer_phone?: string;
+      type?: 'receivable' | 'payable';
     }
   ) => {
     // Optimistic UI update
@@ -118,7 +122,7 @@ export function useDebts() {
     ));
     
     try {
-      await updateDebt(id, data.customer_name, data.amount, data.due_date || undefined, data.note || undefined, data.customer_phone);
+      await updateDebt(id, data.customer_name, data.amount, data.due_date || undefined, data.note || undefined, data.customer_phone, data.type);
       // Trigger background sync push
       triggerSync().catch(console.error);
     } catch (error) {
@@ -143,15 +147,25 @@ export function useDebts() {
       // Trigger background sync push
       triggerSync().catch(console.error);
 
-      // Recording the sale as a transaction ONLY when settled (paid)
+      // Recording the transaction
       try {
-        await recordSale(
-          debtToSettle.amount,
-          'Debt Payment',
-          `Settled: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
-          getLocalISOString().split('T')[0],
-          debtToSettle.customer_id
-        );
+        if (debtToSettle.type === 'payable') {
+          await recordExpense(
+            debtToSettle.amount,
+            'Debt Payment',
+            `Paid: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
+            getLocalISOString().split('T')[0],
+            debtToSettle.customer_id
+          );
+        } else {
+          await recordSale(
+            debtToSettle.amount,
+            'Revenue Collection',
+            `Received: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
+            getLocalISOString().split('T')[0],
+            debtToSettle.customer_id
+          );
+        }
       } catch (txError) {
         console.error('Error recording transaction for settled debt:', txError);
       }

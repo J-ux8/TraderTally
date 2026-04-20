@@ -1,5 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { SCHEMA } from '../database/schema';
+import { supabase } from './supabase';
+import { randomUUID } from 'expo-crypto';
 
 console.log('>>> [DB] MODULE LOADED - STACK VERSION: 5.0 <<<');
 
@@ -58,7 +60,7 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
     await database.execAsync(SCHEMA.TABLES.sync_metadata);
   }
 
-  const tablesToSync = ['transactions', 'categories', 'debts', 'transaction_templates', 'customers'];
+  const tablesToSync = ['transactions', 'categories', 'debts', 'transaction_templates', 'customers', 'products', 'sales', 'sale_items'];
   
   for (const table of tablesToSync) {
     try {
@@ -121,9 +123,15 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
         await database.execAsync(`UPDATE categories SET type = 'income' WHERE normalized_name = 'sale'`);
       }
       
-      if (table === 'transactions' && !columns.includes('customer_id')) {
-        console.log(`[Database] Migrating transactions: adding customer_id`);
-        await database.execAsync(`ALTER TABLE transactions ADD COLUMN customer_id TEXT`);
+      if (table === 'transactions') {
+        if (!columns.includes('customer_id')) {
+          console.log(`[Database] Migrating transactions: adding customer_id`);
+          await database.execAsync(`ALTER TABLE transactions ADD COLUMN customer_id TEXT`);
+        }
+        if (!columns.includes('linked_sale_id')) {
+          console.log(`[Database] Migrating transactions: adding linked_sale_id`);
+          await database.execAsync(`ALTER TABLE transactions ADD COLUMN linked_sale_id TEXT`);
+        }
       }
 
       if (table === 'debts') {
@@ -135,11 +143,44 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
           console.log(`[Database] Migrating debts: adding customer_phone`);
           await database.execAsync(`ALTER TABLE debts ADD COLUMN customer_phone TEXT`);
         }
+        if (!columns.includes('type')) {
+          console.log(`[Database] Migrating debts: adding type column`);
+          await database.execAsync(`ALTER TABLE debts ADD COLUMN type TEXT DEFAULT 'receivable'`);
+        }
+      }
+
+      if (table === 'products') {
+        if (!columns.includes('display_name')) {
+          console.log(`[Database] Migrating products: adding display_name column`);
+          await database.execAsync(`ALTER TABLE products ADD COLUMN display_name TEXT`);
+          // Set display_name to name initially
+          await database.execAsync(`UPDATE products SET display_name = name WHERE display_name IS NULL`);
+        }
+        if (!columns.includes('usage_count')) {
+          console.log(`[Database] Migrating products: adding usage_count column`);
+          await database.execAsync(`ALTER TABLE products ADD COLUMN usage_count INTEGER DEFAULT 0`);
+        }
+        if (!columns.includes('stock_quantity')) {
+          console.log(`[Database] Migrating products: adding stock_quantity column`);
+          await database.execAsync(`ALTER TABLE products ADD COLUMN stock_quantity REAL`);
+        }
       }
     } catch (e) {
       console.error(`[Database] Migration failed for ${table}:`, e);
       throw e; // Re-throw to prevent index creation on broken state
     }
+  }
+
+  // 2.5 Dynamic Cleanup: Remove previous example products to ensure a clean slate
+  try {
+    const examples = ['bread', 'eggs', 'drinks', 'sugar', 'airtime', 'general'];
+    for (const name of examples) {
+      await database.execAsync(`DELETE FROM products WHERE LOWER(name) = '${name}' AND usage_count = 0`);
+      await database.execAsync(`DELETE FROM products WHERE LOWER(display_name) = '${name}' AND usage_count = 0`);
+    }
+    console.log('[Database] Scoped cleanup of examples completed');
+  } catch (e) {
+    console.warn('[Database] Scoped cleanup failed:', e);
   }
 
   // 3. Create all indexes AFTER tables exist and columns are migrated

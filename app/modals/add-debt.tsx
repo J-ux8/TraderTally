@@ -13,6 +13,7 @@ export default function AddDebtScreen() {
   const params = useLocalSearchParams<{ amount?: string; note?: string; isSale?: string; category?: string }>();
   const { createDebt: createDebtFromHook, refresh: refreshDebts } = useDebts();
   const { success: showSuccess, error: showError } = useToastContext();
+  const [debtType, setDebtType] = useState<'receivable' | 'payable'>((params as any).type || 'receivable');
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
   const [amount, setAmount] = useState(params.amount || "");
@@ -25,6 +26,7 @@ export default function AddDebtScreen() {
   useFocusEffect(
     useCallback(() => {
       // Clear form when screen is focused
+      setDebtType((params as any).type || 'receivable');
       setCustomerName("");
       setCustomerPhone("");
       setAmount("");
@@ -43,7 +45,7 @@ export default function AddDebtScreen() {
 
   async function handleSubmit() {
     if (!customerName.trim()) {
-      showError('Missing Customer', { message: 'Please enter customer name' });
+      showError(debtType === 'receivable' ? 'Missing Customer' : 'Missing Supplier', { message: `Please enter ${debtType === 'receivable' ? 'customer' : 'supplier'} name` });
       return;
     }
 
@@ -61,20 +63,21 @@ export default function AddDebtScreen() {
         numericAmount,
         dueDate ? getLocalISOString(dueDate).split("T")[0] : null,
         note.trim() || null,
-        customerPhone.trim() || undefined
+        customerPhone.trim() || undefined,
+        debtType
       );
 
       await refreshDebts(true);
 
-      showSuccess('Credit Added', {
+      showSuccess(debtType === 'receivable' ? 'Credit Added' : 'Debt Recorded', {
         amount: numericAmount,
         category: customerName.trim(),
-        message: 'Added to Credit Book',
+        message: debtType === 'receivable' ? 'Added to Credit Book' : 'Added to Money I Owe',
       });
       router.back();
     } catch (error: any) {
       console.error('Error recording debt:', error);
-      showError('Failed to Add Credit', { message: error.message || 'Please try again' });
+      showError(debtType === 'receivable' ? 'Failed to Add Credit' : 'Failed to Record Debt', { message: error.message || 'Please try again' });
     } finally {
       setLoading(false);
     }
@@ -125,8 +128,8 @@ export default function AddDebtScreen() {
                 <Plus size={20} color="#ffffff" />
               </View>
               <View>
-                <Text style={styles.headerTitle}>Add Credit</Text>
-                <Text style={styles.headerSubtitle}>Record money owed to you</Text>
+                <Text style={styles.headerTitle}>{debtType === 'receivable' ? 'Add Credit' : 'Add Debt'}</Text>
+                <Text style={styles.headerSubtitle}>{debtType === 'receivable' ? 'Record money owed to you' : 'Record money you owe'}</Text>
               </View>
             </View>
             <OfflineIndicator />
@@ -139,26 +142,70 @@ export default function AddDebtScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Customer Name */}
+          {/* Debt Type Selector */}
+          <View style={styles.typeSelector}>
+            <TouchableOpacity
+              style={[styles.typeButton, debtType === 'receivable' && styles.typeButtonActive]}
+              onPress={() => setDebtType('receivable')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.typeButtonText, debtType === 'receivable' && styles.typeButtonTextActive]}>
+                Money Owed To Me
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.typeButton, debtType === 'payable' && styles.typeButtonActivePayable]}
+              onPress={() => setDebtType('payable')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.typeButtonText, debtType === 'payable' && styles.typeButtonTextActive]}>
+                Money I Owe
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Customer / Supplier Name */}
           <View style={styles.card}>
-            <Text style={styles.label}>Customer Name</Text>
+            <Text style={styles.label}>{debtType === 'receivable' ? 'Customer Name' : 'Supplier/Person Name'}</Text>
             <View style={styles.inputContainer}>
               <User size={20} color="#666" style={styles.inputIcon} />
               <TextInput
                 style={styles.input}
                 value={customerName}
                 onChangeText={setCustomerName}
-                placeholder="Enter customer name"
+                placeholder={debtType === 'receivable' ? "Enter customer name" : "Enter person/business name"}
                 placeholderTextColor="#999"
                 autoCapitalize="words"
                 autoFocus
               />
             </View>
+            {debtType === 'payable' && (
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                style={{ marginTop: 12 }} 
+                contentContainerStyle={{ gap: 8 }}
+                keyboardShouldPersistTaps="handled"
+              >
+                {['Supplier', 'Landlord', 'Employee', 'Service Provider'].map((cat) => (
+                   <TouchableOpacity 
+                     key={cat} 
+                     style={styles.suggestionPill} 
+                     onPress={() => setCustomerName(cat)}
+                     activeOpacity={0.7}
+                   >
+                     <Text style={styles.suggestionPillText}>{cat}</Text>
+                   </TouchableOpacity>
+                ))}
+              </ScrollView>
+            )}
           </View>
 
-          {/* Customer Phone */}
+          {/* Phone Number */}
           <View style={styles.card}>
-            <Text style={styles.label}>Phone Number (WhatsApp)</Text>
+            <Text style={styles.label}>
+              {debtType === 'receivable' ? 'Phone Number (WhatsApp)' : 'Supplier Phone (Optional)'}
+            </Text>
             <View style={styles.inputContainer}>
               <Phone size={20} color="#666" style={styles.inputIcon} />
               <TextInput
@@ -257,7 +304,7 @@ export default function AddDebtScreen() {
             activeOpacity={0.8}
           >
             <Text style={styles.saveButtonText}>
-              {loading ? 'Saving...' : 'Save Credit'}
+              {loading ? 'Saving...' : (debtType === 'receivable' ? 'Save Credit' : 'Save Debt')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -424,8 +471,45 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-    paddingTop: 0,
+    paddingTop: 20,
     gap: 24,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#e5e7eb',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 8,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  typeButtonActive: {
+    backgroundColor: '#10b981', // green for receivable
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  typeButtonActivePayable: {
+    backgroundColor: '#ef4444', // red for payable
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  typeButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  typeButtonTextActive: {
+    color: '#ffffff',
   },
   card: {
     backgroundColor: "#ffffff",
@@ -438,6 +522,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  suggestionPill: {
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(30, 58, 138, 0.15)',
+  },
+  suggestionPillText: {
+    color: '#1e3a8a',
+    fontSize: 13,
+    fontWeight: '600',
   },
   label: {
     fontSize: 14,

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { BookOpen, FileText, Plus, TrendingUp } from 'lucide-react-native';
+import { BookOpen, FileText, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -10,13 +10,24 @@ export const QuickActions = React.memo(function QuickActions() {
       <View style={styles.grid}>
         <TouchableOpacity
           style={[styles.actionButton, styles.primaryButton]}
-          onPress={() => router.push('/modals/record-sale')}
+          onPress={() => router.push('/modals/new-sale')}
           activeOpacity={0.8}
         >
           <View style={styles.iconContainer}>
             <Plus size={24} color="#ffffff" />
           </View>
-          <Text style={styles.primaryButtonText}>Record Sale</Text>
+          <Text style={styles.primaryButtonText}>Multi-Item Sale</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/modals/record-sale')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.iconContainer, styles.secondaryIcon]}>
+            <TrendingUp size={24} color="#1e3a8a" />
+          </View>
+          <Text style={styles.secondaryButtonText}>Single Sale</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -24,8 +35,8 @@ export const QuickActions = React.memo(function QuickActions() {
           onPress={() => router.push('/modals/record-expense')}
           activeOpacity={0.8}
         >
-          <View style={[styles.iconContainer, styles.secondaryIcon]}>
-            <TrendingUp size={24} color="#1e3a8a" />
+          <View style={[styles.iconContainer, styles.secondaryIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
+            <TrendingDown size={24} color="#ef4444" />
           </View>
           <Text style={styles.secondaryButtonText}>Record Expense</Text>
         </TouchableOpacity>
@@ -35,21 +46,10 @@ export const QuickActions = React.memo(function QuickActions() {
           onPress={() => router.push('/(tabs)/debts')}
           activeOpacity={0.8}
         >
-          <View style={[styles.iconContainer, styles.secondaryIcon]}>
-            <BookOpen size={24} color="#1e3a8a" />
+          <View style={[styles.iconContainer, styles.secondaryIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
+            <BookOpen size={24} color="#f59e0b" />
           </View>
           <Text style={styles.secondaryButtonText}>Credit Book</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={() => router.push('/(tabs)/reports')}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.iconContainer, styles.secondaryIcon]}>
-            <FileText size={24} color="#1e3a8a" />
-          </View>
-          <Text style={styles.secondaryButtonText}>View Reports</Text>
         </TouchableOpacity>
       </View>
     </View>

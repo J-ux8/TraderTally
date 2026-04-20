@@ -13,7 +13,8 @@ export const SCHEMA = {
         is_deleted INTEGER DEFAULT 0,
         sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
         retry_count INTEGER DEFAULT 0,
-        customer_id TEXT
+        customer_id TEXT,
+        linked_sale_id TEXT
       );
     `,
     categories: `
@@ -38,6 +39,7 @@ export const SCHEMA = {
         amount REAL NOT NULL,
         due_date TEXT,
         note TEXT,
+        type TEXT DEFAULT 'receivable' CHECK(type IN ('receivable', 'payable')),
         is_settled INTEGER DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -47,6 +49,7 @@ export const SCHEMA = {
         customer_phone TEXT,
         customer_id TEXT
       );
+
     `,
     security_settings: `
       CREATE TABLE IF NOT EXISTS security_settings (
@@ -108,6 +111,54 @@ export const SCHEMA = {
         retry_count INTEGER DEFAULT 0
       );
     `,
+    products: `
+      CREATE TABLE IF NOT EXISTS products (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        name TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        price REAL NOT NULL,
+        category_id TEXT,
+        usage_count INTEGER DEFAULT 0,
+        stock_quantity REAL,
+        is_deleted INTEGER DEFAULT 0,
+        sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        UNIQUE(user_id, name)
+      );
+    `,
+    sales: `
+      CREATE TABLE IF NOT EXISTS sales (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        total_amount REAL NOT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `,
+    sale_items: `
+      CREATE TABLE IF NOT EXISTS sale_items (
+        id TEXT PRIMARY KEY NOT NULL,
+        sale_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        product_name TEXT NOT NULL,
+        quantity REAL NOT NULL,
+        unit_price REAL NOT NULL,
+        total_price REAL NOT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        FOREIGN KEY (sale_id) REFERENCES sales(id),
+        FOREIGN KEY (product_id) REFERENCES products(id)
+      );
+    `,
   },
   INDEXES: {
     transactions: `
@@ -138,6 +189,20 @@ export const SCHEMA = {
       CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id);
       CREATE INDEX IF NOT EXISTS idx_customers_updated_at ON customers(updated_at);
       CREATE INDEX IF NOT EXISTS idx_customers_sync ON customers(sync_status);
+    `,
+    products: `
+      CREATE INDEX IF NOT EXISTS idx_products_user_id ON products(user_id);
+      CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+      CREATE INDEX IF NOT EXISTS idx_products_sync ON products(sync_status);
+    `,
+    sales: `
+      CREATE INDEX IF NOT EXISTS idx_sales_user_id ON sales(user_id);
+      CREATE INDEX IF NOT EXISTS idx_sales_created_at ON sales(created_at);
+      CREATE INDEX IF NOT EXISTS idx_sales_sync ON sales(sync_status);
+    `,
+    sale_items: `
+      CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
+      CREATE INDEX IF NOT EXISTS idx_sale_items_sync ON sale_items(sync_status);
     `,
   }
 };

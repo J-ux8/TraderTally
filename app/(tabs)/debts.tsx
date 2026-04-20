@@ -15,6 +15,7 @@ export default function DebtsScreen() {
   const colors = useThemeColors();
   const { debts, updateDebt, settleDebt, deleteDebt, refresh, loading, error } = useDebts();
   const [activeTab, setActiveTab] = useState<'active' | 'settled'>('active');
+  const [mainTab, setMainTab] = useState<'receivable' | 'payable'>('receivable');
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -25,8 +26,8 @@ export default function DebtsScreen() {
     }, [refresh])
   );
 
-  const activeDebts = useMemo(() => debts.filter(d => !d.is_settled), [debts]);
-  const settledDebts = useMemo(() => debts.filter(d => d.is_settled), [debts]);
+  const activeDebts = useMemo(() => debts.filter(d => !d.is_settled && (d.type || 'receivable') === mainTab), [debts, mainTab]);
+  const settledDebts = useMemo(() => debts.filter(d => d.is_settled && (d.type || 'receivable') === mainTab), [debts, mainTab]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -57,7 +58,7 @@ export default function DebtsScreen() {
               </View>
               <View style={styles.headerTextContainer}>
                 <Text style={styles.headerTitle}>Credit Book</Text>
-                <Text style={styles.headerSubtitle}>People who owe you money</Text>
+                <Text style={styles.headerSubtitle}>Manage money owed to you and money you owe</Text>
               </View>
               <OfflineIndicator alwaysShow compact />
             </View>
@@ -73,9 +74,31 @@ export default function DebtsScreen() {
           showsVerticalScrollIndicator={false}
         >
           {/* Debt Summary */}
-          <DebtSummary debts={debts} />
+          <DebtSummary debts={debts.filter(d => (d.type || 'receivable') === mainTab)} />
 
-          {/* Tabs */}
+          {/* Type Tabs */}
+          <View style={styles.typeSelector}>
+            <TouchableOpacity
+              style={[styles.typeButton, mainTab === 'receivable' && styles.typeButtonActive]}
+              onPress={() => setMainTab('receivable')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.typeButtonText, mainTab === 'receivable' && styles.typeButtonTextActive]}>
+                Money Owed To Me
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.typeButton, mainTab === 'payable' && styles.typeButtonActivePayable]}
+              onPress={() => setMainTab('payable')}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.typeButtonText, mainTab === 'payable' && styles.typeButtonTextActive]}>
+                Money I Owe
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Status Tabs */}
           <View style={[styles.tabsContainer, { backgroundColor: colors.cardBackground }]}>
             <TouchableOpacity
               style={[styles.tab, activeTab === 'active' && { backgroundColor: '#1e3a8a' }]}
@@ -160,8 +183,8 @@ export default function DebtsScreen() {
 
         {/* Floating Action Button */}
         <TouchableOpacity
-          style={styles.fab}
-          onPress={() => router.push('/modals/add-debt')}
+          style={[styles.fab, mainTab === 'payable' && { backgroundColor: '#ef4444', shadowColor: '#ef4444' }]}
+          onPress={() => router.push({ pathname: '/modals/add-debt', params: { type: mainTab } })}
           activeOpacity={0.8}
         >
           <Plus size={28} color="#ffffff" />
@@ -254,6 +277,43 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 0,
     paddingBottom: 100,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    backgroundColor: '#e5e7eb',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 16,
+  },
+  typeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  typeButtonActive: {
+    backgroundColor: '#10b981', // green for receivable
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  typeButtonActivePayable: {
+    backgroundColor: '#ef4444', // red for payable
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  typeButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  typeButtonTextActive: {
+    color: '#ffffff',
   },
   tabsContainer: {
     flexDirection: 'row',
