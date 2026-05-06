@@ -3,6 +3,7 @@
     "name": "mobibooks",
     "slug": "mobibooks",
     "version": "1.0.0",
+    "sdkVersion": "54.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "splash": {
@@ -10,9 +11,7 @@
       "resizeMode": "contain",
       "backgroundColor": "#1e3a8a"
     },
-
     "scheme": "mobibooks",
-
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -42,12 +41,12 @@
           "dark": {
             "backgroundColor": "#1e3a8a"
           }
-
-
         }
       ],
       "@react-native-community/datetimepicker",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
