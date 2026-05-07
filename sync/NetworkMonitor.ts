@@ -61,6 +61,13 @@ export class NetworkMonitor {
 
     if (wasOnline !== this.isOnline) {
       this.notifyListeners();
+      
+      // Auto-trigger sync when coming back online
+      if (this.isOnline) {
+        console.log('[NetworkMonitor] Network recovered, triggering background sync...');
+        const { SyncEngine } = require('./syncEngine');
+        SyncEngine.syncAll().catch(() => {}); // Fire and forget
+      }
     }
   }
 

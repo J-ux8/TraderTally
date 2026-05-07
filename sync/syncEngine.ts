@@ -15,10 +15,10 @@ export class SyncEngine {
     'profiles', 
     'categories', 
     'products', 
+    'customers', // Sync customers before debts
     'debts', 
-    'customers', 
     'transaction_templates', 
-    'sales', 
+    'sales', // Sync sales before sale_items
     'sale_items', 
     'transactions'
   ];
@@ -85,28 +85,37 @@ export class SyncEngine {
       const ids = pending.map(p => p.id);
       await LocalDB.markSyncing(table, ids);
 
-      for (const record of pending) {
-        try {
-          // Conflict resolution: Latest update at wins on server too.
-          // Upsert handles both new records and updates.
-          const { error } = await supabase
-            .from(table)
-            .upsert({
-              ...record,
-              sync_status: 'synced', // Mark as synced on server
-              retry_count: 0
-            });
+      // Perform batch upsert to Supabase for efficiency
+      try {
+        const { error } = await supabase
+          .from(table)
+          .upsert(pending.map(record => ({
+            ...record,
+            sync_status: 'synced',
+            retry_count: 0
+          })));
 
-          if (error) {
-            console.log(`[SyncEngine] Error pushing record ${record.id} in ${table}:`, error.message);
-            await LocalDB.markFailed(table, record.id);
-          } else {
-            await LocalDB.markSynced(table, record.id);
+        if (error) {
+          console.log(`[SyncEngine] Batch error pushing ${table}:`, error.message);
+          // Fallback to individual pushes for problematic records
+          for (const record of pending) {
+            try {
+              const { error: indError } = await supabase.from(table).upsert({ ...record, sync_status: 'synced', retry_count: 0 });
+              if (indError) await LocalDB.markFailed(table, record.id);
+              else await LocalDB.markSynced(table, record.id);
+            } catch (e) {
+              await LocalDB.markFailed(table, record.id);
+            }
           }
-        } catch (e) {
-          console.log(`[SyncEngine] Unexpected error pushing record ${record.id}:`, e);
-          await LocalDB.markFailed(table, record.id);
+        } else {
+          // Success! Mark all as synced
+          for (const id of ids) {
+            await LocalDB.markSynced(table, id);
+          }
         }
+      } catch (e) {
+        console.log(`[SyncEngine] Unexpected batch error pushing ${table}:`, e);
+        for (const id of ids) await LocalDB.markFailed(table, id);
       }
     }
   }

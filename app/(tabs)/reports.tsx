@@ -5,6 +5,11 @@ import {
   BarChart3,
   Share as ShareIcon,
   MessageCircle,
+  Eye,
+  EyeOff,
+  TrendingUp,
+  TrendingDown,
+  AlertCircle
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
@@ -66,6 +71,7 @@ export default function ReportsScreen() {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'all'>('month');
   const [refreshing, setRefreshing] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [privacyMode, setPrivacyMode] = useState(false);
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -102,28 +108,32 @@ export default function ReportsScreen() {
 
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
-    const start = new Date();
+    now.setHours(23, 59, 59, 999);
+    
+    const start = new Date(now);
     switch (period) {
       case 'week':
-        start.setDate(now.getDate() - 7);
+        start.setDate(now.getDate() - 6); // Last 7 days including today
         break;
       case 'month':
-        start.setDate(now.getDate() - 30);
+        start.setDate(now.getDate() - 29); // Last 30 days including today
         break;
       case 'quarter':
-        start.setMonth(now.getMonth() - 3);
+        start.setDate(now.getDate() - 89); // Last 90 days
         break;
       case 'year':
-        start.setFullYear(now.getFullYear() - 1);
+        start.setDate(now.getDate() - 364); // Last 365 days
         break;
+      case 'all':
+        return null;
     }
     start.setHours(0, 0, 0, 0);
-    now.setHours(23, 59, 59, 999);
     return { start, end: now };
   }, []);
 
   const getPreviousPeriodRange = useCallback((period: string) => {
     const range = getDateRange(period);
+    if (!range) return null;
     const duration = range.end.getTime() - range.start.getTime();
     const prevEnd = new Date(range.start);
     const prevStart = new Date(prevEnd.getTime() - duration);
@@ -131,20 +141,24 @@ export default function ReportsScreen() {
   }, [getDateRange]);
 
   const filteredTransactions = useMemo(() => {
-    if (selectedPeriod === 'all') return transactions;
     const range = getDateRange(selectedPeriod);
     if (!range) return transactions;
+    
     return transactions.filter(t => {
+      // Ensure we compare only the date part to avoid timezone/time issues
       const txDate = new Date(t.transaction_date);
+      txDate.setHours(12, 0, 0, 0); // Set to middle of day for safer comparison
       return txDate >= range.start && txDate <= range.end;
     });
   }, [transactions, selectedPeriod, getDateRange]);
 
   const previousPeriodTransactions = useMemo(() => {
-    if (selectedPeriod === 'all') return [];
     const range = getPreviousPeriodRange(selectedPeriod);
+    if (!range) return [];
+    
     return transactions.filter(t => {
       const txDate = new Date(t.transaction_date);
+      txDate.setHours(12, 0, 0, 0);
       return txDate >= range.start && txDate <= range.end;
     });
   }, [transactions, selectedPeriod, getPreviousPeriodRange]);
@@ -404,8 +418,19 @@ export default function ReportsScreen() {
   }, [growthMetrics, categoryMetrics, revenueConcentration, debtRiskData, groupingEnabled, groupingMetrics]);
 
   const formatCurrency = useCallback((amount: number) => {
-    return `K ${Math.abs(amount).toFixed(2)}`;
+    if (privacyMode) return '****';
+    return `K ${Math.abs(amount).toLocaleString('en-ZM', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }, [privacyMode]);
+
+  const formatDate = useCallback((date: Date) => {
+    return date.toLocaleDateString('en-ZM', { month: 'short', day: 'numeric', year: 'numeric' });
   }, []);
+
+  const periodDateRangeDisplay = useMemo(() => {
+    const range = getDateRange(selectedPeriod);
+    if (!range) return 'All Recorded Activity';
+    return `${formatDate(range.start)} - ${formatDate(range.end)}`;
+  }, [selectedPeriod, getDateRange, formatDate]);
 
   const formatGrowth = useCallback((value: number) => {
     if (value > 0) return `+${value.toFixed(1)}%`;
@@ -466,6 +491,13 @@ export default function ReportsScreen() {
               <Text style={styles.headerTitle}>Financial Reports</Text>
               <Text style={styles.headerSubtitle}>Professional Dashboard</Text>
             </View>
+            <TouchableOpacity 
+              style={styles.privacyToggle} 
+              onPress={() => setPrivacyMode(!privacyMode)}
+              activeOpacity={0.7}
+            >
+              {privacyMode ? <EyeOff size={24} color="#ffffff" /> : <Eye size={24} color="#ffffff" />}
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -495,9 +527,58 @@ export default function ReportsScreen() {
           ))}
         </View>
 
+        <View style={styles.dateRangeIndicator}>
+          <Text style={[styles.dateRangeText, { color: colors.textSecondary }]}>
+            {periodDateRangeDisplay}
+          </Text>
+        </View>
+
         {/* SECTION 1: BUSINESS OVERVIEW */}
         <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
           <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Business Overview</Text>
+        </View>
+
+        {/* REVENUE TREND MINI-CHART */}
+        <View style={[styles.card, styles.chartCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+          <View style={styles.chartHeader}>
+            <View>
+              <Text style={[styles.chartTitle, { color: colors.textColor }]}>Revenue Trend</Text>
+              <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>{selectedPeriod === 'all' ? 'Lifetime' : `Last ${selectedPeriod}`}</Text>
+            </View>
+            <View style={[styles.chartMetric, { backgroundColor: 'rgba(30, 58, 138, 0.1)' }]}>
+              <TrendingUp size={16} color="#1e3a8a" />
+              <Text style={styles.chartMetricText}>{formatGrowth(growthMetrics.revenueGrowth)}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.visualChartContainer}>
+            {dailyTimeline.length < 2 ? (
+              <View style={styles.noDataChart}>
+                <BarChart3 size={40} color={colors.borderColor} />
+                <Text style={{ color: colors.textSecondary, marginTop: 8 }}>Need more data for trends</Text>
+              </View>
+            ) : (
+              <View style={styles.barChart}>
+                {dailyTimeline.slice(-14).map((day, idx) => {
+                  const maxRevenue = Math.max(...dailyTimeline.map(d => d.revenue), 1);
+                  const barHeight = (day.revenue / maxRevenue) * 100;
+                  return (
+                    <View key={day.date} style={styles.barContainer}>
+                      <View 
+                        style={[
+                          styles.barFill, 
+                          { 
+                            height: `${Math.max(5, barHeight)}%`,
+                            backgroundColor: idx === dailyTimeline.slice(-14).length - 1 ? '#1e3a8a' : 'rgba(30, 58, 138, 0.4)'
+                          }
+                        ]} 
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
@@ -916,6 +997,10 @@ const styles = StyleSheet.create({
   debtSummary: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16 },
   debtSummaryItem: { alignItems: 'center' },
   debtLabel: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
+  footer: { marginTop: 8, marginBottom: 40, alignItems: 'center', gap: 4 },
+  footerText: { fontSize: 12, fontWeight: '500', opacity: 0.8 },
+  dateRangeIndicator: { alignItems: 'center', marginBottom: 20 },
+  dateRangeText: { fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   debtValue: { fontSize: 18, fontWeight: '800' },
   debtAgingTitle: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
   debtAgingList: { gap: 0 },
@@ -968,4 +1053,16 @@ const styles = StyleSheet.create({
   topGroupName: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   topGroupCount: { fontSize: 11, fontWeight: '500' },
   topGroupAmount: { fontSize: 13, fontWeight: '700' },
+  privacyToggle: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12 },
+  chartCard: { paddingBottom: 15 },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  chartTitle: { fontSize: 16, fontWeight: '700' },
+  chartSubtitle: { fontSize: 12, marginTop: 2 },
+  chartMetric: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
+  chartMetricText: { fontSize: 13, fontWeight: '700', color: '#1e3a8a' },
+  visualChartContainer: { height: 120, justifyContent: 'center' },
+  noDataChart: { alignItems: 'center', justifyContent: 'center', height: '100%' },
+  barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: '100%', gap: 4 },
+  barContainer: { flex: 1, height: '100%', justifyContent: 'flex-end' },
+  barFill: { width: '100%', borderTopLeftRadius: 4, borderTopRightRadius: 4 },
 });

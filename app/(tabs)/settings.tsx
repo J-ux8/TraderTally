@@ -25,13 +25,18 @@ import {
   Database,
   Download,
   AlertTriangle,
-  FileText
+  FileText,
+  Eye,
+  EyeOff,
+  Info,
+  ExternalLink
 } from 'lucide-react-native';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { getDatabase, wipeDatabase } from '@/lib/database';
 import * as FileSystem from 'expo-file-system';
 // @ts-ignore - documentDirectory is sometimes missing from types in certain SDK versions
 const { documentDirectory } = FileSystem;
+import * as WebBrowser from 'expo-web-browser';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
@@ -86,9 +91,12 @@ export default function SettingsScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
-  // Recovery Modal
   const [recoveryModalVisible, setRecoveryModalVisible] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false);
+
+  // Legal Modal
+  const [legalModalVisible, setLegalModalVisible] = useState(false);
+  const [legalModalType, setLegalModalType] = useState<'terms' | 'privacy'>('terms');
 
   const { transactions, refresh } = useTransactionsContext();
 
@@ -177,6 +185,22 @@ export default function SettingsScreen() {
       Alert.alert('Error', error.message || 'Failed to change password');
     } finally {
       setChangingPassword(false);
+    }
+  }
+
+  async function handleOpenUrl(url: string) {
+    if (url.includes('terms')) {
+      setLegalModalType('terms');
+      setLegalModalVisible(true);
+    } else if (url.includes('privacy')) {
+      setLegalModalType('privacy');
+      setLegalModalVisible(true);
+    } else {
+      try {
+        await WebBrowser.openBrowserAsync(url);
+      } catch (error) {
+        Alert.alert('Error', 'Unable to open the link. Please check your internet connection.');
+      }
     }
   }
 
@@ -422,31 +446,33 @@ export default function SettingsScreen() {
                 <View style={styles.settingIcon}>
                   {theme === 'dark' ? <Moon size={20} color="#1e3a8a" /> : <Sun size={20} color="#1e3a8a" />}
                 </View>
+                <Text style={dynamicStyles.settingLabel}>Dark Mode</Text>
+              </View>
+              <Switch
+                value={theme === 'dark'}
+                onValueChange={(isDark) => setThemeMode(isDark ? 'dark' : 'light')}
+                disabled={themeMode === 'system'}
+                trackColor={{ false: '#e5e7eb', true: '#1e3a8a' }}
+                thumbColor="#ffffff"
+              />
+            </View>
+
+            <View style={dynamicStyles.settingItem}>
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIcon}>
+                  <RefreshCcw size={20} color="#1e3a8a" />
+                </View>
                 <View style={styles.settingContent}>
-                  <Text style={dynamicStyles.settingLabel}>Appearance</Text>
-                  <Text style={dynamicStyles.settingValue}>
-                    {themeMode === 'system' ? 'System' : themeMode === 'dark' ? 'Dark' : 'Light'}
-                  </Text>
+                  <Text style={dynamicStyles.settingLabel}>Follow System</Text>
+                  <Text style={dynamicStyles.settingValue}>Match your device theme</Text>
                 </View>
               </View>
-              <TouchableOpacity
-                onPress={() => {
-                  const modes: ('light' | 'dark' | 'system')[] = ['light', 'dark', 'system'];
-                  setThemeMode(modes[(modes.indexOf(themeMode) + 1) % modes.length]);
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.themeToggle}>
-                  {themeMode === 'light' && <Sun size={18} color="#1e3a8a" />}
-                  {themeMode === 'dark' && <Moon size={18} color="#1e3a8a" />}
-                  {themeMode === 'system' && (
-                    <View style={styles.systemIcon}>
-                      <Sun size={14} color="#1e3a8a" />
-                      <Moon size={14} color="#1e3a8a" />
-                    </View>
-                  )}
-                </View>
-              </TouchableOpacity>
+              <Switch
+                value={themeMode === 'system'}
+                onValueChange={(useSystem) => setThemeMode(useSystem ? 'system' : theme)}
+                trackColor={{ false: '#e5e7eb', true: '#1e3a8a' }}
+                thumbColor="#ffffff"
+              />
             </View>
           </View>
 
@@ -467,6 +493,37 @@ export default function SettingsScreen() {
                 </View>
               </View>
               <ChevronRight size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={dynamicStyles.sectionTitle}>Legal & About</Text>
+            <TouchableOpacity
+              style={dynamicStyles.settingItem}
+              onPress={() => handleOpenUrl('https://mobibooks.app/terms')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIcon}>
+                  <FileText size={20} color="#1e3a8a" />
+                </View>
+                <Text style={dynamicStyles.settingLabel}>Terms of Service</Text>
+              </View>
+              <ExternalLink size={18} color="#999" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={dynamicStyles.settingItem}
+              onPress={() => handleOpenUrl('https://mobibooks.app/privacy')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={styles.settingIcon}>
+                  <Info size={20} color="#1e3a8a" />
+                </View>
+                <Text style={dynamicStyles.settingLabel}>Privacy Policy</Text>
+              </View>
+              <ExternalLink size={18} color="#999" />
             </TouchableOpacity>
           </View>
 
@@ -504,8 +561,13 @@ export default function SettingsScreen() {
                   {isDeletingAccount ? 'Deleting...' : 'Delete Account'}
                 </Text>
               </View>
-              {!isDeletingAccount && <ChevronRight size={20} color="#ef4444" />}
+            {!isDeletingAccount && <ChevronRight size={20} color="#ef4444" />}
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: textSecondary }]}>MobiBooks Version 1.0.0</Text>
+            <Text style={[styles.footerText, { color: textSecondary }]}>Made with ❤️ for Small Businesses</Text>
           </View>
         </View>
       </ScrollView>
@@ -572,9 +634,59 @@ export default function SettingsScreen() {
               <TouchableOpacity onPress={() => setPasswordModalVisible(false)}><Text style={styles.modalCloseText}>Cancel</Text></TouchableOpacity>
             </View>
             <ScrollView style={dynamicStyles.modalScroll}>
-              <TextInput style={dynamicStyles.input} value={currentPassword} onChangeText={setCurrentPassword} placeholder="Current Password" secureTextEntry />
-              <TextInput style={dynamicStyles.input} value={newPassword} onChangeText={setNewPassword} placeholder="New Password" secureTextEntry />
-              <TextInput style={dynamicStyles.input} value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirm New Password" secureTextEntry />
+              <View style={styles.inputCard}>
+                <Text style={dynamicStyles.inputLabel}>Current Password</Text>
+                <View style={dynamicStyles.inputContainer}>
+                  <Lock size={20} color={textSecondary} style={styles.inputIcon} />
+                  <TextInput 
+                    style={dynamicStyles.input} 
+                    value={currentPassword} 
+                    onChangeText={setCurrentPassword} 
+                    placeholder="Enter current password" 
+                    placeholderTextColor={textSecondary}
+                    secureTextEntry={!showCurrentPassword} 
+                  />
+                  <TouchableOpacity onPress={() => setShowCurrentPassword(!showCurrentPassword)} style={styles.eyeButton}>
+                    {showCurrentPassword ? <EyeOff size={20} color={textSecondary} /> : <Eye size={20} color={textSecondary} />}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputCard}>
+                <Text style={dynamicStyles.inputLabel}>New Password</Text>
+                <View style={dynamicStyles.inputContainer}>
+                  <Lock size={20} color={textSecondary} style={styles.inputIcon} />
+                  <TextInput 
+                    style={dynamicStyles.input} 
+                    value={newPassword} 
+                    onChangeText={setNewPassword} 
+                    placeholder="Enter new password" 
+                    placeholderTextColor={textSecondary}
+                    secureTextEntry={!showNewPassword} 
+                  />
+                  <TouchableOpacity onPress={() => setShowNewPassword(!showNewPassword)} style={styles.eyeButton}>
+                    {showNewPassword ? <EyeOff size={20} color={textSecondary} /> : <Eye size={20} color={textSecondary} />}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputCard}>
+                <Text style={dynamicStyles.inputLabel}>Confirm New Password</Text>
+                <View style={dynamicStyles.inputContainer}>
+                  <Lock size={20} color={textSecondary} style={styles.inputIcon} />
+                  <TextInput 
+                    style={dynamicStyles.input} 
+                    value={confirmPassword} 
+                    onChangeText={setConfirmPassword} 
+                    placeholder="Confirm new password" 
+                    placeholderTextColor={textSecondary}
+                    secureTextEntry={!showConfirmPassword} 
+                  />
+                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+                    {showConfirmPassword ? <EyeOff size={20} color={textSecondary} /> : <Eye size={20} color={textSecondary} />}
+                  </TouchableOpacity>
+                </View>
+              </View>
             </ScrollView>
             <View style={dynamicStyles.modalActions}>
               <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleChangePassword} disabled={changingPassword}>
@@ -636,6 +748,54 @@ export default function SettingsScreen() {
                   <Text style={{ color: textSecondary, marginLeft: 10 }}>Processing...</Text>
                 </View>
               )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+      {/* Legal & About Modal */}
+      <Modal visible={legalModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setLegalModalVisible(false)} />
+          <View style={dynamicStyles.modalContent}>
+            <View style={dynamicStyles.modalHeader}>
+              <Text style={dynamicStyles.modalTitle}>
+                {legalModalType === 'terms' ? 'Terms of Service' : 'Privacy Policy'}
+              </Text>
+              <TouchableOpacity onPress={() => setLegalModalVisible(false)}>
+                <Text style={styles.modalCloseText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={dynamicStyles.modalScroll}>
+              {legalModalType === 'terms' ? (
+                <View style={styles.legalContent}>
+                  <Text style={[styles.legalTitle, { color: textColor }]}>1. Acceptance of Terms</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>By using MobiBooks, you agree to these terms. MobiBooks is a record-keeping tool for small businesses and independent traders.</Text>
+                  
+                  <Text style={[styles.legalTitle, { color: textColor }]}>2. User Accounts</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>You are responsible for maintaining the confidentiality of your account credentials. MobiBooks is not liable for any loss resulting from unauthorized access to your account.</Text>
+                  
+                  <Text style={[styles.legalTitle, { color: textColor }]}>3. Data Ownership</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>You retain all ownership rights to the data you enter. By using the sync feature, you authorize MobiBooks to store this data on our secure cloud servers.</Text>
+                  
+                  <Text style={[styles.legalTitle, { color: textColor }]}>4. Limitation of Liability</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>MobiBooks is provided "as is" without warranties of any kind. We are not responsible for any financial errors or business losses resulting from the use of the application.</Text>
+                </View>
+              ) : (
+                <View style={styles.legalContent}>
+                  <Text style={[styles.legalTitle, { color: textColor }]}>1. Information Collection</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>We collect your email address and profile information (name, business type) to provide and improve the MobiBooks service.</Text>
+                  
+                  <Text style={[styles.legalTitle, { color: textColor }]}>2. Data Storage</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>Your business records are stored locally on your device and, if synced, on our secure encrypted cloud database.</Text>
+                  
+                  <Text style={[styles.legalTitle, { color: textColor }]}>3. Third Parties</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>We do not sell your personal data or business records to third parties. Data is only shared with service providers (like Supabase) as necessary to provide the application functionality.</Text>
+                  
+                  <Text style={[styles.legalTitle, { color: textColor }]}>4. Security</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>We use industry-standard security measures to protect your data. However, no method of transmission or storage is 100% secure.</Text>
+                </View>
+              )}
+              <View style={{ height: 40 }} />
             </ScrollView>
           </View>
         </View>
@@ -711,4 +871,9 @@ const styles = StyleSheet.create({
   recoveryTitle: { fontSize: 16, fontWeight: '700', marginBottom: 2 },
   recoverySubtitle: { fontSize: 12, lineHeight: 16 },
   recoveringIndicator: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 20 },
+  footer: { marginTop: 8, marginBottom: 40, alignItems: 'center', gap: 4 },
+  footerText: { fontSize: 12, fontWeight: '500', opacity: 0.8 },
+  legalContent: { paddingBottom: 20 },
+  legalTitle: { fontSize: 18, fontWeight: '700', marginTop: 20, marginBottom: 8 },
+  legalText: { fontSize: 15, lineHeight: 22, marginBottom: 16 },
 });
