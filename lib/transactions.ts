@@ -1,5 +1,24 @@
 import { LocalDB, LocalBaseModel } from "../database/localDb";
 import { SyncEngine } from "../sync/syncEngine";
+import { z } from "zod";
+
+// --- Security: Input Validation Schemas ---
+const transactionSchema = z.object({
+  amount: z.number({ required_error: "Amount is required" }).finite("Amount must be a valid number").safe(),
+  category: z.string().max(100, "Category is too long").nullable().optional(),
+  description: z.string().max(1000, "Description is too long").nullable().optional(),
+  date: z.string().datetime({ message: "Invalid date format" }).optional(),
+  customerId: z.string().uuid("Invalid Customer ID").nullable().optional(),
+  linkedSaleId: z.string().uuid("Invalid Sale ID").nullable().optional()
+});
+
+function validateTransactionInput(data: any) {
+  const result = transactionSchema.safeParse(data);
+  if (!result.success) {
+    // Return the first friendly error message
+    throw new Error(result.error.errors[0].message);
+  }
+}
 
 export interface Transaction extends LocalBaseModel {
   amount: number;
@@ -21,6 +40,9 @@ export async function recordSale(
   customerId?: string,
   linkedSaleId?: string
 ): Promise<Transaction> {
+  // Security Rule #3: Validate inputs server/logic-side
+  validateTransactionInput({ amount, category, description, date, customerId, linkedSaleId });
+
   const record = await LocalDB.create<Transaction>('transactions', {
     amount: Math.abs(amount),
     category,
@@ -46,6 +68,9 @@ export async function recordExpense(
   customerId?: string,
   linkedSaleId?: string
 ): Promise<Transaction> {
+  // Security Rule #3: Validate inputs server/logic-side
+  validateTransactionInput({ amount, category, description, date, customerId, linkedSaleId });
+
   const record = await LocalDB.create<Transaction>('transactions', {
     amount: -Math.abs(amount),
     category,
@@ -80,6 +105,13 @@ export async function updateTransaction(
   date?: string,
   customerId?: string
 ): Promise<void> {
+  // Security Rule #3: Validate inputs server/logic-side
+  validateTransactionInput({ amount, category, description, date, customerId });
+  if (id) {
+    const idResult = z.string().min(1).safeParse(id);
+    if (!idResult.success) throw new Error("Invalid transaction ID");
+  }
+
   await LocalDB.update('transactions', id, {
     amount,
     category,
