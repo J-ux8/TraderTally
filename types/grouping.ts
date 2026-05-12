@@ -14,6 +14,9 @@ export interface Transaction {
   transaction_date: string;
   created_at: string;
   user_id: string;
+  customer_id: string | null;
+  linked_sale_id: string | null;
+  sale_items?: any[];
 }
 
 /**

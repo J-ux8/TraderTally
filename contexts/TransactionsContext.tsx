@@ -14,6 +14,8 @@ interface Transaction {
   created_at: string;
   user_id: string;
   customer_id: string | null;
+  linked_sale_id: string | null;
+  sale_items?: any[];
 }
 
 interface TransactionsContextType {
@@ -83,7 +85,23 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     try {
       setLoading(true);
       const data = await getUserTransactions();
-      setTransactions(data as Transaction[]);
+      
+      // Fetch sale items for transactions with linked sales
+      const enrichedData = await Promise.all((data as Transaction[]).map(async (tx) => {
+        if (tx.linked_sale_id) {
+          try {
+            const { getSaleItems } = await import('@/lib/transactions');
+            const items = await getSaleItems(tx.linked_sale_id);
+            return { ...tx, sale_items: items };
+          } catch (e) {
+            console.error('Error fetching sale items for tx:', tx.id, e);
+            return tx;
+          }
+        }
+        return tx;
+      }));
+
+      setTransactions(enrichedData);
     } catch (error) {
       console.error('Error loading transactions:', error);
       // Don't clear transactions on error - keep existing data

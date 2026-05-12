@@ -154,7 +154,7 @@ export function useDebts() {
             debtToSettle.amount,
             'Debt Payment',
             `Paid: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
-            getLocalISOString().split('T')[0],
+            getLocalISOString(),
             debtToSettle.customer_id
           );
         } else {
@@ -162,7 +162,7 @@ export function useDebts() {
             debtToSettle.amount,
             'Revenue Collection',
             `Received: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
-            getLocalISOString().split('T')[0],
+            getLocalISOString(),
             debtToSettle.customer_id
           );
         }

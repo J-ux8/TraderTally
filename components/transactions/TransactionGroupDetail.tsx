@@ -156,6 +156,23 @@ const TransactionItem = memo<TransactionItemProps>(({
               </Text>
             </View>
           </View>
+
+          {/* Itemized Breakdown for Sales */}
+          {transaction.sale_items && transaction.sale_items.length > 0 && (
+            <View style={[styles.itemizedBreakdown, { borderTopColor: colors.borderColor }]}>
+              {transaction.sale_items.map((item, idx) => (
+                <View key={item.id || idx} style={styles.itemRow}>
+                  <Text style={[styles.itemName, { color: colors.textColor }]} numberOfLines={1}>
+                    {item.quantity}x {item.product_name}
+                  </Text>
+                  <Text style={[styles.itemPrice, { color: colors.textSecondary }]}>
+                    {item.quantity > 1 ? `@ K${item.unit_price.toLocaleString()} = ` : ''}
+                    K{item.total_price.toLocaleString()}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {onPress && (
@@ -506,6 +523,26 @@ const styles = StyleSheet.create({
   },
   chevronContainer: {
     marginLeft: 4,
+  },
+  itemizedBreakdown: {
+    marginTop: 12,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    gap: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  itemName: {
+    fontSize: 13,
+    fontWeight: '500',
+    flex: 1,
+  },
+  itemPrice: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
 

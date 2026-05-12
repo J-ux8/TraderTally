@@ -178,6 +178,24 @@ export class LocalDB {
   }
 
   /**
+   * Get All by Field (User scoped, not deleted)
+   */
+  static async getAllByField<T>(table: string, field: string, value: any): Promise<T[]> {
+    const db = await getDatabase();
+    const userId = await this.getUserId();
+    
+    if (!userId) return [];
+    
+    const idColumn = table === 'profiles' ? 'id' : 'user_id';
+    
+    return await db.getAllAsync<T>(
+      `SELECT * FROM ${table} WHERE ${idColumn} = ? AND ${field} = ? AND is_deleted = 0 ORDER BY created_at DESC`,
+      userId,
+      value
+    );
+  }
+
+  /**
    * Get By ID
    */
   static async getById<T>(table: string, id: string): Promise<T | null> {

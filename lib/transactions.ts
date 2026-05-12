@@ -4,10 +4,10 @@ import { z } from "zod";
 
 // --- Security: Input Validation Schemas ---
 const transactionSchema = z.object({
-  amount: z.number({ required_error: "Amount is required" }).finite("Amount must be a valid number").safe(),
+  amount: z.number({ message: "Amount is required" }).finite("Amount must be a valid number").safe(),
   category: z.string().max(100, "Category is too long").nullable().optional(),
   description: z.string().max(1000, "Description is too long").nullable().optional(),
-  date: z.string().datetime({ message: "Invalid date format" }).optional(),
+  date: z.string().refine(val => !isNaN(Date.parse(val)), { message: "Invalid date format" }).optional(),
   customerId: z.string().uuid("Invalid Customer ID").nullable().optional(),
   linkedSaleId: z.string().uuid("Invalid Sale ID").nullable().optional()
 });
@@ -16,7 +16,7 @@ function validateTransactionInput(data: any) {
   const result = transactionSchema.safeParse(data);
   if (!result.success) {
     // Return the first friendly error message
-    throw new Error(result.error.errors[0].message);
+    throw new Error(result.error.issues[0].message);
   }
 }
 
@@ -27,6 +27,11 @@ export interface Transaction extends LocalBaseModel {
   transaction_date: string;
   customer_id: string | null;
   linked_sale_id: string | null;
+  sale_items?: any[]; // Optional field for detailed breakdown
+}
+
+export async function getSaleItems(saleId: string): Promise<any[]> {
+  return await LocalDB.getAllByField('sale_items', 'sale_id', saleId);
 }
 
 /**
