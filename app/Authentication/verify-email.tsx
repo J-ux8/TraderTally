@@ -237,8 +237,8 @@ export default function VerifyEmailScreen() {
           // Password reset flow
           Alert.alert(
             "Verified! 🔒",
-            "You can now set a new password in the your account settings.",
-            [{ text: "Continue", onPress: () => router.replace("/(tabs)") }]
+            "You can now set a new password.",
+            [{ text: "Continue", onPress: () => router.replace("/Authentication/reset-password") }]
           );
         } else {
           router.replace("/(tabs)");
