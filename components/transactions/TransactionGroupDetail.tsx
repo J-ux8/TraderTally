@@ -42,7 +42,7 @@ export interface TransactionGroupDetailProps {
 /**
  * Props for individual transaction item
  */
-interface TransactionItemProps {
+export interface TransactionItemProps {
   transaction: Transaction;
   onPress?: (transaction: Transaction) => void;
   isFirst?: boolean;
@@ -52,7 +52,7 @@ interface TransactionItemProps {
 /**
  * Individual transaction item component
  */
-const TransactionItem = memo<TransactionItemProps>(({ 
+export const TransactionItem = memo<TransactionItemProps>(({ 
   transaction, 
   onPress, 
   isFirst = false, 

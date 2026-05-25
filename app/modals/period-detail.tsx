@@ -5,6 +5,7 @@ import { startOfDay, startOfWeek, startOfMonth, toLocalTime } from '@/lib/dateUt
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Calendar, DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React, { useMemo } from 'react';
+import { TransactionItem } from '@/components/transactions/TransactionGroupDetail';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -49,7 +50,7 @@ export default function PeriodDetailScreen() {
     });
 
     // Generate all days in the range
-    const dailyBreakdown: Array<{ revenue: number, expenses: number, net: number, count: number, date: Date }> = [];
+    const dailyBreakdown: Array<{ revenue: number, expenses: number, net: number, count: number, date: Date, transactions: any[] }> = [];
     let curr = new Date(startDate);
     while (curr <= now) {
       const dayStart = startOfDay(curr);
@@ -59,6 +60,7 @@ export default function PeriodDetailScreen() {
       let dayRevenue = 0;
       let dayExpenses = 0;
       let dayCount = 0;
+      const dayTransactions: any[] = [];
 
       transactions.forEach(t => {
         const createdAt = toLocalTime(t.created_at);
@@ -67,15 +69,20 @@ export default function PeriodDetailScreen() {
           if (amt > 0) dayRevenue += amt;
           else dayExpenses += Math.abs(amt);
           dayCount++;
+          dayTransactions.push(t);
         }
       });
+
+      // Sort transactions newest first
+      dayTransactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
       dailyBreakdown.push({
         date: dayStart,
         revenue: dayRevenue,
         expenses: dayExpenses,
         net: dayRevenue - dayExpenses,
-        count: dayCount
+        count: dayCount,
+        transactions: dayTransactions
       });
 
       curr.setDate(curr.getDate() + 1);
@@ -150,35 +157,46 @@ export default function PeriodDetailScreen() {
         </View>
 
         {/* Daily Breakdown */}
-        {period !== 'today' && stats.dailyBreakdown.length > 0 && (
-          <View style={styles.breakdownSection}>
-            <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Daily Breakdown</Text>
-            {stats.dailyBreakdown.map((day) => (
-              <TouchableOpacity
-                key={day.date.toISOString()}
-                style={[styles.dayRow, { backgroundColor: colors.cardBackground }]}
-                onPress={() => router.push({
-                   pathname: '/modals/day-transactions',
-                   params: { dateKey: day.date.toISOString().split('T')[0], label: formatDate(day.date) }
-                })}
-              >
-                <View style={styles.dayInfo}>
-                  <Text style={[styles.dayName, { color: colors.textColor }]}>{formatDate(day.date)}</Text>
-                  <Text style={[styles.dayCount, { color: colors.textSecondary }]}>{day.count} items</Text>
-                </View>
-                <View style={styles.dayValues}>
-                  <Text style={[styles.dayProfit, { color: day.net >= 0 ? '#10b981' : '#ef4444' }]}>
-                    {day.net < 0 ? '-' : ''}{formatCurrency(day.net)}
-                  </Text>
-                  <View style={styles.daySubValues}>
-                    <Text style={[styles.daySubValue, { color: '#10b981' }]}>In: {formatCurrency(day.revenue)}</Text>
-                    <Text style={[styles.daySubValue, { color: '#ef4444' }]}>Out: {formatCurrency(day.expenses)}</Text>
+        {stats.dailyBreakdown.map((day) => {
+          if (day.count === 0) return null;
+
+          return (
+            <View key={day.date.toISOString()} style={styles.breakdownSection}>
+              {period !== 'today' && (
+                <View style={[styles.dayRow, { backgroundColor: colors.cardBackground }]}>
+                  <View style={styles.dayInfo}>
+                    <Text style={[styles.dayName, { color: colors.textColor }]}>{formatDate(day.date)}</Text>
+                    <Text style={[styles.dayCount, { color: colors.textSecondary }]}>{day.count} items</Text>
+                  </View>
+                  <View style={styles.dayValues}>
+                    <Text style={[styles.dayProfit, { color: day.net >= 0 ? '#10b981' : '#ef4444' }]}>
+                      {day.net < 0 ? '-' : ''}{formatCurrency(day.net)}
+                    </Text>
+                    <View style={styles.daySubValues}>
+                      <Text style={[styles.daySubValue, { color: '#10b981' }]}>In: {formatCurrency(day.revenue)}</Text>
+                      <Text style={[styles.daySubValue, { color: '#ef4444' }]}>Out: {formatCurrency(day.expenses)}</Text>
+                    </View>
                   </View>
                 </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+              )}
+              {period === 'today' && (
+                <Text style={[styles.sectionTitle, { color: colors.textColor, marginTop: 10, marginBottom: 4 }]}>
+                  Today's Transactions
+                </Text>
+              )}
+              <View style={{ gap: 12, marginTop: period === 'today' ? 0 : 12 }}>
+                {day.transactions.map((t, idx) => (
+                  <TransactionItem 
+                    key={t.id} 
+                    transaction={t} 
+                    isFirst={idx === 0} 
+                    isLast={idx === day.transactions.length - 1} 
+                  />
+                ))}
+              </View>
+            </View>
+          );
+        })}
       </ScrollView>
     </SafeAreaView>
   );

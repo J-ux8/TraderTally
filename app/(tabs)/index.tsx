@@ -236,7 +236,7 @@ export default function HomeScreen() {
         }
       >
         {/* Hero Header */}
-        <View style={[styles.heroHeader, { backgroundColor: colors.headerBackground, paddingTop: Math.max(20, insets.top + 10) }]}>
+        <View style={[styles.heroHeader, { backgroundColor: cardBackground, paddingTop: Math.max(10, insets.top + 4) }]}>
           <View style={styles.decorativeCircle1} />
           <View style={styles.decorativeCircle2} />
 
@@ -252,29 +252,29 @@ export default function HomeScreen() {
                 </View>
 
                 <View>
-                  <Text style={styles.heroTitle}>MobiBooks</Text>
-                  <Text style={styles.heroDate}>{formatDate(new Date())}</Text>
+                  <Text style={[styles.heroTitle, { color: textColor }]}>MobiBooks</Text>
+                  <Text style={[styles.heroDate, { color: textSecondary }]}>{formatDate(new Date())}</Text>
                 </View>
               </View>
               <View style={styles.heroRight}>
                 <OfflineIndicator alwaysShow compact />
                 <TouchableOpacity
-                  style={styles.logoutButton}
+                  style={[styles.logoutButton, { backgroundColor: 'rgba(30, 58, 138, 0.08)' }]}
                   onPress={handleLogout}
                   activeOpacity={0.7}
                 >
-                  <LogOut size={18} color="#ffffff" />
+                  <LogOut size={18} color="#1e3a8a" />
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.heroGreeting}>
-              <Text style={styles.greetingText}>{greeting} 👋</Text>
-              <Text style={styles.greetingSubtext}>
-                {dailyTracking === 0 ? 'Ready to track your business today?' :
-                 dailyTracking === 1 ? 'Keep the momentum going!' :
-                 dailyTracking >= 7 ? 'You\'re building great habits!' :
-                 'Your business tracking is on point!'}
+              <Text style={[styles.greetingText, { color: textColor }]}>{greeting} 👋</Text>
+              <Text style={[styles.greetingSubtext, { color: textSecondary }]}>
+                {dailyTracking === 0 ? 'Cash flow ready for tracking today.' :
+                 dailyTracking === 1 ? 'Solid start to your financial tracking.' :
+                 dailyTracking >= 7 ? 'Consistent tracking builds stable businesses.' :
+                 'Your financial tracking is healthy.'}
               </Text>
             </View>
           </View>
@@ -290,11 +290,11 @@ export default function HomeScreen() {
               <View>
                 <Text style={[styles.consistencyTitle, { color: textColor }]}>Daily Tracking</Text>
                 <Text style={[styles.consistencyValue, { color: textSecondary }]}>
-                  {dailyTracking === 0 ? 'Ready to start tracking today' : 
-                   dailyTracking === 1 ? 'Day 1 - Great start!' :
-                   dailyTracking === 2 ? 'Day 2 - Building momentum!' :
-                   dailyTracking === 3 ? 'Day 3 - You\'re on a roll!' :
-                   `${dailyTracking} days in a row - Amazing!`}
+                  {dailyTracking === 0 ? 'No activity recorded yet' : 
+                   dailyTracking === 1 ? '1 day of active tracking' :
+                   dailyTracking === 2 ? '2 days of consistent records' :
+                   dailyTracking === 3 ? '3 days of stable tracking' :
+                   `${dailyTracking} days of financial consistency`}
                 </Text>
               </View>
             </View>
@@ -448,11 +448,11 @@ const styles = StyleSheet.create({
     marginTop: 50,
   },
   heroHeader: {
-    paddingTop: 50,
-    paddingBottom: 40,
+    paddingTop: 30,
+    paddingBottom: 24,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     position: "relative",
     overflow: "hidden",
   },
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     width: 128,
     height: 128,
     borderRadius: 64,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(30, 58, 138, 0.03)",
   },
   decorativeCircle2: {
     position: "absolute",
@@ -472,7 +472,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    backgroundColor: "rgba(30, 58, 138, 0.03)",
   },
   heroContent: {
     position: "relative",
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   heroLeft: {
     flexDirection: "row",
@@ -498,54 +498,49 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 48,
     height: 48,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(30, 58, 138, 0.08)",
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
   heroTitle: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#ffffff",
+    fontSize: 22,
+    fontWeight: "800",
   },
   heroDate: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "500",
     marginTop: 2,
   },
   logoutButton: {
     width: 40,
     height: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
   },
   pendingBadge: {
     marginTop: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   pendingText: {
     fontSize: 11,
-    color: '#fff',
     fontWeight: '600',
   },
   heroGreeting: {
-    marginTop: 8,
+    marginTop: 4,
   },
   greetingText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 20,
+    fontWeight: "700",
     marginBottom: 4,
   },
   greetingSubtext: {
-    fontSize: 16,
-    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "500",
   },
   mainContent: {
     padding: 16,
@@ -564,20 +559,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: "rgba(0, 0, 0, 0.05)",
+    borderColor: "rgba(0, 0, 0, 0.03)",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 1,
   },
   tabActive: {
     backgroundColor: "#1e3a8a",
     borderColor: "#1e3a8a",
     shadowColor: "#1e3a8a",
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 2,
   },
   tabLabel: {
     fontSize: 12,
@@ -624,9 +620,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: 16,
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderColor: 'rgba(0, 0, 0, 0.04)',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 1,
   },
   consistencyLeft: {
     flexDirection: 'row',
@@ -664,10 +665,15 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   templatesContainer: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderColor: 'rgba(0, 0, 0, 0.04)',
     overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 1,
   },
   templatesHeader: {
     flexDirection: 'row',
@@ -696,10 +702,15 @@ const styles = StyleSheet.create({
     color: '#1e3a8a',
   },
   transactionsContainer: {
-    borderRadius: 16,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.05)',
+    borderColor: 'rgba(0, 0, 0, 0.04)',
     overflow: 'hidden',
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 1,
   },
   transactionsHeader: {
     flexDirection: 'row',

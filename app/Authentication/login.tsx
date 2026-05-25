@@ -114,7 +114,7 @@ export default function LoginScreen() {
               </View>
 
               <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Welcome Back</Text>
+                <Text style={styles.headerTitle}>Sign in to Mobibooks</Text>
                 <Text style={styles.headerSubtitle}>Sign in to continue</Text>
               </View>
             </View>

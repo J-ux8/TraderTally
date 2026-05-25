@@ -18,15 +18,15 @@ interface SummaryCardProps {
 export const SummaryCard = React.memo(function SummaryCard({ title, summary }: SummaryCardProps) {
   const getStatusInfo = () => {
     if (summary.revenue === 0 && summary.expenses === 0) {
-      return { message: "No transactions yet - start recording!", color: "#666", icon: "✨" };
+      return { message: "Ready to record today's activity", color: "#64748b", icon: "✨" };
     }
     if (summary.net > 0) {
-      return { message: "You're making a profit! Keep going! 🎉", color: "#1e3a8a", icon: "📈" };
+      return { message: "You remained profitable", color: "#0f172a", icon: "📈" };
     }
     if (summary.net < 0) {
-      return { message: "Watch out, you're spending more than you make. ⚠️", color: "#ef4444", icon: "📉" };
+      return { message: "Expenses are tracking higher", color: "#b91c1c", icon: "📉" };
     }
-    return { message: "You're breaking even. Every K1 counts! 💪", color: "#f59e0b", icon: "⚖️" };
+    return { message: "Cash flow is perfectly balanced", color: "#d97706", icon: "⚖️" };
   };
 
   const status = getStatusInfo();
@@ -109,56 +109,56 @@ export const SummaryCard = React.memo(function SummaryCard({ title, summary }: S
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 16,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 2,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#333',
-    marginBottom: 16,
+    color: '#0f172a',
+    marginBottom: 12,
   },
   grid: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 12,
   },
   card: {
     flex: 1,
-    backgroundColor: '#f9fafb',
+    backgroundColor: '#f8fafc',
     borderRadius: 16,
-    padding: 16,
+    padding: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 6,
+    marginBottom: 4,
   },
   cardLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#666',
+    color: '#64748b',
   },
   cardValue: {
     fontSize: 24,
     fontWeight: '800',
   },
   revenue: {
-    color: '#1e3a8a',
+    color: '#0f172a',
   },
   expense: {
-    color: '#ef4444',
+    color: '#0f172a',
   },
   netCard: {
     backgroundColor: 'rgba(16, 185, 129, 0.05)',
     borderRadius: 16,
-    padding: 16,
+    padding: 12,
     borderWidth: 1,
     borderColor: 'rgba(16, 185, 129, 0.1)',
   },
@@ -169,64 +169,66 @@ const styles = StyleSheet.create({
   netHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 6,
+    marginBottom: 4,
   },
   netLabel: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#666',
+    fontWeight: '600',
+    color: '#64748b',
   },
   netValue: {
     fontSize: 32,
     fontWeight: '800',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   insightContainer: {
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 8,
-    padding: 8,
-    marginBottom: 12,
+    padding: 6,
+    marginBottom: 8,
   },
   insightText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
   },
   positive: {
-    color: '#1e3a8a',
+    color: '#10b981',
   },
   negative: {
     color: '#ef4444',
   },
   transactionCount: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748b',
   },
   summaryFooter: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(0, 0, 0, 0.05)',
-    paddingTop: 12,
-    gap: 4,
+    paddingTop: 8,
+    gap: 2,
   },
   topExpense: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748b',
   },
   topExpenseName: {
     fontWeight: '700',
     color: '#ef4444',
   },
   formulaContainer: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 8,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#f3f4f6',
+    borderTopColor: '#f1f5f9',
     alignItems: 'center',
   },
   formulaText: {
     fontSize: 11,
-    color: '#9ca3af',
+    color: '#94a3b8',
     fontStyle: 'italic',
     fontWeight: '500',
   },
