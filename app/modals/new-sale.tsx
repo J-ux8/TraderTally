@@ -382,7 +382,7 @@ export default function NewSaleScreen() {
       <Modal visible={isAddingProduct} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
           >
             <View style={styles.modalHeader}>
@@ -431,7 +431,7 @@ export default function NewSaleScreen() {
       <Modal visible={showCheckout} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView 
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={[styles.modalContent, { backgroundColor: colors.cardBackground }]}
           >
             <View style={styles.modalHeader}>

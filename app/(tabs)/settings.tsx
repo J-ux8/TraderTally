@@ -574,7 +574,7 @@ export default function SettingsScreen() {
 
       {/* Edit Profile Modal */}
       <Modal visible={editModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setEditModalVisible(false)} />
           <View style={dynamicStyles.modalContent}>
             <View style={dynamicStyles.modalHeader}>
@@ -626,7 +626,7 @@ export default function SettingsScreen() {
 
       {/* Change Password Modal */}
       <Modal visible={passwordModalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setPasswordModalVisible(false)} />
           <View style={dynamicStyles.modalContent}>
             <View style={dynamicStyles.modalHeader}>

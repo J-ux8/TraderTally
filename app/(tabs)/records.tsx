@@ -351,7 +351,7 @@ export default function RecordsScreen() {
 
       {/* Edit Transaction Modal */}
       <Modal visible={editModalVisible} transparent animationType="slide" onRequestClose={closeEditModal}>
-        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={styles.modalOverlay} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={closeEditModal} />
           <View style={dynamicStyles.modalContent}>
             <View style={[styles.modalHeader, { borderBottomColor: colors.borderColor }]}>

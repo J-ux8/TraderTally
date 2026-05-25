@@ -120,7 +120,7 @@ export default function CreateTemplateScreen() {
 
       <KeyboardAvoidingView
         style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.form}>

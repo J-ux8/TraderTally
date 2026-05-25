@@ -161,7 +161,7 @@ export default function RecordSaleScreen() {
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: colors.backgroundColor }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
