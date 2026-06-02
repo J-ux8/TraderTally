@@ -13,7 +13,7 @@ import {
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
 interface DailyData {
@@ -59,6 +59,7 @@ interface FinancialMetrics {
 
 
 export default function ReportsScreen() {
+  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const { 
     transactions, 
@@ -478,25 +479,27 @@ export default function ReportsScreen() {
 
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
-      <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
+    <View style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]}>
+      <View style={[styles.header, { backgroundColor: colors.cardBackground, paddingTop: Math.max(10, insets.top + 4) }]}>
         <View style={styles.headerDecoration1} />
         <View style={styles.headerDecoration2} />
         <View style={styles.headerContent}>
-          <View style={styles.headerIconContainer}>
+          <View style={styles.headerLeft}>
             <View style={styles.headerIcon}>
-              <BarChart3 size={24} color="#ffffff" />
+              <BarChart3 size={22} color="#1e3a8a" />
             </View>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Financial Reports</Text>
-              <Text style={styles.headerSubtitle}>Professional Dashboard</Text>
+              <Text style={[styles.headerTitle, { color: colors.textColor }]}>Financial Reports</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Professional Dashboard</Text>
             </View>
+          </View>
+          <View style={styles.headerRight}>
             <TouchableOpacity 
-              style={styles.privacyToggle} 
+              style={[styles.privacyToggle, { backgroundColor: 'rgba(30, 58, 138, 0.08)' }]} 
               onPress={() => setPrivacyMode(!privacyMode)}
               activeOpacity={0.7}
             >
-              {privacyMode ? <EyeOff size={24} color="#ffffff" /> : <Eye size={24} color="#ffffff" />}
+              {privacyMode ? <EyeOff size={22} color="#1e3a8a" /> : <Eye size={22} color="#1e3a8a" />}
             </TouchableOpacity>
           </View>
         </View>
@@ -941,7 +944,7 @@ export default function ReportsScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -950,15 +953,16 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   scrollView: { flex: 1 },
   scrollContent: { padding: 20, paddingBottom: 40 },
-  header: { backgroundColor: '#1e3a8a', paddingTop: 60, paddingBottom: 32, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, position: 'relative', overflow: 'hidden' },
-  headerDecoration1: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  headerDecoration2: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  headerContent: { zIndex: 10 },
-  headerIconContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  headerIcon: { width: 56, height: 56, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  header: { paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, overflow: 'hidden' },
+  headerDecoration1: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(30, 58, 138, 0.03)' },
+  headerDecoration2: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(30, 58, 138, 0.03)' },
+  headerContent: { zIndex: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 16 },
+  headerIcon: { width: 48, height: 48, backgroundColor: 'rgba(30, 58, 138, 0.08)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   headerTextContainer: { flex: 1 },
-  headerTitle: { fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
-  headerSubtitle: { fontSize: 16, color: 'rgba(255, 255, 255, 0.9)', fontWeight: '500' },
+  headerTitle: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
+  headerSubtitle: { fontSize: 13, fontWeight: '500' },
+  headerRight: { justifyContent: 'center', alignItems: 'center' },
   periodSelector: { flexDirection: 'row', gap: 8, marginBottom: 24 },
   periodButton: { flex: 1, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   periodButtonActive: { backgroundColor: '#1e3a8a' },

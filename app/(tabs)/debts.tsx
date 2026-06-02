@@ -9,9 +9,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { Plus, Store } from 'lucide-react-native';
 import React, { useCallback, useState, useMemo } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function DebtsScreen() {
+  const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const { debts, updateDebt, settleDebt, deleteDebt, refresh, loading, error } = useDebts();
   const [activeTab, setActiveTab] = useState<'active' | 'settled'>('active');
@@ -45,23 +46,23 @@ export default function DebtsScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
+    <View style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]}>
       <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
         {/* Hero Header */}
-        <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
+        <View style={[styles.header, { backgroundColor: colors.cardBackground, paddingTop: Math.max(10, insets.top + 4) }]}>
           <View style={styles.headerDecoration1} />
           <View style={styles.headerDecoration2} />
           <View style={styles.headerContent}>
-            <View style={styles.headerIconContainer}>
+            <View style={styles.headerLeft}>
               <View style={styles.headerIcon}>
-                <Store size={24} color="#ffffff" />
+                <Store size={22} color="#1e3a8a" />
               </View>
               <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Credit Book</Text>
-                <Text style={styles.headerSubtitle}>Manage money owed to you and money you owe</Text>
+                <Text style={[styles.headerTitle, { color: colors.textColor }]}>Credit Book</Text>
+                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Manage money owed to you and money you owe</Text>
               </View>
-              <OfflineIndicator alwaysShow compact />
             </View>
+            <OfflineIndicator alwaysShow compact />
           </View>
         </View>
 
@@ -199,7 +200,7 @@ export default function DebtsScreen() {
           onDelete={deleteDebt}
         />
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -213,12 +214,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f5f5',
   },
   header: {
-    backgroundColor: '#1e3a8a',
-    paddingTop: 60,
-    paddingBottom: 32,
+    paddingBottom: 24,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     position: 'relative',
     overflow: 'hidden',
   },
@@ -229,7 +228,7 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(30, 58, 138, 0.03)',
   },
   headerDecoration2: {
     position: 'absolute',
@@ -238,20 +237,24 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(30, 58, 138, 0.03)',
   },
   headerContent: {
     zIndex: 10,
-  },
-  headerIconContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
     gap: 16,
   },
   headerIcon: {
-    width: 56,
-    height: 56,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 48,
+    height: 48,
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -260,14 +263,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
     fontWeight: '500',
   },
   scrollView: {

@@ -10,6 +10,7 @@ import { CategoriesProvider } from '@/contexts/CategoriesContext';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { TemplatesProvider } from '@/contexts/TemplatesContext';
 import { CartProvider } from '@/contexts/CartContext';
+import { CustomAlertProvider } from '@/components/ui/CustomAlertContext';
 import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React from 'react';
@@ -219,7 +220,9 @@ export default function RootLayout() {
               <TemplatesProvider>
                 <CartProvider>
                   <ToastProvider>
-                    <RootLayoutContent />
+                    <CustomAlertProvider>
+                      <RootLayoutContent />
+                    </CustomAlertProvider>
                   </ToastProvider>
                 </CartProvider>
               </TemplatesProvider>

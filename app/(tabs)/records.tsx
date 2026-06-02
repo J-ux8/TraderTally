@@ -7,7 +7,7 @@ import { deleteTransaction, updateTransaction } from "@/lib/transactions";
 import { useFocusEffect } from "expo-router";
 import { Calendar as CalendarIcon, Edit2, ShoppingBag, Trash2, TrendingDown, TrendingUp } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -109,7 +109,11 @@ const TransactionItem = React.memo(({
   );
 });
 
+import { useCustomAlert } from '@/components/ui/CustomAlertContext';
+
 export default function RecordsScreen() {
+  const { showAlert } = useCustomAlert();
+  const Alert = { alert: showAlert };
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const {
@@ -287,17 +291,17 @@ export default function RecordsScreen() {
   return (
     <View style={dynamicStyles.container}>
       {/* Hero Header */}
-      <View style={[styles.header, { backgroundColor: colors.headerBackground, paddingTop: Math.max(20, insets.top + 10) }]}>
+      <View style={[styles.header, { backgroundColor: colors.cardBackground, paddingTop: Math.max(10, insets.top + 4) }]}>
         <View style={styles.headerDecoration1} />
         <View style={styles.headerDecoration2} />
         <View style={styles.headerContent}>
-          <View style={styles.headerIconContainer}>
+          <View style={styles.headerLeft}>
             <View style={styles.headerIcon}>
-              <TrendingUp size={24} color="#ffffff" />
+              <TrendingUp size={22} color="#1e3a8a" />
             </View>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Records</Text>
-              <Text style={styles.headerSubtitle}>
+              <Text style={[styles.headerTitle, { color: colors.textColor }]}>Records</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
                 {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
               </Text>
             </View>
@@ -487,15 +491,15 @@ export default function RecordsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingBottom: 32, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, overflow: 'hidden' },
-  headerDecoration1: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  headerDecoration2: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  headerContent: { zIndex: 10 },
-  headerIconContainer: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 16 },
-  headerIcon: { width: 56, height: 56, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  header: { paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, overflow: 'hidden' },
+  headerDecoration1: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(30, 58, 138, 0.03)' },
+  headerDecoration2: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(30, 58, 138, 0.03)' },
+  headerContent: { zIndex: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 16 },
+  headerIcon: { width: 48, height: 48, backgroundColor: 'rgba(30, 58, 138, 0.08)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   headerTextContainer: { flex: 1 },
-  headerTitle: { fontSize: 28, fontWeight: '800', color: '#ffffff', marginBottom: 4 },
-  headerSubtitle: { fontSize: 16, color: 'rgba(255, 255, 255, 0.9)', fontWeight: '500' },
+  headerTitle: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
+  headerSubtitle: { fontSize: 13, fontWeight: '500' },
   headerRight: { justifyContent: 'center', alignItems: 'flex-end', flexDirection: 'row', gap: 12 },
   contentContainer: { flex: 1 },
   scrollView: { flex: 1 },

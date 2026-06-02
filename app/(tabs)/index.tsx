@@ -13,14 +13,18 @@ import { router } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { Activity, LogOut, Store, Plus } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { Alert, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Template } from '@/lib/templates';
 import { TransactionGroup } from '@/types/grouping';
 
+import { useCustomAlert } from '@/components/ui/CustomAlertContext';
+
 export default function HomeScreen() {
+  const { showAlert } = useCustomAlert();
+  const Alert = { alert: showAlert };
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
   const colors = useThemeColors();

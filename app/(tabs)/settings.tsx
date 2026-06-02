@@ -41,7 +41,6 @@ import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -53,7 +52,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BUSINESS_TYPES = [
   'Tutemba Shop',
@@ -65,7 +64,12 @@ const BUSINESS_TYPES = [
   'Other'
 ];
 
+import { useCustomAlert } from '@/components/ui/CustomAlertContext';
+
 export default function SettingsScreen() {
+  const { showAlert } = useCustomAlert();
+  const Alert = { alert: showAlert };
+  const insets = useSafeAreaInsets();
   const { theme, themeMode, setThemeMode } = useTheme();
   const { user, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -358,19 +362,19 @@ export default function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={dynamicStyles.safeArea} edges={['top']}>
+    <View style={dynamicStyles.safeArea}>
       <ScrollView style={dynamicStyles.container} showsVerticalScrollIndicator={false}>
-        <View style={dynamicStyles.header}>
+        <View style={[dynamicStyles.header, { backgroundColor: cardBackground, paddingTop: Math.max(10, insets.top + 4) }]}>
           <View style={styles.headerDecoration1} />
           <View style={styles.headerDecoration2} />
           <View style={styles.headerContent}>
-            <View style={styles.headerIconContainer}>
+            <View style={styles.headerLeft}>
               <View style={styles.headerIcon}>
-                <SettingsIcon size={24} color="#ffffff" />
+                <SettingsIcon size={22} color="#1e3a8a" />
               </View>
               <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Settings</Text>
-                <Text style={styles.headerSubtitle}>Manage your account</Text>
+                <Text style={[styles.headerTitle, { color: textColor }]}>Settings</Text>
+                <Text style={[styles.headerSubtitle, { color: textSecondary }]}>Manage your account</Text>
               </View>
             </View>
           </View>
@@ -800,7 +804,7 @@ export default function SettingsScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -809,15 +813,15 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 10, fontSize: 16 },
-  header: { backgroundColor: '#1e3a8a', paddingTop: 60, paddingBottom: 32, paddingHorizontal: 20, borderBottomLeftRadius: 32, borderBottomRightRadius: 32, position: 'relative', overflow: 'hidden' },
-  headerDecoration1: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  headerDecoration2: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-  headerContent: { zIndex: 10 },
-  headerIconContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  headerIcon: { width: 56, height: 56, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  header: { paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, position: 'relative', overflow: 'hidden' },
+  headerDecoration1: { position: 'absolute', top: -50, right: -50, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(30, 58, 138, 0.03)' },
+  headerDecoration2: { position: 'absolute', bottom: -30, left: -30, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(30, 58, 138, 0.03)' },
+  headerContent: { zIndex: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 16 },
+  headerIcon: { width: 48, height: 48, backgroundColor: 'rgba(30, 58, 138, 0.08)', borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   headerTextContainer: { flex: 1 },
-  headerTitle: { fontSize: 28, fontWeight: '800', color: '#ffffff' },
-  headerSubtitle: { fontSize: 16, color: 'rgba(255, 255, 255, 0.9)' },
+  headerTitle: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
+  headerSubtitle: { fontSize: 13, fontWeight: '500' },
   content: { padding: 20 },
   section: { marginBottom: 32 },
   sectionTitle: { fontSize: 14, fontWeight: '700', marginBottom: 12, textTransform: 'uppercase' },
