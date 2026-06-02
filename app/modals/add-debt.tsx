@@ -2,17 +2,20 @@ import { getLocalISOString } from "@/lib/dateUtils";
 import { OfflineIndicator } from "@/components/ui/OfflineIndicator";
 import { useDebts } from "@/hooks/useDebts";
 import { useToastContext } from "@/contexts/ToastContext";
+import { useThemeColors } from "@/hooks/useThemeColors";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, FileText, Phone, Plus, User } from "lucide-react-native";
 import { useCallback, useState } from "react";
-import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AddDebtScreen() {
   const params = useLocalSearchParams<{ amount?: string; note?: string; isSale?: string; category?: string }>();
   const { createDebt: createDebtFromHook, refresh: refreshDebts } = useDebts();
   const { success: showSuccess, error: showError } = useToastContext();
+  const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
   const [debtType, setDebtType] = useState<'receivable' | 'payable'>((params as any).type || 'receivable');
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -106,30 +109,31 @@ export default function AddDebtScreen() {
   const todayString = formatDateForCalendar(new Date());
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={[]}>
       <KeyboardAvoidingView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: colors.backgroundColor }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerDecoration} />
+        {/* Hero Header */}
+        <View style={[styles.header, { backgroundColor: colors.cardBackground, paddingTop: Math.max(12, insets.top + 4) }]}>
+          <View style={styles.headerDecoration1} />
+          <View style={styles.headerDecoration2} />
           <View style={styles.headerContent}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-              activeOpacity={0.7}
-            >
-              <ArrowLeft size={20} color="#ffffff" />
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
+            <View style={styles.headerLeft}>
+              <TouchableOpacity
+                style={styles.backButton}
+                onPress={() => router.back()}
+                activeOpacity={0.7}
+              >
+                <ArrowLeft size={20} color="#1e3a8a" />
+              </TouchableOpacity>
               <View style={styles.headerIcon}>
-                <Plus size={20} color="#ffffff" />
+                <Plus size={20} color="#1e3a8a" />
               </View>
-              <View>
-                <Text style={styles.headerTitle}>{debtType === 'receivable' ? 'Add Credit' : 'Add Debt'}</Text>
-                <Text style={styles.headerSubtitle}>{debtType === 'receivable' ? 'Record money owed to you' : 'Record money you owe'}</Text>
+              <View style={styles.headerTextContainer}>
+                <Text style={[styles.headerTitle, { color: colors.textColor }]}>{debtType === 'receivable' ? 'Add Credit' : 'Add Debt'}</Text>
+                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>{debtType === 'receivable' ? 'Record money owed to you' : 'Record money you owe'}</Text>
               </View>
             </View>
             <OfflineIndicator />
@@ -404,67 +408,75 @@ export default function AddDebtScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#1e3a8a",
-    paddingTop: 50,
     paddingBottom: 24,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    position: "relative",
-    overflow: "hidden",
+    position: 'relative',
+    overflow: 'hidden',
   },
-  headerDecoration: {
-    position: "absolute",
-    top: -40,
-    right: -40,
-    width: 128,
-    height: 128,
-    borderRadius: 64,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  headerDecoration1: {
+    position: 'absolute',
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(30, 58, 138, 0.03)',
+  },
+  headerDecoration2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(30, 58, 138, 0.03)',
   },
   headerContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
     zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
   },
   backButton: {
-    width: 44,
-    height: 44,
-    justifyContent: "center",
-    alignItems: "center",
-    borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-  },
-  headerTitleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    flex: 1,
-  },
-  headerIcon: {
     width: 40,
     height: 40,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
+  },
+  headerIcon: {
+    width: 48,
+    height: 48,
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 20,
-    fontWeight: "800",
-    color: "#ffffff",
+    fontWeight: '800',
+    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 14,
-    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 13,
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
