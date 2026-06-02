@@ -137,18 +137,18 @@ export default function RecordExpenseScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={[styles.header, { backgroundColor: colors.headerBackground, paddingTop: Math.max(20, insets.top + 10) }]}>
+        <View style={[styles.header, { backgroundColor: colors.cardBackground, paddingTop: Math.max(10, insets.top + 4) }]}>
           <View style={styles.headerDecoration1} />
           <View style={styles.headerDecoration2} />
           <View style={styles.headerContent}>
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-              <ArrowLeft size={20} color="#ffffff" />
+              <ArrowLeft size={22} color="#1e3a8a" />
             </TouchableOpacity>
             <View style={styles.headerIconContainer}>
-              <View style={styles.headerIcon}><TrendingDown size={24} color="#ffffff" /></View>
+              <View style={styles.headerIcon}><TrendingDown size={22} color="#1e3a8a" /></View>
               <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Record Expense</Text>
-                <Text style={styles.headerSubtitle}>Track your business costs</Text>
+                <Text style={[styles.headerTitle, { color: colors.textColor }]}>Record Expense</Text>
+                <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Track your business costs</Text>
               </View>
             </View>
             <OfflineIndicator />
@@ -272,12 +272,17 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { flex: 1 },
   header: {
-    paddingBottom: 32,
+    paddingBottom: 24,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: 'hidden',
     position: 'relative',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   headerDecoration1: {
     position: 'absolute',
@@ -286,7 +291,7 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(30, 58, 138, 0.03)',
   },
   headerDecoration2: {
     position: 'absolute',
@@ -295,7 +300,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(30, 58, 138, 0.03)',
   },
   headerContent: {
     zIndex: 10,
@@ -303,12 +308,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
     marginRight: 16,
   },
   headerIconContainer: {
@@ -318,9 +323,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerIcon: {
-    width: 56,
-    height: 56,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 48,
+    height: 48,
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -329,14 +334,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
     fontWeight: '500',
   },
   scrollView: { flex: 1 },

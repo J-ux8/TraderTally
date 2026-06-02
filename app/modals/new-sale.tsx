@@ -246,44 +246,44 @@ export default function NewSaleScreen() {
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(20, insets.top + 10), backgroundColor: colors.headerBackground }]}>
+      <View style={[styles.header, { paddingTop: Math.max(10, insets.top + 4), backgroundColor: colors.cardBackground }]}>
         <View style={styles.headerDecoration1} />
         <View style={styles.headerDecoration2} />
         <View style={styles.headerContent}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-            <ArrowLeft size={24} color="#ffffff" />
+            <ArrowLeft size={22} color="#1e3a8a" />
           </TouchableOpacity>
           <View style={styles.headerIconContainer}>
             <View style={styles.headerIcon}>
-              <ShoppingCart size={24} color="#ffffff" />
+              <ShoppingCart size={22} color="#1e3a8a" />
             </View>
             <View style={styles.headerTextContainer}>
-              <Text style={styles.headerTitle}>Multi-Item Sale</Text>
-              <Text style={styles.headerSubtitle}>Add items to your cart</Text>
+              <Text style={[styles.headerTitle, { color: colors.textColor }]}>Multi-Item Sale</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Add items to your cart</Text>
             </View>
           </View>
           <TouchableOpacity 
             style={styles.headerAddButton} 
             onPress={() => setIsAddingProduct(true)}
           >
-            <Plus size={20} color="#ffffff" />
+            <Plus size={20} color="#1e3a8a" />
           </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: 'rgba(255, 255, 255, 0.15)', marginTop: 16 }]}>
-          <Search size={20} color="rgba(255, 255, 255, 0.7)" style={styles.searchIcon} />
+        <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, marginTop: 16, borderWidth: 1, borderColor: colors.borderColor }]}>
+          <Search size={20} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
             ref={searchInputRef}
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.textColor }]}
             placeholder="Search products..."
-            placeholderTextColor="rgba(255, 255, 255, 0.5)"
+            placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={handleSearch}
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => handleSearch('')}>
-              <X size={20} color="rgba(255, 255, 255, 0.7)" />
+              <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
           )}
         </View>
@@ -571,15 +571,15 @@ const styles = StyleSheet.create({
   header: {
     paddingBottom: 24,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: 'hidden',
     position: 'relative',
-    elevation: 4,
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   headerDecoration1: {
     position: 'absolute',
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
     width: 150,
     height: 150,
     borderRadius: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(30, 58, 138, 0.03)',
   },
   headerDecoration2: {
     position: 'absolute',
@@ -597,7 +597,7 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    backgroundColor: 'rgba(30, 58, 138, 0.03)',
   },
   headerContent: {
     zIndex: 10,
@@ -605,12 +605,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
     marginRight: 16,
   },
   headerIconContainer: {
@@ -620,9 +620,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerIcon: {
-    width: 56,
-    height: 56,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 48,
+    height: 48,
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
@@ -631,28 +631,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: '800',
-    color: '#ffffff',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
     fontWeight: '500',
   },
   headerAddButton: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
     borderRadius: 12,
     marginLeft: 16,
   },
   searchContainer: { flexDirection: 'row', alignItems: 'center', height: 50, borderRadius: 16, paddingHorizontal: 15 },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, color: '#ffffff', fontSize: 16, fontWeight: '500' },
+  searchInput: { flex: 1, fontSize: 16, fontWeight: '500' },
   content: { flex: 1 },
   section: { marginTop: 20, paddingHorizontal: 20 },
   sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 15 },
