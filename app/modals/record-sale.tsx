@@ -9,7 +9,9 @@ import { ArrowLeft, Calendar as CalendarIcon, ShoppingBag, User } from "lucide-r
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { useTheme } from '@/contexts/ThemeContext';
 import { getOrCreateCustomer } from '@/lib/customers';
 import { Product } from '@/lib/products';
 import { completeSale } from '@/lib/sales';
@@ -17,6 +19,8 @@ import { CartItem } from '@/contexts/CartContext';
 
 export default function RecordSaleScreen() {
   const colors = useThemeColors();
+  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
   const { recordSale } = useTransactionsContext();
   const { success: showSuccess, error: showError } = useToastContext();
   const params = useLocalSearchParams<{
@@ -158,21 +162,23 @@ export default function RecordSaleScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
+    <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
+      <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: colors.backgroundColor }]}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
-          <View style={styles.headerDecoration} />
+        <View style={[styles.header, { backgroundColor: colors.headerBackground, paddingTop: Math.max(20, insets.top + 10) }]}>
+          <View style={styles.headerDecoration1} />
+          <View style={styles.headerDecoration2} />
           <View style={styles.headerContent}>
             <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
               <ArrowLeft size={20} color="#ffffff" />
             </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <View style={styles.headerIcon}><ShoppingBag size={20} color="#ffffff" /></View>
-              <View>
+            <View style={styles.headerIconContainer}>
+              <View style={styles.headerIcon}><ShoppingBag size={24} color="#ffffff" /></View>
+              <View style={styles.headerTextContainer}>
                 <Text style={styles.headerTitle}>Record Sale</Text>
                 <Text style={styles.headerSubtitle}>Add your latest sale</Text>
               </View>
@@ -312,21 +318,81 @@ export default function RecordSaleScreen() {
           </View>
         </Modal>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   container: { flex: 1 },
-  header: { padding: 24, paddingTop: 40, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, overflow: 'hidden' },
-  headerDecoration: { position: 'absolute', top: -40, right: -40, width: 128, height: 128, borderRadius: 64, backgroundColor: 'rgba(255,255,255,0.1)' },
-  headerContent: { flexDirection: 'row', alignItems: 'center' },
-  backButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.2)', marginRight: 12 },
-  headerTitleContainer: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  headerIcon: { width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
-  headerSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)' },
+  header: {
+    paddingBottom: 32,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  headerDecoration1: {
+    position: 'absolute',
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  headerDecoration2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  headerContent: {
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginRight: 16,
+  },
+  headerIconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flex: 1,
+  },
+  headerIcon: {
+    width: 56,
+    height: 56,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+  },
   scrollView: { flex: 1 },
   content: { padding: 20, gap: 20 },
   card: { padding: 20, borderRadius: 16, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },

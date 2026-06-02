@@ -247,11 +247,21 @@ export default function NewSaleScreen() {
       
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(20, insets.top + 10), backgroundColor: colors.headerBackground }]}>
-        <View style={styles.headerTop}>
+        <View style={styles.headerDecoration1} />
+        <View style={styles.headerDecoration2} />
+        <View style={styles.headerContent}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <ArrowLeft size={24} color="#ffffff" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Multi-Item Sale</Text>
+          <View style={styles.headerIconContainer}>
+            <View style={styles.headerIcon}>
+              <ShoppingCart size={24} color="#ffffff" />
+            </View>
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerTitle}>Multi-Item Sale</Text>
+              <Text style={styles.headerSubtitle}>Add items to your cart</Text>
+            </View>
+          </View>
           <TouchableOpacity 
             style={styles.headerAddButton} 
             onPress={() => setIsAddingProduct(true)}
@@ -261,7 +271,7 @@ export default function NewSaleScreen() {
         </View>
 
         {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: 'rgba(255, 255, 255, 0.15)' }]}>
+        <View style={[styles.searchContainer, { backgroundColor: 'rgba(255, 255, 255, 0.15)', marginTop: 16 }]}>
           <Search size={20} color="rgba(255, 255, 255, 0.7)" style={styles.searchIcon} />
           <TextInput
             ref={searchInputRef}
@@ -558,21 +568,88 @@ export default function NewSaleScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { 
-    paddingHorizontal: 20, 
-    paddingBottom: 20, 
-    borderBottomLeftRadius: 32, 
+  header: {
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
+    overflow: 'hidden',
+    position: 'relative',
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  backButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12 },
-  headerAddButton: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12 },
-  headerTitle: { fontSize: 22, fontWeight: '900', color: '#ffffff' },
+  headerDecoration1: {
+    position: 'absolute',
+    top: -50,
+    right: -50,
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  headerDecoration2: {
+    position: 'absolute',
+    bottom: -30,
+    left: -30,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  headerContent: {
+    zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginRight: 16,
+  },
+  headerIconContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    flex: 1,
+  },
+  headerIcon: {
+    width: 56,
+    height: 56,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTextContainer: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#ffffff',
+    marginBottom: 4,
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+  },
+  headerAddButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 12,
+    marginLeft: 16,
+  },
   searchContainer: { flexDirection: 'row', alignItems: 'center', height: 50, borderRadius: 16, paddingHorizontal: 15 },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, color: '#ffffff', fontSize: 16, fontWeight: '500' },
