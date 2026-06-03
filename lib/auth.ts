@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { NetworkMonitor } from "../sync/NetworkMonitor";
+import { LocalDB } from "../database/localDb";
 
 export async function signIn(email: string, password: string) {
   if (!NetworkMonitor.getStatus()) {
@@ -66,6 +67,9 @@ export async function signOut() {
   } catch (error) {
     console.warn('[Auth] Sign out server call failed (probably offline), proceeding with local logout:', error);
     // Even if it fails, the local session is usually cleared by the supabase client
+  } finally {
+    // Clear cached userId and schema so next login starts fresh
+    LocalDB.clearUserCache();
   }
 }
 

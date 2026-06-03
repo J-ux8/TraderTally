@@ -20,18 +20,41 @@ export interface LocalBaseModel {
  */
 export class LocalDB {
   /**
-   * Get current authenticated user ID
+   * In-memory cache for the authenticated user ID.
+   * Avoids repeated async supabase.auth.getSession() calls on every DB operation.
+   */
+  private static _cachedUserId: string | null = null;
+
+  /**
+   * Call on sign-out to clear the cached user ID.
+   */
+  public static clearUserCache(): void {
+    this._cachedUserId = null;
+    this._schemaCache = {};
+  }
+
+  /**
+   * Get current authenticated user ID (cached after first call)
    */
   public static async getUserId(): Promise<string | null> {
+    // Return cached value instantly — avoids async auth call on every DB op
+    if (this._cachedUserId) return this._cachedUserId;
+
     try {
       // getSession() checks local storage first and doesn't require network
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user?.id) return session.user.id;
+      if (session?.user?.id) {
+        this._cachedUserId = session.user.id;
+        return this._cachedUserId;
+      }
 
       // Only fallback to getUser() if online and we have no session
       if (NetworkMonitor.getStatus()) {
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.id) return user.id;
+        if (user?.id) {
+          this._cachedUserId = user.id;
+          return this._cachedUserId;
+        }
       }
     } catch (e) {
       console.log('[LocalDB] Auth check failed:', e);
@@ -272,6 +295,19 @@ export class LocalDB {
   }
 
   /**
+   * In-memory schema cache — avoids repeated PRAGMA table_info calls
+   */
+  private static _schemaCache: Record<string, string[]> = {};
+
+  private static async getValidColumns(db: any, table: string): Promise<string[]> {
+    if (this._schemaCache[table]) return this._schemaCache[table];
+    const tableInfo = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+    const columns = tableInfo.map((c: { name: string }) => c.name);
+    this._schemaCache[table] = columns;
+    return columns;
+  }
+
+  /**
    * Sync Metadata operations
    */
   static async getLastSyncTime(): Promise<string | null> {
@@ -320,11 +356,9 @@ export class LocalDB {
    */
   static async upsertFromServer(table: string, records: any[]): Promise<void> {
     const db = await getDatabase();
-    
-    // Get valid columns for this table to filter out remote-only columns
-    const tableInfo = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
-    const validColumns = tableInfo.map(c => c.name);
-    console.log(`[LocalDB] Valid columns for ${table}:`, validColumns.join(', '));
+
+    // Use cached schema — avoids PRAGMA table_info on every sync pull
+    const validColumns = await this.getValidColumns(db, table);
 
     // Process in a single transaction for performance
     await db.withTransactionAsync(async () => {

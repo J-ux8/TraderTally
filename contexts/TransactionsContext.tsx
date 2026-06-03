@@ -1,4 +1,4 @@
-import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib, batchUpdateTransactions, batchDeleteTransactions } from '@/lib/transactions';
+import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib, batchUpdateTransactions, batchDeleteTransactions, getSaleItemsBatch } from '@/lib/transactions';
 import { TransactionGroup, Transaction as GroupingTransaction } from '@/types/grouping';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useSync } from '@/context/SyncContext';
@@ -85,20 +85,17 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     try {
       setLoading(true);
       const data = await getUserTransactions();
-      
-      // Fetch sale items for transactions with linked sales
-      const enrichedData = await Promise.all((data as Transaction[]).map(async (tx) => {
-        if (tx.linked_sale_id) {
-          try {
-            const { getSaleItems } = await import('@/lib/transactions');
-            const items = await getSaleItems(tx.linked_sale_id);
-            return { ...tx, sale_items: items };
-          } catch (e) {
-            console.error('Error fetching sale items for tx:', tx.id, e);
-            return tx;
-          }
-        }
-        return tx;
+
+      // Batch-fetch all sale items in ONE query instead of N+1 individual queries
+      const linkedSaleIds = (data as Transaction[])
+        .map(tx => tx.linked_sale_id)
+        .filter((id): id is string => !!id);
+
+      const saleItemsMap = await getSaleItemsBatch(linkedSaleIds);
+
+      const enrichedData = (data as Transaction[]).map(tx => ({
+        ...tx,
+        sale_items: tx.linked_sale_id ? (saleItemsMap[tx.linked_sale_id] || []) : undefined,
       }));
 
       setTransactions(enrichedData);

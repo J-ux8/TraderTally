@@ -70,90 +70,135 @@ export class SyncEngine {
   }
 
   /**
-   * Push local changes to Supabase
-   * LIMIT 50 per table per cycle
+   * Push changes for a single table
    */
-  private static async push(): Promise<void> {
-    for (const table of this.syncTables) {
-      if (!NetworkMonitor.getStatus()) return; // Abort if network lost mid-sync
+  private static async pushTable(table: string): Promise<void> {
+    if (!NetworkMonitor.getStatus()) return; // Abort if network lost mid-sync
 
-      const pending = await LocalDB.getPendingSync<any>(table, 50);
-      if (pending.length === 0) continue;
+    const pending = await LocalDB.getPendingSync<any>(table, 50);
+    if (pending.length === 0) return;
 
-      console.log(`[SyncEngine] Pushing ${pending.length} changes for ${table}...`);
-      
-      const ids = pending.map(p => p.id);
-      await LocalDB.markSyncing(table, ids);
+    console.log(`[SyncEngine] Pushing ${pending.length} changes for ${table}...`);
+    
+    const ids = pending.map(p => p.id);
+    await LocalDB.markSyncing(table, ids);
 
-      // Perform batch upsert to Supabase for efficiency
-      try {
-        const { error } = await supabase
-          .from(table)
-          .upsert(pending.map(record => ({
-            ...record,
-            sync_status: 'synced',
-            retry_count: 0
-          })));
+    // Perform batch upsert to Supabase for efficiency
+    try {
+      const { error } = await supabase
+        .from(table)
+        .upsert(pending.map(record => ({
+          ...record,
+          sync_status: 'synced',
+          retry_count: 0
+        })));
 
-        if (error) {
-          console.log(`[SyncEngine] Batch error pushing ${table}:`, error.message);
-          // Fallback to individual pushes for problematic records
-          for (const record of pending) {
-            try {
-              const { error: indError } = await supabase.from(table).upsert({ ...record, sync_status: 'synced', retry_count: 0 });
-              if (indError) await LocalDB.markFailed(table, record.id);
-              else await LocalDB.markSynced(table, record.id);
-            } catch (e) {
-              await LocalDB.markFailed(table, record.id);
-            }
-          }
-        } else {
-          // Success! Mark all as synced
-          for (const id of ids) {
-            await LocalDB.markSynced(table, id);
+      if (error) {
+        console.log(`[SyncEngine] Batch error pushing ${table}:`, error.message);
+        // Fallback to individual pushes for problematic records
+        for (const record of pending) {
+          try {
+            const { error: indError } = await supabase.from(table).upsert({ ...record, sync_status: 'synced', retry_count: 0 });
+            if (indError) await LocalDB.markFailed(table, record.id);
+            else await LocalDB.markSynced(table, record.id);
+          } catch (e) {
+            await LocalDB.markFailed(table, record.id);
           }
         }
-      } catch (e) {
-        console.log(`[SyncEngine] Unexpected batch error pushing ${table}:`, e);
-        for (const id of ids) await LocalDB.markFailed(table, id);
+      } else {
+        // Success! Mark all as synced
+        for (const id of ids) {
+          await LocalDB.markSynced(table, id);
+        }
       }
+    } catch (e) {
+      console.log(`[SyncEngine] Unexpected batch error pushing ${table}:`, e);
+      for (const id of ids) await LocalDB.markFailed(table, id);
+    }
+  }
+
+  /**
+   * Push local changes to Supabase
+   * Parallelizes independent tables to speed up sync
+   */
+  private static async push(): Promise<void> {
+    // 1. Independent tables can sync in parallel
+    await Promise.all([
+      this.pushTable('profiles'),
+      this.pushTable('categories'),
+      this.pushTable('customers'),
+      this.pushTable('transaction_templates')
+    ]);
+
+    // 2. Dependent tables (order matters)
+    await this.pushTable('products'); // depends on categories
+    await this.pushTable('sales');
+    await this.pushTable('sale_items'); // depends on sales & products
+    
+    // 3. Transactions and debts (depend on customers/sales)
+    await Promise.all([
+      this.pushTable('transactions'),
+      this.pushTable('debts')
+    ]);
+  }
+
+  /**
+   * Pull changes for a single table
+   */
+  private static async pullTable(table: string, lastSyncTime: string | null): Promise<void> {
+    if (!NetworkMonitor.getStatus()) return; // Abort if network lost mid-sync
+    try {
+      let query = supabase
+        .from(table)
+        .select('*');
+
+      if (lastSyncTime) {
+        // Fetch only records updated since last sync
+        query = query.gt('updated_at', lastSyncTime);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.log(`[SyncEngine] Error pulling data for ${table}:`, error.message);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        console.log(`[SyncEngine] Pulling ${data.length} records for ${table}...`);
+        await LocalDB.upsertFromServer(table, data);
+      }
+    } catch (e) {
+      console.log(`[SyncEngine] Unexpected error pulling ${table}:`, e);
     }
   }
 
   /**
    * Pull remote changes from Supabase
+   * Parallelizes independent tables to speed up sync
    */
   private static async pull(): Promise<void> {
     const lastSyncTime = await LocalDB.getLastSyncTime();
     const now = new Date().toISOString();
 
-    for (const table of this.syncTables) {
-      if (!NetworkMonitor.getStatus()) return; // Abort if network lost mid-sync
-      try {
-        let query = supabase
-          .from(table)
-          .select('*');
+    // 1. Independent tables can sync in parallel
+    await Promise.all([
+      this.pullTable('profiles', lastSyncTime),
+      this.pullTable('categories', lastSyncTime),
+      this.pullTable('customers', lastSyncTime),
+      this.pullTable('transaction_templates', lastSyncTime)
+    ]);
 
-        if (lastSyncTime) {
-          // Fetch only records updated since last sync
-          query = query.gt('updated_at', lastSyncTime);
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.log(`[SyncEngine] Error pulling data for ${table}:`, error.message);
-          continue;
-        }
-
-        if (data && data.length > 0) {
-          console.log(`[SyncEngine] Pulling ${data.length} records for ${table}...`);
-          await LocalDB.upsertFromServer(table, data);
-        }
-      } catch (e) {
-        console.log(`[SyncEngine] Unexpected error pulling ${table}:`, e);
-      }
-    }
+    // 2. Dependent tables (order matters)
+    await this.pullTable('products', lastSyncTime); // depends on categories
+    await this.pullTable('sales', lastSyncTime);
+    await this.pullTable('sale_items', lastSyncTime); // depends on sales & products
+    
+    // 3. Transactions and debts (depend on customers/sales)
+    await Promise.all([
+      this.pullTable('transactions', lastSyncTime),
+      this.pullTable('debts', lastSyncTime)
+    ]);
 
     // Update last sync time on success
     await LocalDB.updateLastSyncTime(now);

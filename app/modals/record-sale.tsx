@@ -21,7 +21,7 @@ export default function RecordSaleScreen() {
   const colors = useThemeColors();
   const insets = useSafeAreaInsets();
   const { theme } = useTheme();
-  const { recordSale } = useTransactionsContext();
+  const { recordSale, refresh } = useTransactionsContext();
   const { success: showSuccess, error: showError } = useToastContext();
   const params = useLocalSearchParams<{
     templateId?: string;
@@ -130,6 +130,8 @@ export default function RecordSaleScreen() {
         amount: numericAmount,
         message: 'Transaction saved successfully',
       });
+      // Refresh context so transaction list updates immediately (non-blocking)
+      refresh();
       router.back();
     } catch (error: any) {
       console.error('Error recording sale:', error);

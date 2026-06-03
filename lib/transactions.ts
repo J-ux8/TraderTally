@@ -35,6 +35,25 @@ export async function getSaleItems(saleId: string): Promise<any[]> {
 }
 
 /**
+ * Batch fetch sale items for multiple sale IDs in ONE query (eliminates N+1)
+ */
+export async function getSaleItemsBatch(saleIds: string[]): Promise<Record<string, any[]>> {
+  if (saleIds.length === 0) return {};
+  const db = await getDatabase();
+  const placeholders = saleIds.map(() => '?').join(', ');
+  const rows = await db.getAllAsync<any>(
+    `SELECT * FROM sale_items WHERE sale_id IN (${placeholders}) AND is_deleted = 0`,
+    saleIds
+  );
+  // Group results by sale_id
+  return rows.reduce((acc, item) => {
+    if (!acc[item.sale_id]) acc[item.sale_id] = [];
+    acc[item.sale_id].push(item);
+    return acc;
+  }, {} as Record<string, any[]>);
+}
+
+/**
  * Record a sale (Positive amount)
  */
 export async function recordSale(
@@ -93,10 +112,17 @@ export async function recordExpense(
 /**
  * Get user transactions
  */
-export async function getUserTransactions(limit?: number, offset?: number): Promise<Transaction[]> {
-  // SQLite doesn't directly support offset/limit in the LocalDB generic yet, 
-  // but we mostly need getAll for this app's current usage.
-  return await LocalDB.getAll<Transaction>('transactions');
+export async function getUserTransactions(limit: number = 150, offset: number = 0): Promise<Transaction[]> {
+  const db = await getDatabase();
+  const userId = await LocalDB.getUserId();
+  if (!userId) return [];
+  return db.getAllAsync<Transaction>(
+    `SELECT * FROM transactions
+     WHERE user_id = ? AND is_deleted = 0
+     ORDER BY transaction_date DESC, created_at DESC
+     LIMIT ? OFFSET ?`,
+    userId, limit, offset
+  );
 }
 
 /**
@@ -153,37 +179,61 @@ export async function getRealTimeProfit(): Promise<number> {
 export async function batchUpdateTransactions(
   updates: Array<{ id: string; amount: number; category: string | null; description: string | null; transaction_date: string }>
 ): Promise<void> {
-  for (const update of updates) {
-    await LocalDB.update('transactions', update.id, {
-      amount: update.amount,
-      category: update.category,
-      description: update.description,
-      transaction_date: update.transaction_date
-    });
-  }
+  if (updates.length === 0) return;
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+  // Wrap all updates in a single atomic SQLite transaction (much faster than N commits)
+  await db.withTransactionAsync(async () => {
+    for (const update of updates) {
+      await db.runAsync(
+        `UPDATE transactions SET amount = ?, category = ?, description = ?, transaction_date = ?, updated_at = ?, sync_status = 'pending' WHERE id = ?`,
+        update.amount, update.category, update.description, update.transaction_date, now, update.id
+      );
+    }
+  });
   SyncEngine.syncAll().catch(console.error);
 }
 
 export async function batchDeleteTransactions(ids: string[]): Promise<void> {
-  for (const id of ids) {
-    await LocalDB.delete('transactions', id);
-  }
+  if (ids.length === 0) return;
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+  // Single atomic transaction instead of N individual soft-delete commits
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      await db.runAsync(
+        `UPDATE transactions SET is_deleted = 1, updated_at = ?, sync_status = 'pending' WHERE id = ?`,
+        now, id
+      );
+    }
+  });
   SyncEngine.syncAll().catch(console.error);
 }
 
 export async function batchInsertTransactions(
   transactions: Array<{ amount: number; category: string | null; description: string | null; transaction_date: string }>
 ): Promise<Transaction[]> {
+  if (transactions.length === 0) return [];
+  const db = await getDatabase();
+  const userId = await LocalDB.getUserId();
+  if (!userId) throw new Error('Cannot insert: User not authenticated');
+  const now = new Date().toISOString();
   const results: Transaction[] = [];
-  for (const tx of transactions) {
-    const res = await LocalDB.create<Transaction>('transactions', {
-      amount: tx.amount,
-      category: tx.category,
-      description: tx.description,
-      transaction_date: tx.transaction_date
-    } as any);
-    results.push(res);
-  }
+  // Single atomic transaction for all inserts
+  await db.withTransactionAsync(async () => {
+    for (const tx of transactions) {
+      const { randomUUID } = await import('expo-crypto');
+      const id = randomUUID();
+      await db.runAsync(
+        `INSERT INTO transactions (id, user_id, amount, category, description, transaction_date, customer_id, linked_sale_id, created_at, updated_at, is_deleted, sync_status, retry_count)
+         VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, 0, 'pending', 0)`,
+        id, userId, tx.amount, tx.category, tx.description, tx.transaction_date, now, now
+      );
+      results.push({ id, user_id: userId, amount: tx.amount, category: tx.category, description: tx.description,
+        transaction_date: tx.transaction_date, customer_id: null, linked_sale_id: null,
+        created_at: now, updated_at: now, is_deleted: 0, sync_status: 'pending', retry_count: 0 } as any);
+    }
+  });
   SyncEngine.syncAll().catch(console.error);
   return results;
 }
