@@ -29,7 +29,10 @@ import {
   Eye,
   EyeOff,
   Info,
-  ExternalLink
+  ExternalLink,
+  HeadphonesIcon,
+  MapPin,
+  Image as ImageIcon
 } from 'lucide-react-native';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { getDatabase, wipeDatabase } from '@/lib/database';
@@ -38,6 +41,8 @@ import * as FileSystem from 'expo-file-system/legacy';
 const { documentDirectory } = FileSystem;
 import * as WebBrowser from 'expo-web-browser';
 import * as Sharing from 'expo-sharing';
+import * as ImagePicker from 'expo-image-picker';
+import * as Linking from 'expo-linking';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -50,7 +55,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -82,6 +88,8 @@ export default function SettingsScreen() {
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [businessType, setBusinessType] = useState('');
+  const [businessLogo, setBusinessLogo] = useState('');
+  const [businessAddress, setBusinessAddress] = useState('');
   const [showBusinessTypeDropdown, setShowBusinessTypeDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -128,11 +136,13 @@ export default function SettingsScreen() {
         setFullName(profileData.full_name || '');
         setPhoneNumber(profileData.phone_number || '');
         setBusinessType(profileData.business_type || 'Other');
+        setBusinessLogo(profileData.business_logo || '');
+        setBusinessAddress(profileData.business_address || '');
         
         // If profile was found in metadata but NOT in local DB, save it locally now
         const local = await LocalDB.getById('profiles', user.id);
         if (!local && profileData.full_name) {
-          await createUserProfile(user.id, user.id, profileData.full_name, profileData.phone_number, profileData.business_type);
+          await createUserProfile(user.id, user.id, profileData.full_name, profileData.phone_number, profileData.business_type, profileData.business_logo, profileData.business_address);
         }
       }
 
@@ -149,7 +159,7 @@ export default function SettingsScreen() {
 
     setSaving(true);
     try {
-      await updateUserProfile(fullName, phoneNumber, businessType);
+      await updateUserProfile(fullName, phoneNumber, businessType, businessLogo, businessAddress);
       await loadProfile();
       setEditModalVisible(false);
       Alert.alert('Success', 'Profile updated successfully! 🎉');
@@ -157,6 +167,19 @@ export default function SettingsScreen() {
       Alert.alert('Error', error.message || 'Failed to update profile');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePickLogo() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      setBusinessLogo(result.assets[0].uri);
     }
   }
 
@@ -476,7 +499,22 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Legal & About</Text>
+            <Text style={dynamicStyles.sectionTitle}>Legal & Support</Text>
+            
+            <TouchableOpacity
+              style={dynamicStyles.settingItem}
+              onPress={() => Linking.openURL('mailto:mobibooks.support@gmail.com')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.settingLeft}>
+                <View style={[styles.settingIcon, { backgroundColor: 'rgba(59, 130, 246, 0.1)' }]}>
+                  <HeadphonesIcon size={20} color="#3b82f6" />
+                </View>
+                <Text style={dynamicStyles.settingLabel}>Contact Support</Text>
+              </View>
+              <ChevronRight size={20} color="#999" />
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={dynamicStyles.settingItem}
               onPress={() => handleOpenUrl('https://mobibooks.app/terms')}
@@ -562,6 +600,20 @@ export default function SettingsScreen() {
             </View>
             <ScrollView style={dynamicStyles.modalScroll}>
               <View style={styles.inputCard}>
+                <Text style={dynamicStyles.inputLabel}>Business Logo</Text>
+                <TouchableOpacity style={styles.logoPicker} onPress={handlePickLogo}>
+                  {businessLogo ? (
+                    <Image source={{ uri: businessLogo }} style={styles.logoImage} />
+                  ) : (
+                    <View style={[styles.logoPlaceholder, { backgroundColor: theme === 'dark' ? '#111827' : '#f9fafb', borderColor }]}>
+                      <ImageIcon size={32} color={textSecondary} />
+                      <Text style={[styles.logoPlaceholderText, { color: textSecondary }]}>Upload Logo</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputCard}>
                 <Text style={dynamicStyles.inputLabel}>Full Name</Text>
                 <View style={dynamicStyles.inputContainer}>
                   <User size={20} color={textSecondary} style={styles.inputIcon} />
@@ -592,6 +644,21 @@ export default function SettingsScreen() {
                     ))}
                   </View>
                 )}
+              </View>
+
+              <View style={styles.inputCard}>
+                <Text style={dynamicStyles.inputLabel}>Business Address</Text>
+                <View style={[dynamicStyles.inputContainer, { minHeight: 80, alignItems: 'flex-start', paddingTop: 12 }]}>
+                  <MapPin size={20} color={textSecondary} style={styles.inputIcon} />
+                  <TextInput 
+                    style={[dynamicStyles.input, { marginTop: -4 }]} 
+                    value={businessAddress} 
+                    onChangeText={setBusinessAddress} 
+                    multiline 
+                    placeholder="Enter business address..."
+                    placeholderTextColor={textSecondary}
+                  />
+                </View>
               </View>
             </ScrollView>
             <View style={dynamicStyles.modalActions}>
@@ -800,4 +867,8 @@ const styles = StyleSheet.create({
   legalContent: { paddingBottom: 20 },
   legalTitle: { fontSize: 18, fontWeight: '700', marginTop: 20, marginBottom: 8 },
   legalText: { fontSize: 15, lineHeight: 22, marginBottom: 16 },
+  logoPicker: { alignSelf: 'center', marginBottom: 10 },
+  logoImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: '#1e3a8a' },
+  logoPlaceholder: { width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
+  logoPlaceholderText: { fontSize: 12, marginTop: 4, fontWeight: '500' },
 });

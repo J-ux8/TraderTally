@@ -7,6 +7,8 @@ export interface UserProfile extends LocalBaseModel {
   email: string;
   phone_number: string;
   business_type: string;
+  business_logo?: string;
+  business_address?: string;
 }
 
 export async function getUserProfile(): Promise<UserProfile | null> {
@@ -28,6 +30,8 @@ export async function getUserProfile(): Promise<UserProfile | null> {
         email: user.email || '',
         phone_number: user.user_metadata.phone_number || '',
         business_type: user.user_metadata.business_type || 'Other',
+        business_logo: user.user_metadata.business_logo || '',
+        business_address: user.user_metadata.business_address || '',
         created_at: user.created_at,
         updated_at: user.updated_at || user.created_at,
         sync_status: 'synced'
@@ -50,7 +54,9 @@ export async function createUserProfile(
   email: string,
   fullName: string,
   phoneNumber: string,
-  businessType: string
+  businessType: string,
+  businessLogo?: string,
+  businessAddress?: string
 ): Promise<UserProfile> {
   // Check if session is already active
   const existingProfile = await LocalDB.getById<UserProfile>('profiles', id);
@@ -62,7 +68,9 @@ export async function createUserProfile(
     full_name: fullName.trim(),
     email: email.trim(),
     phone_number: phoneNumber.trim(),
-    business_type: businessType
+    business_type: businessType,
+    business_logo: businessLogo || '',
+    business_address: businessAddress || ''
   } as any);
 
   SyncEngine.syncAll().catch(console.error);
@@ -75,7 +83,9 @@ export async function createUserProfile(
 export async function updateUserProfile(
   fullName: string,
   phoneNumber: string,
-  businessType: string
+  businessType: string,
+  businessLogo?: string,
+  businessAddress?: string
 ): Promise<UserProfile> {
   const { data: { session } } = await supabase.auth.getSession();
   const userId = session?.user?.id;
@@ -90,18 +100,21 @@ export async function updateUserProfile(
       full_name: fullName.trim(),
       email: session.user.email || '',
       phone_number: phoneNumber.trim(),
-      business_type: businessType
+      business_type: businessType,
+      business_logo: businessLogo || '',
+      business_address: businessAddress || ''
     } as any);
 
     SyncEngine.syncAll().catch(console.error);
     return record;
   }
 
-  // Update existing profile locally
   await LocalDB.update('profiles', userId, {
     full_name: fullName.trim(),
     phone_number: phoneNumber.trim(),
-    business_type: businessType
+    business_type: businessType,
+    business_logo: businessLogo || '',
+    business_address: businessAddress || ''
   });
 
   const updated = await getUserProfile();

@@ -88,6 +88,8 @@ export const SCHEMA = {
         email TEXT,
         phone_number TEXT,
         business_type TEXT,
+        business_logo TEXT,
+        business_address TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         is_deleted INTEGER DEFAULT 0,
