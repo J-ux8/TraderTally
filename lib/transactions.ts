@@ -1,5 +1,6 @@
 import { LocalDB, LocalBaseModel } from "../database/localDb";
 import { SyncEngine } from "../sync/syncEngine";
+import { getDatabase } from "./database";
 import { z } from "zod";
 
 // --- Security: Input Validation Schemas ---
