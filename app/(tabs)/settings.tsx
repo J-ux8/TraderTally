@@ -33,8 +33,8 @@ import {
 } from 'lucide-react-native';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { getDatabase, wipeDatabase } from '@/lib/database';
-import * as FileSystem from 'expo-file-system';
-// @ts-ignore - documentDirectory is sometimes missing from types in certain SDK versions
+import * as FileSystem from 'expo-file-system/legacy';
+// documentDirectory is available on the legacy API
 const { documentDirectory } = FileSystem;
 import * as WebBrowser from 'expo-web-browser';
 import * as Sharing from 'expo-sharing';
