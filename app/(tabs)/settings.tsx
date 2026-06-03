@@ -95,8 +95,7 @@ export default function SettingsScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
 
-  const [recoveryModalVisible, setRecoveryModalVisible] = useState(false);
-  const [isRecovering, setIsRecovering] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   // Legal Modal
   const [legalModalVisible, setLegalModalVisible] = useState(false);
@@ -257,35 +256,8 @@ export default function SettingsScreen() {
     );
   }
 
-  async function handleForceResync() {
-
-    Alert.alert(
-      "Force Re-sync",
-      "This will clear your local sync markers and pull ALL data from the cloud. Continue?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Sync Now",
-          onPress: async () => {
-            setIsRecovering(true);
-            try {
-              const db = await getDatabase();
-              await db.runAsync('DELETE FROM sync_metadata WHERE user_id = ?', [user.id]);
-              await refresh();
-              Alert.alert("Success", "Full re-sync completed successfully! 🔄");
-              setRecoveryModalVisible(false);
-            } catch (err) {
-              Alert.alert("Error", "Re-sync failed. Please try again.");
-            } finally {
-              setIsRecovering(false);
-            }
-          }
-        }
-      ]
-    );
-  }
-
   async function handleExportData() {
+    setIsExporting(true);
     try {
       const fileName = `mobibooks_export_${new Date().getTime()}.json`;
       const filePath = `${documentDirectory}${fileName}`;
@@ -300,23 +272,8 @@ export default function SettingsScreen() {
     } catch (err) {
       console.error("Export error:", err);
       Alert.alert("Error", "Failed to export data.");
-    }
-  }
-
-  async function handleDatabaseRepair() {
-    setIsRecovering(true);
-    try {
-      const db = await getDatabase();
-      const result = await db.getFirstAsync('PRAGMA integrity_check') as any;
-      if (result['integrity_check'] === 'ok') {
-        Alert.alert("Healthy", "Your local database is healthy! ✅");
-      } else {
-        Alert.alert("Issue Found", "Database integrity issue detected. Please contact support or try a full re-sync.");
-      }
-    } catch (err) {
-      Alert.alert("Error", "Integrity check failed.");
     } finally {
-      setIsRecovering(false);
+      setIsExporting(false);
     }
   }
 
@@ -481,22 +438,40 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={dynamicStyles.sectionTitle}>Backup & Recovery</Text>
+            <Text style={dynamicStyles.sectionTitle}>Data & Export</Text>
             <TouchableOpacity
-              style={dynamicStyles.settingItem}
-              onPress={() => setRecoveryModalVisible(true)}
+              style={[
+                dynamicStyles.settingItem, 
+                { 
+                  backgroundColor: theme === 'dark' ? 'rgba(217, 119, 6, 0.08)' : 'rgba(245, 158, 11, 0.05)', 
+                  borderColor: theme === 'dark' ? 'rgba(245, 158, 11, 0.3)' : 'rgba(245, 158, 11, 0.3)' 
+                }
+              ]}
+              onPress={handleExportData}
               activeOpacity={0.7}
+              disabled={isExporting}
             >
               <View style={styles.settingLeft}>
-                <View style={styles.settingIcon}>
-                  <ShieldCheck size={20} color="#1e3a8a" />
+                <View style={[styles.settingIcon, { backgroundColor: theme === 'dark' ? 'rgba(245, 158, 11, 0.2)' : '#fef3c7' }]}>
+                  {isExporting ? (
+                    <ActivityIndicator size="small" color={theme === 'dark' ? '#fbbf24' : '#d97706'} />
+                  ) : (
+                    <Download size={20} color={theme === 'dark' ? '#fbbf24' : '#d97706'} />
+                  )}
                 </View>
                 <View style={styles.settingContent}>
-                  <Text style={dynamicStyles.settingLabel}>Data Recovery</Text>
-                  <Text style={dynamicStyles.settingValue}>Fix sync or database issues</Text>
+                  <Text style={[dynamicStyles.settingLabel, { color: theme === 'dark' ? '#fbbf24' : '#b45309' }]}>
+                    {isExporting ? 'Exporting...' : 'Export Data'}
+                  </Text>
+                  <Text style={[dynamicStyles.settingValue, { color: theme === 'dark' ? 'rgba(251, 191, 36, 0.7)' : 'rgba(180, 83, 9, 0.7)' }]}>
+                    Download your records
+                  </Text>
                 </View>
               </View>
-              <ChevronRight size={20} color="#999" />
+              <View style={{ backgroundColor: theme === 'dark' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(217, 119, 6, 0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginRight: 8 }}>
+                <Text style={{ fontSize: 10, fontWeight: '800', color: theme === 'dark' ? '#fbbf24' : '#d97706', textTransform: 'uppercase' }}>PRO</Text>
+              </View>
+              <ChevronRight size={20} color={theme === 'dark' ? 'rgba(251, 191, 36, 0.5)' : 'rgba(217, 119, 6, 0.4)'} />
             </TouchableOpacity>
           </View>
 
@@ -700,62 +675,7 @@ export default function SettingsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-      {/* Data Recovery Modal */}
-      <Modal visible={recoveryModalVisible} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => !isRecovering && setRecoveryModalVisible(false)} />
-          <View style={dynamicStyles.modalContent}>
-            <View style={dynamicStyles.modalHeader}>
-              <Text style={dynamicStyles.modalTitle}>Data Recovery</Text>
-              <TouchableOpacity onPress={() => setRecoveryModalVisible(false)} disabled={isRecovering}>
-                <Text style={styles.modalCloseText}>Close</Text>
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={dynamicStyles.modalScroll}>
-              <Text style={[styles.recoveryDesc, { color: textSecondary }]}>
-                Options to help you recover your data if you encounter issues.
-              </Text>
 
-              <TouchableOpacity style={styles.recoveryOption} onPress={handleForceResync} disabled={isRecovering}>
-                <View style={[styles.settingIcon, { backgroundColor: 'rgba(30, 58, 138, 0.1)' }]}>
-                  <RefreshCcw size={20} color="#1e3a8a" />
-                </View>
-                <View style={styles.recoveryText}>
-                  <Text style={[styles.recoveryTitle, { color: textColor }]}>Force Full Re-sync</Text>
-                  <Text style={[styles.recoverySubtitle, { color: textSecondary }]}>Ignores last sync markers and pulls everything from cloud.</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.recoveryOption} onPress={handleDatabaseRepair} disabled={isRecovering}>
-                <View style={[styles.settingIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                  <Database size={20} color="#10b981" />
-                </View>
-                <View style={styles.recoveryText}>
-                  <Text style={[styles.recoveryTitle, { color: textColor }]}>Database Health Check</Text>
-                  <Text style={[styles.recoverySubtitle, { color: textSecondary }]}>Checks local database for structural errors.</Text>
-                </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.recoveryOption} onPress={handleExportData} disabled={isRecovering}>
-                <View style={[styles.settingIcon, { backgroundColor: 'rgba(245, 158, 11, 0.1)' }]}>
-                  <Download size={20} color="#f59e0b" />
-                </View>
-                <View style={styles.recoveryText}>
-                  <Text style={[styles.recoveryTitle, { color: textColor }]}>Export as JSON</Text>
-                  <Text style={[styles.recoverySubtitle, { color: textSecondary }]}>Save a copy of your local data to your phone.</Text>
-                </View>
-              </TouchableOpacity>
-
-              {isRecovering && (
-                <View style={styles.recoveringIndicator}>
-                  <ActivityIndicator size="small" color="#1e3a8a" />
-                  <Text style={{ color: textSecondary, marginLeft: 10 }}>Processing...</Text>
-                </View>
-              )}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
       {/* Legal & About Modal */}
       <Modal visible={legalModalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
