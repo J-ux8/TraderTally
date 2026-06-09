@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { ArrowRight, Briefcase, Check, ChevronDown, Lock, Mail, Phone, Store, User } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const BUSINESS_TYPES = [
@@ -24,6 +25,12 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [showBusinessTypes, setShowBusinessTypes] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const formatDate = (date: Date) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
+  };
 
   async function handleRegister() {
     // Validation
@@ -91,20 +98,27 @@ export default function RegisterScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Hero Header */}
+        {/* Clean Header */}
         <View style={styles.header}>
-          <View style={styles.headerDecoration1} />
-          <View style={styles.headerDecoration2} />
-          <View style={styles.headerContent}>
-            <View style={styles.headerIconContainer}>
-              <View style={styles.headerIcon}>
-                <Store size={28} color="#ffffff" />
+          <View style={styles.headerTop}>
+            <View style={styles.headerLeft}>
+              <View style={styles.iconContainer}>
+                <Image
+                  source={require('../../assets/images/icon.png')}
+                  style={{ width: 32, height: 32 }}
+                  contentFit="contain"
+                />
               </View>
-              <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Create Account</Text>
-                <Text style={styles.headerSubtitle}>Start managing your business</Text>
+              <View>
+                <Text style={styles.headerTitle}>MobiBooks</Text>
+                <Text style={styles.headerSubtitle}>{formatDate(new Date())}</Text>
               </View>
             </View>
+          </View>
+
+          <View style={styles.headerGreeting}>
+            <Text style={styles.greetingText}>Create Account 👋</Text>
+            <Text style={styles.greetingSubtext}>Start managing your business</Text>
           </View>
         </View>
 
@@ -295,61 +309,55 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#1e3a8a",
-    paddingTop: 60,
-    paddingBottom: 40,
+    backgroundColor: "#ffffff",
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    position: "relative",
-    overflow: "hidden",
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
   },
-  headerDecoration1: {
-    position: "absolute",
-    top: -50,
-    right: -50,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
-  headerDecoration2: {
-    position: "absolute",
-    bottom: -30,
-    left: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
-  },
-  headerContent: {
-    zIndex: 10,
-  },
-  headerIconContainer: {
+  headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 12,
   },
-  headerIcon: {
-    width: 64,
-    height: 64,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 16,
+  iconContainer: {
+    width: 40,
+    height: 40,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 8,
     justifyContent: "center",
     alignItems: "center",
   },
-  headerTextContainer: {
-    flex: 1,
-  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: 4,
+    color: "#1e293b",
+    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 12,
+    color: "#94a3b8",
+    fontWeight: "500",
+  },
+  headerGreeting: {
+    marginTop: 4,
+  },
+  greetingText: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1e293b",
+    marginBottom: 4,
+  },
+  greetingSubtext: {
+    fontSize: 14,
+    color: "#64748b",
     fontWeight: "500",
   },
   scrollView: {

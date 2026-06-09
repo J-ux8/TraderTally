@@ -209,27 +209,30 @@ function RootLayoutContent() {
 }
 
 import { SyncProvider } from '@/context/SyncContext';
+import { ErrorMonitoringProvider } from '@/context/ErrorMonitoringContext';
 
 export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider>
-        <SyncProvider>
-          <TransactionsProvider>
-            <CategoriesProvider>
-              <TemplatesProvider>
-                <CartProvider>
-                  <ToastProvider>
-                    <CustomAlertProvider>
-                      <RootLayoutContent />
-                    </CustomAlertProvider>
-                  </ToastProvider>
-                </CartProvider>
-              </TemplatesProvider>
-            </CategoriesProvider>
-          </TransactionsProvider>
-        </SyncProvider>
-      </ThemeProvider>
+      <ErrorMonitoringProvider enabled={true}>
+        <ThemeProvider>
+          <SyncProvider>
+            <TransactionsProvider>
+              <CategoriesProvider>
+                <TemplatesProvider>
+                  <CartProvider>
+                    <ToastProvider>
+                      <CustomAlertProvider>
+                        <RootLayoutContent />
+                      </CustomAlertProvider>
+                    </ToastProvider>
+                  </CartProvider>
+                </TemplatesProvider>
+              </CategoriesProvider>
+            </TransactionsProvider>
+          </SyncProvider>
+        </ThemeProvider>
+      </ErrorMonitoringProvider>
     </GestureHandlerRootView>
   );
 }
