@@ -1,8 +1,9 @@
 import { updatePassword } from "@/lib/auth";
 import { router } from "expo-router";
-import { Lock, Save } from "lucide-react-native";
+import { ArrowLeft, Lock, Save } from "lucide-react-native";
 import { useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Image } from "expo-image";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ResetPasswordScreen() {
@@ -51,17 +52,28 @@ export default function ResetPasswordScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <View style={styles.header}>
-          <View style={styles.headerDecoration1} />
-          <View style={styles.headerDecoration2} />
-          <View style={styles.headerContent}>
-            <View style={styles.headerIconContainer}>
-              <View style={styles.headerIcon}>
-                <Lock size={28} color="#ffffff" />
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
+
+          <View style={styles.heroContent}>
+            <View style={styles.heroTop}>
+              <View style={styles.heroLeft}>
+                <View style={styles.iconContainer}>
+                  <Image
+                    source={require('../../assets/images/icon.png')}
+                    style={{ width: 32, height: 32 }}
+                    contentFit="contain"
+                  />
+                </View>
+                <View>
+                  <Text style={styles.headerTitle}>MobiBooks</Text>
+                </View>
               </View>
-              <View style={styles.headerTextContainer}>
-                <Text style={styles.headerTitle}>Create New Password</Text>
-                <Text style={styles.headerSubtitle}>Please enter your new password below</Text>
-              </View>
+            </View>
+
+            <View style={styles.headerGreeting}>
+              <Text style={styles.greetingText}>New Password 🔒</Text>
+              <Text style={styles.greetingSubtext}>Enter your new password below</Text>
             </View>
           </View>
         </View>
@@ -143,61 +155,84 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   header: {
-    backgroundColor: "#1e3a8a",
-    paddingTop: 60,
-    paddingBottom: 40,
+    backgroundColor: "#ffffff",
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingTop: 16,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     position: "relative",
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  headerDecoration1: {
+  decorativeCircle1: {
     position: "absolute",
-    top: -50,
-    right: -50,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    top: -40,
+    right: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(30, 58, 138, 0.04)",
   },
-  headerDecoration2: {
+  decorativeCircle2: {
     position: "absolute",
-    bottom: -30,
-    left: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    bottom: -20,
+    left: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(30, 58, 138, 0.03)",
   },
-  headerContent: {
+  heroContent: {
+    position: "relative",
     zIndex: 10,
   },
-  headerIconContainer: {
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  heroLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    gap: 12,
   },
-  headerIcon: {
-    width: 64,
-    height: 64,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  iconContainer: {
+    width: 48,
+    height: 48,
+    backgroundColor: "rgba(30, 58, 138, 0.08)",
     borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
-  headerTextContainer: {
-    flex: 1,
-  },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: 4,
+    color: "#1e293b",
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: 13,
+    color: "#94a3b8",
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  headerGreeting: {
+    marginTop: 4,
+  },
+  greetingText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1e293b",
+    marginBottom: 4,
+  },
+  greetingSubtext: {
+    fontSize: 14,
+    color: "#64748b",
     fontWeight: "500",
   },
   scrollView: {

@@ -187,9 +187,17 @@ export default function VerifyEmailScreen() {
 
     try {
       setVerifying(true);
-      // Map 'email_change' internal type to Supabase 'email' type
-      const verifyType = type === 'email_change' ? 'email' : type;
-      const isVerified = await verifyOTP(email, code, verifyType as any);
+      // Map internal types to Supabase verification types
+      // 'signup' → 'signup', 'recovery' → 'recovery', 'email_change' → 'email'
+      let verifyType: 'signup' | 'email' | 'recovery' | 'invite' = 'signup';
+      if (type === 'email_change') {
+        verifyType = 'email';
+      } else if (type === 'recovery') {
+        verifyType = 'recovery';
+      } else if (type === 'signup') {
+        verifyType = 'signup';
+      }
+      const isVerified = await verifyOTP(email, code, verifyType);
 
       if (isVerified) {
         // Wait a bit for session to be established after verification

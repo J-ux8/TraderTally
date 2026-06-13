@@ -13,12 +13,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const formatDate = (date: Date) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
-  };
-
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
       Alert.alert("Error", "Please fill in all fields");
@@ -105,27 +99,31 @@ export default function LoginScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        {/* Clean Header */}
+        {/* Hero Header */}
         <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View style={styles.headerLeft}>
-              <View style={styles.iconContainer}>
-                <Image
-                  source={require('../../assets/images/icon.png')}
-                  style={{ width: 32, height: 32 }}
-                  contentFit="contain"
-                />
-              </View>
-              <View>
-                <Text style={styles.headerTitle}>MobiBooks</Text>
-                <Text style={styles.headerSubtitle}>{formatDate(new Date())}</Text>
+          <View style={styles.decorativeCircle1} />
+          <View style={styles.decorativeCircle2} />
+
+          <View style={styles.heroContent}>
+            <View style={styles.heroTop}>
+              <View style={styles.heroLeft}>
+                <View style={styles.iconContainer}>
+                  <Image
+                    source={require('../../assets/images/icon.png')}
+                    style={{ width: 32, height: 32 }}
+                    contentFit="contain"
+                  />
+                </View>
+                <View>
+                  <Text style={styles.headerTitle}>MobiBooks</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          <View style={styles.headerGreeting}>
-            <Text style={styles.greetingText}>Sign In 👋</Text>
-            <Text style={styles.greetingSubtext}>Access your business account</Text>
+            <View style={styles.headerGreeting}>
+              <Text style={styles.greetingText}>Sign In 👋</Text>
+              <Text style={styles.greetingSubtext}>Access your business account</Text>
+            </View>
           </View>
         </View>
 
@@ -226,47 +224,76 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: "#ffffff",
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    paddingTop: 16,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    position: "relative",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  headerTop: {
+  decorativeCircle1: {
+    position: "absolute",
+    top: -40,
+    right: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(30, 58, 138, 0.04)",
+  },
+  decorativeCircle2: {
+    position: "absolute",
+    bottom: -20,
+    left: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(30, 58, 138, 0.03)",
+  },
+  heroContent: {
+    position: "relative",
+    zIndex: 10,
+  },
+  heroTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
     marginBottom: 16,
   },
-  headerLeft: {
+  heroLeft: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    backgroundColor: "#f1f5f9",
-    borderRadius: 8,
+    width: 48,
+    height: 48,
+    backgroundColor: "rgba(30, 58, 138, 0.08)",
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "800",
     color: "#1e293b",
-    marginBottom: 2,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#94a3b8",
     fontWeight: "500",
+    marginTop: 2,
   },
   headerGreeting: {
     marginTop: 4,
   },
   greetingText: {
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#1e293b",
     marginBottom: 4,
   },
