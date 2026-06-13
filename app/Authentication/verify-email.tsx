@@ -3,6 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { resendVerificationOTP, verifyOTP } from "@/lib/verification-supabase";
 import { router, useLocalSearchParams } from "expo-router";
 import { ArrowLeft, CheckCircle, Mail, RefreshCw } from "lucide-react-native";
+import { Image } from "expo-image";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -285,26 +286,38 @@ export default function VerifyEmailScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Header */}
+          {/* Hero Header */}
           <View style={styles.header}>
-            <View style={styles.headerDecoration1} />
-            <View style={styles.headerDecoration2} />
-            <View style={styles.headerContent}>
-              <TouchableOpacity
-                onPress={() => router.back()}
-                style={styles.backButton}
-                activeOpacity={0.7}
-              >
-                <ArrowLeft size={24} color="#ffffff" />
-              </TouchableOpacity>
-              <View style={styles.headerIconContainer}>
-                <View style={styles.headerIcon}>
-                  <Mail size={28} color="#ffffff" />
+            <View style={styles.decorativeCircle1} />
+            <View style={styles.decorativeCircle2} />
+
+            <View style={styles.heroContent}>
+              <View style={styles.heroTop}>
+                <View style={styles.heroLeft}>
+                  <View style={styles.iconContainer}>
+                    <Image
+                      source={require('../../assets/images/icon.png')}
+                      style={{ width: 32, height: 32 }}
+                      contentFit="contain"
+                    />
+                  </View>
+                  <View>
+                    <Text style={styles.headerTitle}>MobiBooks</Text>
+                  </View>
                 </View>
-                <View style={styles.headerTextContainer}>
-                  <Text style={styles.headerTitle}>Account Verification</Text>
-                  <Text style={styles.headerSubtitle}>Enter the code sent to your email</Text>
-                </View>
+
+                <TouchableOpacity
+                  onPress={() => router.back()}
+                  style={styles.backButton}
+                  activeOpacity={0.7}
+                >
+                  <ArrowLeft size={24} color="#1e293b" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.headerGreeting}>
+                <Text style={styles.greetingText}>Verify Account ✉️</Text>
+                <Text style={styles.greetingSubtext}>Enter the code sent to your email</Text>
               </View>
             </View>
           </View>
@@ -416,71 +429,87 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   header: {
-    backgroundColor: "#1e3a8a",
-    paddingTop: 60,
-    paddingBottom: 40,
+    backgroundColor: "#ffffff",
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingTop: 16,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     position: "relative",
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.03,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  headerDecoration1: {
+  decorativeCircle1: {
     position: "absolute",
-    top: -50,
-    right: -50,
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    top: -40,
+    right: -40,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "rgba(30, 58, 138, 0.04)",
   },
-  headerDecoration2: {
+  decorativeCircle2: {
     position: "absolute",
-    bottom: -30,
-    left: -30,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(255, 255, 255, 0.1)",
+    bottom: -20,
+    left: -20,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "rgba(30, 58, 138, 0.03)",
   },
-  headerContent: {
+  heroContent: {
+    position: "relative",
     zIndex: 10,
+  },
+  heroTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+  heroLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    backgroundColor: "rgba(30, 58, 138, 0.08)",
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#1e293b",
+  },
+  headerGreeting: {
+    marginTop: 4,
+  },
+  greetingText: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1e293b",
+    marginBottom: 4,
+  },
+  greetingSubtext: {
+    fontSize: 14,
+    color: "#64748b",
+    fontWeight: "500",
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: "rgba(30, 58, 138, 0.04)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 20,
-  },
-  headerIconContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-  },
-  headerIcon: {
-    width: 64,
-    height: 64,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
-    fontWeight: "500",
   },
   content: {
     flex: 1,
