@@ -51,7 +51,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="debts"
         options={{
-          title: 'Credit',
+          title: 'Credit Book',
           tabBarIcon: ({ color }) => <IconSymbol size={24} name="creditcard.fill" color={color} />,
         }}
       />

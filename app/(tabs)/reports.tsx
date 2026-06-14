@@ -109,27 +109,30 @@ export default function ReportsScreen() {
 
   const getDateRange = useCallback((period: string) => {
     const now = new Date();
-    now.setHours(23, 59, 59, 999);
-    
-    const start = new Date(now);
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
     switch (period) {
-      case 'week':
-        start.setDate(now.getDate() - 6); // Last 7 days including today
+      case 'week': {
+        const day = now.getDay();
+        start.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
         break;
+      }
       case 'month':
-        start.setDate(now.getDate() - 29); // Last 30 days including today
+        start.setDate(1);
         break;
-      case 'quarter':
-        start.setDate(now.getDate() - 89); // Last 90 days
+      case 'quarter': {
+        const q = Math.floor(now.getMonth() / 3) * 3;
+        start.setMonth(q, 1);
         break;
+      }
       case 'year':
-        start.setDate(now.getDate() - 364); // Last 365 days
+        start.setMonth(0, 1);
         break;
       case 'all':
         return null;
     }
-    start.setHours(0, 0, 0, 0);
-    return { start, end: now };
+    return { start, end };
   }, []);
 
   const getPreviousPeriodRange = useCallback((period: string) => {
@@ -141,28 +144,35 @@ export default function ReportsScreen() {
     return { start: prevStart, end: prevEnd };
   }, [getDateRange]);
 
+  const fmtDate = useCallback((d: Date) => {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }, []);
+
   const filteredTransactions = useMemo(() => {
     const range = getDateRange(selectedPeriod);
     if (!range) return transactions;
-    
+
+    const rangeStart = fmtDate(range.start);
+    const rangeEnd = fmtDate(range.end);
+
     return transactions.filter(t => {
-      // Ensure we compare only the date part to avoid timezone/time issues
-      const txDate = new Date(t.transaction_date);
-      txDate.setHours(12, 0, 0, 0); // Set to middle of day for safer comparison
-      return txDate >= range.start && txDate <= range.end;
+      const txDate = (t.transaction_date || '').split('T')[0];
+      return txDate >= rangeStart && txDate <= rangeEnd;
     });
-  }, [transactions, selectedPeriod, getDateRange]);
+  }, [transactions, selectedPeriod, getDateRange, fmtDate]);
 
   const previousPeriodTransactions = useMemo(() => {
     const range = getPreviousPeriodRange(selectedPeriod);
     if (!range) return [];
-    
+
+    const rangeStart = fmtDate(range.start);
+    const rangeEnd = fmtDate(range.end);
+
     return transactions.filter(t => {
-      const txDate = new Date(t.transaction_date);
-      txDate.setHours(12, 0, 0, 0);
-      return txDate >= range.start && txDate <= range.end;
+      const txDate = (t.transaction_date || '').split('T')[0];
+      return txDate >= rangeStart && txDate <= rangeEnd;
     });
-  }, [transactions, selectedPeriod, getPreviousPeriodRange]);
+  }, [transactions, selectedPeriod, getPreviousPeriodRange, fmtDate]);
 
   const currentMetrics = useMemo((): FinancialMetrics => {
     const revenue = filteredTransactions.filter(t => t.amount > 0).reduce((sum, t) => sum + Number(t.amount), 0);
@@ -198,9 +208,8 @@ export default function ReportsScreen() {
   const dailyTimeline = useMemo(() => {
     const dayMap = new Map<string, DailyData>();
     filteredTransactions.forEach(t => {
-      const date = new Date(t.transaction_date);
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const dateKey = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      const dateKey = (t.transaction_date || '').split('T')[0];
+      if (!dateKey) return;
       if (!dayMap.has(dateKey)) {
         dayMap.set(dateKey, { date: dateKey, revenue: 0, expenses: 0, net: 0, transactionCount: 0 });
       }
@@ -215,6 +224,47 @@ export default function ReportsScreen() {
     });
     return Array.from(dayMap.values()).sort((a, b) => a.date.localeCompare(b.date));
   }, [filteredTransactions]);
+
+  const chartData = useMemo(() => {
+    if (dailyTimeline.length === 0) return [];
+
+    if (selectedPeriod === 'week') {
+      return dailyTimeline.map(d => ({
+        label: new Date(d.date + 'T12:00:00').toLocaleDateString('en', { weekday: 'short' }),
+        revenue: d.revenue,
+        expenses: d.expenses,
+        net: d.net,
+      }));
+    }
+
+    if (selectedPeriod === 'month') {
+      return dailyTimeline.map(d => ({
+        label: String(parseInt(d.date.split('-')[2], 10)),
+        revenue: d.revenue,
+        expenses: d.expenses,
+        net: d.net,
+      }));
+    }
+
+    const monthMap = new Map<string, { revenue: number; expenses: number }>();
+    dailyTimeline.forEach(d => {
+      const monthKey = d.date.substring(0, 7);
+      if (!monthMap.has(monthKey)) {
+        monthMap.set(monthKey, { revenue: 0, expenses: 0 });
+      }
+      const m = monthMap.get(monthKey)!;
+      m.revenue += d.revenue;
+      m.expenses += d.expenses;
+    });
+
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return Array.from(monthMap.entries()).map(([key, val]) => ({
+      label: months[parseInt(key.split('-')[1], 10) - 1] || key,
+      revenue: val.revenue,
+      expenses: val.expenses,
+      net: val.revenue - val.expenses,
+    }));
+  }, [dailyTimeline, selectedPeriod]);
 
   const bestSalesDay = useMemo(() => {
     if (dailyTimeline.length === 0) return null;
@@ -511,7 +561,12 @@ export default function ReportsScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1e3a8a" />}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.periodSelector}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.periodSelectorContent}
+          style={styles.periodSelector}
+        >
           {(['week', 'month', 'quarter', 'year', 'all'] as const).map((period) => (
             <TouchableOpacity
               key={period}
@@ -528,7 +583,7 @@ export default function ReportsScreen() {
               </Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
 
         <View style={styles.dateRangeIndicator}>
           <Text style={[styles.dateRangeText, { color: colors.textSecondary }]}>
@@ -541,48 +596,67 @@ export default function ReportsScreen() {
           <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Business Overview</Text>
         </View>
 
-        {/* REVENUE TREND MINI-CHART */}
-        <View style={[styles.card, styles.chartCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-          <View style={styles.chartHeader}>
-            <View>
-              <Text style={[styles.chartTitle, { color: colors.textColor }]}>Revenue Trend</Text>
-              <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>{selectedPeriod === 'all' ? 'Lifetime' : `Last ${selectedPeriod}`}</Text>
-            </View>
-            <View style={[styles.chartMetric, { backgroundColor: 'rgba(30, 58, 138, 0.1)' }]}>
-              <TrendingUp size={16} color="#1e3a8a" />
-              <Text style={styles.chartMetricText}>{formatGrowth(growthMetrics.revenueGrowth)}</Text>
-            </View>
-          </View>
-          
-          <View style={styles.visualChartContainer}>
-            {dailyTimeline.length < 2 ? (
-              <View style={styles.noDataChart}>
-                <BarChart3 size={40} color={colors.borderColor} />
-                <Text style={{ color: colors.textSecondary, marginTop: 8 }}>Need more data for trends</Text>
+          {/* REVENUE TREND CHART */}
+          <View style={[styles.card, styles.chartCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+            <View style={styles.chartHeader}>
+              <View>
+                <Text style={[styles.chartTitle, { color: colors.textColor }]}>Revenue Trend</Text>
+                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>
+                  {selectedPeriod === 'all' ? 'Lifetime' : selectedPeriod === 'week' ? 'This Week' : selectedPeriod === 'month' ? 'This Month' : selectedPeriod === 'quarter' ? 'This Quarter' : 'This Year'}
+                </Text>
               </View>
-            ) : (
-              <View style={styles.barChart}>
-                {dailyTimeline.slice(-14).map((day, idx) => {
-                  const maxRevenue = Math.max(...dailyTimeline.map(d => d.revenue), 1);
-                  const barHeight = (day.revenue / maxRevenue) * 100;
-                  return (
-                    <View key={day.date} style={styles.barContainer}>
-                      <View 
-                        style={[
-                          styles.barFill, 
-                          { 
-                            height: `${Math.max(5, barHeight)}%`,
-                            backgroundColor: idx === dailyTimeline.slice(-14).length - 1 ? '#1e3a8a' : 'rgba(30, 58, 138, 0.4)'
-                          }
-                        ]} 
-                      />
-                    </View>
-                  );
-                })}
+              <View style={[styles.chartMetric, { backgroundColor: 'rgba(30, 58, 138, 0.1)' }]}>
+                <TrendingUp size={16} color="#1e3a8a" />
+                <Text style={styles.chartMetricText}>{formatGrowth(growthMetrics.revenueGrowth)}</Text>
+              </View>
+            </View>
+
+            <View style={styles.visualChartContainer}>
+              {chartData.length < 2 ? (
+                <View style={styles.noDataChart}>
+                  <BarChart3 size={40} color={colors.borderColor} />
+                  <Text style={{ color: colors.textSecondary, marginTop: 8 }}>Need more data for trends</Text>
+                </View>
+              ) : (
+                <View style={styles.barChart}>
+                  {chartData.map((d, idx) => {
+                    const maxVal = Math.max(...chartData.map(x => Math.max(x.revenue, x.expenses)), 1);
+                    const revHeight = Math.max(3, (d.revenue / maxVal) * 100);
+                    const expHeight = Math.max(3, (d.expenses / maxVal) * 100);
+                    const showLabel = selectedPeriod === 'month'
+                      ? parseInt(d.label, 10) % 5 === 0 || idx === chartData.length - 1
+                      : true;
+                    return (
+                      <View key={`${d.label}-${idx}`} style={styles.barGroup}>
+                        <View style={styles.barPair}>
+                          <View style={[styles.barFill, styles.barRevenue, { height: `${revHeight}%` }]} />
+                          <View style={[styles.barFill, styles.barExpense, { height: `${expHeight}%` }]} />
+                        </View>
+                        {showLabel && (
+                          <Text style={[styles.barLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                            {d.label}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </View>
+
+            {chartData.length >= 2 && (
+              <View style={styles.chartLegend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#1e3a8a' }]} />
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>Revenue</Text>
+                </View>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>Expenses</Text>
+                </View>
               </View>
             )}
           </View>
-        </View>
 
         <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
           <View style={styles.metricsGrid}>
@@ -963,8 +1037,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
   headerSubtitle: { fontSize: 13, fontWeight: '500' },
   headerRight: { justifyContent: 'center', alignItems: 'center' },
-  periodSelector: { flexDirection: 'row', gap: 8, marginBottom: 24 },
-  periodButton: { flex: 1, paddingVertical: 12, paddingHorizontal: 12, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
+  periodSelector: { marginBottom: 24 },
+  periodSelectorContent: { gap: 8 },
+  periodButton: { paddingVertical: 10, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, alignItems: 'center' },
   periodButtonActive: { backgroundColor: '#1e3a8a' },
   periodButtonText: { fontSize: 13, fontWeight: '600' },
   sectionHeader: { borderBottomWidth: 2, paddingBottom: 12, marginTop: 24, marginBottom: 16 },
@@ -1064,9 +1139,17 @@ const styles = StyleSheet.create({
   chartSubtitle: { fontSize: 12, marginTop: 2 },
   chartMetric: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8 },
   chartMetricText: { fontSize: 13, fontWeight: '700', color: '#1e3a8a' },
-  visualChartContainer: { height: 120, justifyContent: 'center' },
+  visualChartContainer: { height: 160, justifyContent: 'center' },
   noDataChart: { alignItems: 'center', justifyContent: 'center', height: '100%' },
-  barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: '100%', gap: 4 },
-  barContainer: { flex: 1, height: '100%', justifyContent: 'flex-end' },
-  barFill: { width: '100%', borderTopLeftRadius: 4, borderTopRightRadius: 4 },
+  barChart: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: '85%', gap: 3 },
+  barGroup: { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center' },
+  barPair: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', width: '100%', height: '85%', gap: 2 },
+  barFill: { borderTopLeftRadius: 3, borderTopRightRadius: 3, minHeight: 3 },
+  barRevenue: { flex: 1, backgroundColor: '#1e3a8a' },
+  barExpense: { flex: 1, backgroundColor: '#ef4444' },
+  barLabel: { fontSize: 8, fontWeight: '500', marginTop: 4, textAlign: 'center' },
+  chartLegend: { flexDirection: 'row', justifyContent: 'center', gap: 16, marginTop: 12 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 8, height: 8, borderRadius: 4 },
+  legendText: { fontSize: 11, fontWeight: '500' },
 });

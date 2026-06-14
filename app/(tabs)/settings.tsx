@@ -326,7 +326,7 @@ export default function SettingsScreen() {
     settingValue: { ...styles.settingValue, color: textSecondary },
     infoLabel: { ...styles.infoLabel, color: textSecondary },
     infoValue: { ...styles.infoValue, color: textColor },
-    modalContent: { ...styles.modalContent, backgroundColor: cardBackground },
+    modalContent: { ...styles.modalContent, backgroundColor: cardBackground, paddingBottom: insets.bottom },
     modalHeader: { ...styles.modalHeader, borderBottomColor: borderColor },
     modalTitle: { ...styles.modalTitle, color: textColor },
     modalScroll: { ...styles.modalScroll },
@@ -363,6 +363,27 @@ export default function SettingsScreen() {
         <View style={styles.content}>
           <View style={styles.section}>
             <Text style={dynamicStyles.sectionTitle}>Profile</Text>
+
+            <View style={[styles.profileCard, { backgroundColor: cardBackground, borderColor }]}>
+              <View style={styles.profileAvatarContainer}>
+                {profile?.business_logo ? (
+                  <Image source={{ uri: profile.business_logo }} style={styles.profileAvatarImage} />
+                ) : (
+                  <View style={styles.profileAvatarFallback}>
+                    <UserCircle size={40} color="#1e3a8a" />
+                  </View>
+                )}
+              </View>
+              <View style={styles.profileInfo}>
+                <Text style={[styles.profileName, { color: textColor }]}>
+                  {profile?.full_name || user.email?.split('@')[0] || 'User'}
+                </Text>
+                <Text style={[styles.profileBusinessType, { color: textSecondary }]}>
+                  {profile?.business_type || 'No business type set'}
+                </Text>
+              </View>
+            </View>
+
             <TouchableOpacity
               style={dynamicStyles.settingItem}
               onPress={() => setEditModalVisible(true)}
@@ -370,7 +391,11 @@ export default function SettingsScreen() {
             >
               <View style={styles.settingLeft}>
                 <View style={styles.settingIcon}>
-                  <UserCircle size={20} color="#1e3a8a" />
+                  {profile?.business_logo ? (
+                    <Image source={{ uri: profile.business_logo }} style={styles.settingAvatarImage} />
+                  ) : (
+                    <UserCircle size={20} color="#1e3a8a" />
+                  )}
                 </View>
                 <View style={styles.settingContent}>
                   <Text style={dynamicStyles.settingLabel}>Edit Profile</Text>
@@ -636,13 +661,15 @@ export default function SettingsScreen() {
                   </View>
                 </TouchableOpacity>
                 {showBusinessTypeDropdown && (
-                  <View style={dynamicStyles.dropdown}>
-                    {BUSINESS_TYPES.map(t => (
-                      <TouchableOpacity key={t} style={dynamicStyles.dropdownOption} onPress={() => { setBusinessType(t); setShowBusinessTypeDropdown(false); }}>
-                        <Text style={dynamicStyles.dropdownOptionText}>{t}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled>
+                    <View style={dynamicStyles.dropdown}>
+                      {BUSINESS_TYPES.map(t => (
+                        <TouchableOpacity key={t} style={dynamicStyles.dropdownOption} onPress={() => { setBusinessType(t); setShowBusinessTypeDropdown(false); }}>
+                          <Text style={dynamicStyles.dropdownOptionText}>{t}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
                 )}
               </View>
 
@@ -871,4 +898,12 @@ const styles = StyleSheet.create({
   logoImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderColor: '#1e3a8a' },
   logoPlaceholder: { width: 100, height: 100, borderRadius: 50, borderWidth: 2, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
   logoPlaceholderText: { fontSize: 12, marginTop: 4, fontWeight: '500' },
+  profileCard: { flexDirection: 'row', alignItems: 'center', padding: 20, borderRadius: 16, marginBottom: 16, borderWidth: 1, gap: 16 },
+  profileAvatarContainer: { width: 60, height: 60, borderRadius: 30, overflow: 'hidden' },
+  profileAvatarImage: { width: 60, height: 60, borderRadius: 30 },
+  profileAvatarFallback: { width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(30, 58, 138, 0.1)', justifyContent: 'center', alignItems: 'center' },
+  profileInfo: { flex: 1 },
+  profileName: { fontSize: 18, fontWeight: '800', marginBottom: 2 },
+  profileBusinessType: { fontSize: 13, fontWeight: '500' },
+  settingAvatarImage: { width: 40, height: 40, borderRadius: 20 },
 });
