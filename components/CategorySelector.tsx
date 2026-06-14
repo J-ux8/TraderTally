@@ -98,7 +98,7 @@ export const CategorySelector = ({ selectedCategoryName, onSelect, type = 'incom
             {/* Expanded Dropdown Area */}
             {dropdownVisible && (
                 <View style={[styles.dropdownContainer, { borderColor: colors.borderColor, backgroundColor: colors.cardBackground }]}>
-                    <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="always">
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled keyboardShouldPersistTaps="always">
                         {categories
                             .filter(cat => cat.type === type)
                             .map((cat) => (

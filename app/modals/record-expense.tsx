@@ -190,7 +190,7 @@ export default function RecordExpenseScreen() {
 
             {showDropdown && (
               <View style={[styles.dropdownContainer, { borderColor: colors.borderColor, backgroundColor: colors.cardBackground, marginTop: 8 }]}>
-                <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="always">
+                <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled keyboardShouldPersistTaps="always">
                   {EXPENSE_TYPES.map((type) => (
                     <TouchableOpacity
                       key={type}

@@ -116,7 +116,7 @@ export const ProductSelector = ({ selectedProduct, onSelect }: ProductSelectorPr
             {/* Expanded Dropdown Area */}
             {dropdownVisible && (
                 <View style={[styles.dropdownContainer, { borderColor: colors.borderColor, backgroundColor: colors.cardBackground }]}>
-                    <ScrollView style={{ maxHeight: 250 }} keyboardShouldPersistTaps="always">
+                    <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled keyboardShouldPersistTaps="always">
                         {loading && <ActivityIndicator style={{ padding: 20 }} />}
                         {!loading && products.map((prod) => (
                             <View
