@@ -609,7 +609,7 @@ export default function SettingsScreen() {
 
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: textSecondary }]}>MobiBooks Version 1.0.0</Text>
-            <Text style={[styles.footerText, { color: textSecondary }]}>Made with ❤️ for Small Businesses</Text>
+            <Text style={[styles.footerText, { color: textSecondary }]}>Built with ❤ for Small Businesses</Text>
           </View>
         </View>
       </ScrollView>
