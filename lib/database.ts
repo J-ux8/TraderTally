@@ -42,13 +42,14 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
   // 2. Migration: Add missing sync columns to existing tables
   console.log('[Database] Phase 2: Running migrations...');
 
-  // Migration for sync_metadata to handle old schemas with device_id constraints
+  // Migration for sync_metadata to handle old schemas missing user_id
   try {
     const info = await database.getAllAsync<{ name: string }>('PRAGMA table_info(sync_metadata)');
-    const hasDeviceId = info.some(col => col.name === 'device_id');
+    const columns = info.map(col => col.name);
+    const needsRecreate = !columns.includes('user_id') || columns.includes('device_id');
     
-    if (hasDeviceId) {
-      console.log('[Database] Migrating sync_metadata: removing obsolete device_id');
+    if (needsRecreate) {
+      console.log('[Database] Migrating sync_metadata: dropping and recreating table');
       await database.execAsync('DROP TABLE IF EXISTS sync_metadata');
       await database.execAsync(SCHEMA.TABLES.sync_metadata);
     } else {
@@ -56,7 +57,6 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
     }
   } catch (e) {
     console.error('[Database] Sync metadata migration failed:', e);
-    // Ensure it exists at least
     await database.execAsync(SCHEMA.TABLES.sync_metadata);
   }
 
