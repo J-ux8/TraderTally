@@ -1,4 +1,3 @@
-import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { startOfDay, startOfWeek, startOfMonth, toLocalTime } from '@/lib/dateUtils';
@@ -9,10 +8,36 @@ import { TransactionItem } from '@/components/transactions/TransactionGroupDetai
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const isStockPurchase = (t: any): boolean =>
+  t.category === 'Stock / Inventory' ||
+  (t.description && t.description.startsWith('Order:'));
+
+const computeSaleProfit = (t: any): number => {
+  if (t.sale_items && t.sale_items.length > 0) {
+    let total = 0;
+    for (const item of t.sale_items) {
+      if (item.unit_cost != null) {
+        total += (item.unit_price - item.unit_cost) * item.quantity;
+      }
+    }
+    return total;
+  }
+  return 0;
+};
+
+function formatCurrency(amount: number): string {
+  return `K ${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
+}
+
+function formatDate(date: Date): string {
+  const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
+}
+
 export default function PeriodDetailScreen() {
   const { period } = useLocalSearchParams<{ period: 'today' | 'week' | 'month' }>();
   const { transactions } = useTransactionsContext();
-  const theme = useTheme();
   const colors = useThemeColors();
 
   const periodLabel = useMemo(() => {
@@ -35,110 +60,71 @@ export default function PeriodDetailScreen() {
       default: startDate = startOfDay(now);
     }
 
-    const isStockPurchase = (t: any): boolean =>
-      t.category === 'Stock / Inventory' ||
-      (t.description && t.description.startsWith('Order:'));
-
-    const computeProfit = (t: any): number => {
-      if (t.sale_items && t.sale_items.length > 0) {
-        return t.sale_items.reduce((sum: number, item: any) => {
-          if (item.unit_cost != null) {
-            return sum + (item.unit_price - item.unit_cost) * item.quantity;
-          }
-          return sum;
-        }, 0);
-      }
-      return 0;
-    };
+    const dayBuckets = new Map<string, {
+      date: Date;
+      revenue: number;
+      expenses: number;
+      profit: number;
+      count: number;
+      transactions: any[];
+    }>();
 
     let revenue = 0;
     let expenses = 0;
     let profit = 0;
     let count = 0;
 
-    transactions.forEach(t => {
+    for (let i = 0; i < transactions.length; i++) {
+      const t = transactions[i];
       const createdAt = toLocalTime(t.created_at);
       if (createdAt >= startDate && createdAt <= now) {
         const amt = Number(t.amount);
+        const dayStart = startOfDay(createdAt);
+        const dayKey = dayStart.toISOString();
+
+        let bucket = dayBuckets.get(dayKey);
+        if (!bucket) {
+          bucket = { date: dayStart, revenue: 0, expenses: 0, profit: 0, count: 0, transactions: [] };
+          dayBuckets.set(dayKey, bucket);
+        }
+
         if (amt > 0) {
           revenue += amt;
-          profit += computeProfit(t);
+          bucket.revenue += amt;
+          const itemProfit = computeSaleProfit(t);
+          profit += itemProfit;
+          bucket.profit += itemProfit;
         } else if (amt < 0 && !isStockPurchase(t)) {
-          expenses += Math.abs(amt);
+          const absAmt = Math.abs(amt);
+          expenses += absAmt;
+          bucket.expenses += absAmt;
         }
+
         count++;
+        bucket.count++;
+        bucket.transactions.push(t);
       }
-    });
-
-    // Generate all days in the range
-    const dailyBreakdown: Array<{ revenue: number, expenses: number, profit: number, count: number, date: Date, transactions: any[] }> = [];
-    let curr = new Date(startDate);
-    while (curr <= now) {
-      const dayStart = startOfDay(curr);
-      const dayEnd = new Date(dayStart);
-      dayEnd.setHours(23, 59, 59, 999);
-
-      let dayRevenue = 0;
-      let dayExpenses = 0;
-      let dayProfit = 0;
-      let dayCount = 0;
-      const dayTransactions: any[] = [];
-
-      transactions.forEach(t => {
-        const createdAt = toLocalTime(t.created_at);
-        if (createdAt >= dayStart && createdAt <= dayEnd) {
-          const amt = Number(t.amount);
-          if (amt > 0) {
-            dayRevenue += amt;
-            dayProfit += computeProfit(t);
-          } else if (amt < 0 && !isStockPurchase(t)) {
-            dayExpenses += Math.abs(amt);
-          }
-          dayCount++;
-          dayTransactions.push(t);
-        }
-      });
-
-      // Sort transactions newest first
-      dayTransactions.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-
-      dailyBreakdown.push({
-        date: dayStart,
-        revenue: dayRevenue,
-        expenses: dayExpenses,
-        profit: dayProfit,
-        count: dayCount,
-        transactions: dayTransactions
-      });
-
-      curr.setDate(curr.getDate() + 1);
     }
 
-    // Sort descending for better mobile viewing
-    const sortedBreakdown = [...dailyBreakdown].sort((a, b) => b.date.getTime() - a.date.getTime());
+    // Sort each day's transactions newest first
+    for (const bucket of dayBuckets.values()) {
+      bucket.transactions.sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
 
-    return {
-      revenue,
-      expenses,
-      profit,
-      count,
-      dailyBreakdown: sortedBreakdown
-    };
+    // Convert to array sorted descending by date
+    const dailyBreakdown = Array.from(dayBuckets.values())
+      .sort((a, b) => b.date.getTime() - a.date.getTime());
+
+    return { revenue, expenses, profit, count, dailyBreakdown };
   }, [period, transactions]);
-
-  const formatCurrency = (amt: number) => `K${Math.abs(amt).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
-
-  const formatDate = (date: Date) => {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
-  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
-      
-      <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
+
+      <View style={[styles.header, { backgroundColor: '#1e3a8a' }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={24} color="#fff" />
         </TouchableOpacity>
@@ -149,35 +135,43 @@ export default function PeriodDetailScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Summary Card */}
         <View style={[styles.summaryCard, { backgroundColor: colors.cardBackground }]}>
-          <Text style={[styles.summaryTitle, { color: colors.textColor }]}>Financial Overview</Text>
-          <View style={styles.mainProfitContainer}>
-            <Text style={[styles.profitLabel, { color: colors.textSecondary }]}>Net Profit</Text>
-            <Text style={[styles.profitValue, { color: stats.profit >= 0 ? '#10b981' : '#ef4444' }]}>
+          <Text style={[styles.summaryTitle, { color: colors.textSecondary }]}>
+            {periodLabel} Overview
+          </Text>
+
+          {/* Total Profits — hero metric */}
+          <View style={styles.profitHero}>
+            <View style={[styles.profitIconContainer, { backgroundColor: stats.profit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+              <TrendingUp size={24} color={stats.profit >= 0 ? '#10b981' : '#ef4444'} />
+            </View>
+            <Text style={[styles.profitHeroLabel, { color: colors.textSecondary }]}>Total Profits</Text>
+            <Text style={[styles.profitHeroValue, { color: stats.profit >= 0 ? '#10b981' : '#ef4444' }]}>
               {stats.profit < 0 ? '-' : ''}{formatCurrency(stats.profit)}
             </Text>
           </View>
 
-          <View style={styles.statsGrid}>
-            <View style={styles.statBox}>
-              <View style={[styles.statIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
-                <TrendingUp size={20} color="#10b981" />
+          {/* Revenue & Expenses row */}
+          <View style={styles.statsRow}>
+            <View style={[styles.statCard, { backgroundColor: 'rgba(59, 130, 246, 0.06)' }]}>
+              <View style={styles.statHeader}>
+                <DollarSign size={16} color="#3b82f6" />
+                <Text style={styles.statLabel}>Revenue</Text>
               </View>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Revenue</Text>
-              <Text style={[styles.statValue, { color: colors.textColor }]}>{formatCurrency(stats.revenue)}</Text>
+              <Text style={[styles.statValue, { color: '#0f172a' }]}>{formatCurrency(stats.revenue)}</Text>
             </View>
-            <View style={styles.statBox}>
-              <View style={[styles.statIcon, { backgroundColor: 'rgba(239, 68, 68, 0.1)' }]}>
-                <TrendingDown size={20} color="#ef4444" />
+            <View style={[styles.statCard, { backgroundColor: 'rgba(239, 68, 68, 0.06)' }]}>
+              <View style={styles.statHeader}>
+                <TrendingDown size={16} color="#ef4444" />
+                <Text style={styles.statLabel}>Expenses</Text>
               </View>
-              <Text style={[styles.statLabel, { color: colors.textSecondary }]}>Expenses</Text>
-              <Text style={[styles.statValue, { color: colors.textColor }]}>{formatCurrency(stats.expenses)}</Text>
+              <Text style={[styles.statValue, { color: '#ef4444' }]}>{formatCurrency(stats.expenses)}</Text>
             </View>
           </View>
 
-          <View style={[styles.transactionCount, { borderColor: colors.borderColor }]}>
-            <Calendar size={16} color={colors.textSecondary} />
+          <View style={[styles.transactionCount, { borderTopColor: colors.borderColor }]}>
+            <Calendar size={14} color={colors.textSecondary} />
             <Text style={[styles.countText, { color: colors.textSecondary }]}>
-              {stats.count} transactions in this period
+              {stats.count} transaction{stats.count === 1 ? '' : 's'} in this period
             </Text>
           </View>
         </View>
@@ -199,24 +193,28 @@ export default function PeriodDetailScreen() {
                       {day.profit < 0 ? '-' : ''}{formatCurrency(day.profit)}
                     </Text>
                     <View style={styles.daySubValues}>
-                      <Text style={[styles.daySubValue, { color: '#10b981' }]}>In: {formatCurrency(day.revenue)}</Text>
-                      <Text style={[styles.daySubValue, { color: '#ef4444' }]}>Out: {formatCurrency(day.expenses)}</Text>
+                      <Text style={[styles.daySubValue, { color: '#3b82f6' }]}>
+                        In: {formatCurrency(day.revenue)}
+                      </Text>
+                      <Text style={[styles.daySubValue, { color: '#ef4444' }]}>
+                        Out: {formatCurrency(day.expenses)}
+                      </Text>
                     </View>
                   </View>
                 </View>
               )}
               {period === 'today' && (
-                <Text style={[styles.sectionTitle, { color: colors.textColor, marginTop: 10, marginBottom: 4 }]}>
+                <Text style={[styles.sectionTitle, { color: colors.textColor }]}>
                   Today's Transactions
                 </Text>
               )}
               <View style={{ gap: 12, marginTop: period === 'today' ? 0 : 12 }}>
                 {day.transactions.map((t, idx) => (
-                  <TransactionItem 
-                    key={t.id} 
-                    transaction={t} 
-                    isFirst={idx === 0} 
-                    isLast={idx === day.transactions.length - 1} 
+                  <TransactionItem
+                    key={t.id}
+                    transaction={t}
+                    isFirst={idx === 0}
+                    isLast={idx === day.transactions.length - 1}
                   />
                 ))}
               </View>
@@ -266,66 +264,67 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
   },
   summaryTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 1,
     marginBottom: 20,
-    opacity: 0.7,
   },
-  mainProfitContainer: {
+  profitHero: {
     alignItems: 'center',
-    marginBottom: 30,
-  },
-  profitLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  profitValue: {
-    fontSize: 42,
-    fontWeight: '900',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 16,
     marginBottom: 24,
   },
-  statBox: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0,0,0,0.02)',
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  profitIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  statLabel: {
-    fontSize: 12,
+  profitHeroLabel: {
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
   },
+  profitHeroValue: {
+    fontSize: 40,
+    fontWeight: '900',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statCard: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 16,
+  },
+  statHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  statLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
   statValue: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '800',
   },
   transactionCount: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingTop: 20,
+    paddingTop: 16,
     borderTopWidth: 1,
-    marginTop: 4,
   },
   countText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
   },
   breakdownSection: {
@@ -334,7 +333,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
-    marginBottom: 4,
     marginLeft: 4,
   },
   dayRow: {
@@ -374,5 +372,5 @@ const styles = StyleSheet.create({
   daySubValue: {
     fontSize: 11,
     fontWeight: '600',
-  }
+  },
 });
