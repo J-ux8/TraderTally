@@ -35,22 +35,43 @@ export default function PeriodDetailScreen() {
       default: startDate = startOfDay(now);
     }
 
+    const isStockPurchase = (t: any): boolean =>
+      t.category === 'Stock / Inventory' ||
+      (t.description && t.description.startsWith('Order:'));
+
+    const computeProfit = (t: any): number => {
+      if (t.sale_items && t.sale_items.length > 0) {
+        return t.sale_items.reduce((sum: number, item: any) => {
+          if (item.unit_cost != null) {
+            return sum + (item.unit_price - item.unit_cost) * item.quantity;
+          }
+          return sum;
+        }, 0);
+      }
+      return 0;
+    };
+
     let revenue = 0;
     let expenses = 0;
+    let profit = 0;
     let count = 0;
 
     transactions.forEach(t => {
       const createdAt = toLocalTime(t.created_at);
       if (createdAt >= startDate && createdAt <= now) {
         const amt = Number(t.amount);
-        if (amt > 0) revenue += amt;
-        else expenses += Math.abs(amt);
+        if (amt > 0) {
+          revenue += amt;
+          profit += computeProfit(t);
+        } else if (amt < 0 && !isStockPurchase(t)) {
+          expenses += Math.abs(amt);
+        }
         count++;
       }
     });
 
     // Generate all days in the range
-    const dailyBreakdown: Array<{ revenue: number, expenses: number, net: number, count: number, date: Date, transactions: any[] }> = [];
+    const dailyBreakdown: Array<{ revenue: number, expenses: number, profit: number, count: number, date: Date, transactions: any[] }> = [];
     let curr = new Date(startDate);
     while (curr <= now) {
       const dayStart = startOfDay(curr);
@@ -59,6 +80,7 @@ export default function PeriodDetailScreen() {
 
       let dayRevenue = 0;
       let dayExpenses = 0;
+      let dayProfit = 0;
       let dayCount = 0;
       const dayTransactions: any[] = [];
 
@@ -66,8 +88,12 @@ export default function PeriodDetailScreen() {
         const createdAt = toLocalTime(t.created_at);
         if (createdAt >= dayStart && createdAt <= dayEnd) {
           const amt = Number(t.amount);
-          if (amt > 0) dayRevenue += amt;
-          else dayExpenses += Math.abs(amt);
+          if (amt > 0) {
+            dayRevenue += amt;
+            dayProfit += computeProfit(t);
+          } else if (amt < 0 && !isStockPurchase(t)) {
+            dayExpenses += Math.abs(amt);
+          }
           dayCount++;
           dayTransactions.push(t);
         }
@@ -80,7 +106,7 @@ export default function PeriodDetailScreen() {
         date: dayStart,
         revenue: dayRevenue,
         expenses: dayExpenses,
-        net: dayRevenue - dayExpenses,
+        profit: dayProfit,
         count: dayCount,
         transactions: dayTransactions
       });
@@ -94,7 +120,7 @@ export default function PeriodDetailScreen() {
     return {
       revenue,
       expenses,
-      profit: revenue - expenses,
+      profit,
       count,
       dailyBreakdown: sortedBreakdown
     };
@@ -169,8 +195,8 @@ export default function PeriodDetailScreen() {
                     <Text style={[styles.dayCount, { color: colors.textSecondary }]}>{day.count} items</Text>
                   </View>
                   <View style={styles.dayValues}>
-                    <Text style={[styles.dayProfit, { color: day.net >= 0 ? '#10b981' : '#ef4444' }]}>
-                      {day.net < 0 ? '-' : ''}{formatCurrency(day.net)}
+                    <Text style={[styles.dayProfit, { color: day.profit >= 0 ? '#10b981' : '#ef4444' }]}>
+                      {day.profit < 0 ? '-' : ''}{formatCurrency(day.profit)}
                     </Text>
                     <View style={styles.daySubValues}>
                       <Text style={[styles.daySubValue, { color: '#10b981' }]}>In: {formatCurrency(day.revenue)}</Text>

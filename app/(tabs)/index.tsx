@@ -283,13 +283,7 @@ export default function HomeScreen() {
                   { backgroundColor: cardBackground },
                   activeTab === tab.id && styles.tabActive,
                 ]}
-                onPress={() => {
-                  setActiveTab(tab.id);
-                  router.push({
-                    pathname: '/modals/period-detail',
-                    params: { period: tab.id }
-                  });
-                }}
+                onPress={() => setActiveTab(tab.id)}
                 activeOpacity={0.7}
               >
                 <Text
