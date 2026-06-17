@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { BookOpen, FileText, Plus, TrendingUp, TrendingDown, Package } from 'lucide-react-native';
+import { BookOpen, Plus, TrendingUp, TrendingDown, Package } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 

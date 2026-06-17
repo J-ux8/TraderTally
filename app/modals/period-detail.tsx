@@ -1,12 +1,14 @@
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { startOfDay, startOfWeek, startOfMonth, toLocalTime } from '@/lib/dateUtils';
+import { startOfDay, startOfWeek, startOfMonth } from '@/lib/dateUtils';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Calendar, DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { TransactionItem } from '@/components/transactions/TransactionGroupDetail';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const DAY_MS = 86400000;
 
 const computeSaleProfit = (t: any): number => {
   if (t.sale_items && t.sale_items.length > 0) {
@@ -45,19 +47,50 @@ export default function PeriodDetailScreen() {
     }
   }, [period]);
 
-  const stats = useMemo(() => {
+  const headerSubtitle = useMemo(() => {
     const now = new Date();
-    let startDate: Date;
+    switch (period) {
+      case 'today':
+        return formatDate(now);
+      case 'week': {
+        const start = startOfWeek(now);
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        return `${formatDate(start)} – ${formatDate(end)}`;
+      }
+      case 'month': {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${months[now.getMonth()]} ${now.getFullYear()}`;
+      }
+      default:
+        return '';
+    }
+  }, [period]);
+
+  const stats = useMemo(() => {
+    const nowMs = Date.now();
+    const now = new Date(nowMs);
+    let startMs: number;
 
     switch (period) {
-      case 'today': startDate = startOfDay(now); break;
-      case 'week': startDate = startOfWeek(now); break;
-      case 'month': startDate = startOfMonth(now); break;
-      default: startDate = startOfDay(now);
+      case 'today':
+        startMs = startOfDay(now).getTime();
+        break;
+      case 'week':
+        startMs = startOfWeek(now).getTime();
+        break;
+      case 'month':
+        startMs = startOfMonth(now).getTime();
+        break;
+      default:
+        startMs = startOfDay(now).getTime();
     }
 
-    const dayBuckets = new Map<string, {
-      date: Date;
+    // Local timezone offset in ms (used for day bucketing)
+    const tzOffsetMs = -now.getTimezoneOffset() * 60000;
+
+    const dayBuckets = new Map<number, {
+      dateMs: number;
       revenue: number;
       expenses: number;
       profit: number;
@@ -72,34 +105,35 @@ export default function PeriodDetailScreen() {
 
     for (let i = 0; i < transactions.length; i++) {
       const t = transactions[i];
-      const createdAt = toLocalTime(t.created_at);
-      if (createdAt >= startDate && createdAt <= now) {
-        const amt = Number(t.amount);
-        const dayStart = startOfDay(createdAt);
-        const dayKey = dayStart.toISOString();
+      const createdAtMs = new Date(t.created_at).getTime();
+      if (createdAtMs < startMs || createdAtMs > nowMs) continue;
 
-        let bucket = dayBuckets.get(dayKey);
-        if (!bucket) {
-          bucket = { date: dayStart, revenue: 0, expenses: 0, profit: 0, count: 0, transactions: [] };
-          dayBuckets.set(dayKey, bucket);
-        }
+      const localMs = createdAtMs + tzOffsetMs;
+      const dayKey = Math.floor(localMs / DAY_MS);
+      const dateMs = dayKey * DAY_MS - tzOffsetMs;
 
-        if (amt > 0) {
-          revenue += amt;
-          bucket.revenue += amt;
-          const itemProfit = computeSaleProfit(t);
-          profit += itemProfit;
-          bucket.profit += itemProfit;
-        } else if (amt < 0) {
-          const absAmt = Math.abs(amt);
-          expenses += absAmt;
-          bucket.expenses += absAmt;
-        }
-
-        count++;
-        bucket.count++;
-        bucket.transactions.push(t);
+      let bucket = dayBuckets.get(dayKey);
+      if (!bucket) {
+        bucket = { dateMs, revenue: 0, expenses: 0, profit: 0, count: 0, transactions: [] };
+        dayBuckets.set(dayKey, bucket);
       }
+
+      const amt = Number(t.amount);
+      if (amt > 0) {
+        revenue += amt;
+        bucket.revenue += amt;
+        const itemProfit = computeSaleProfit(t);
+        profit += itemProfit;
+        bucket.profit += itemProfit;
+      } else if (amt < 0) {
+        const absAmt = Math.abs(amt);
+        expenses += absAmt;
+        bucket.expenses += absAmt;
+      }
+
+      count++;
+      bucket.count++;
+      bucket.transactions.push(t);
     }
 
     // Sort each day's transactions newest first
@@ -111,7 +145,8 @@ export default function PeriodDetailScreen() {
 
     // Convert to array sorted descending by date
     const dailyBreakdown = Array.from(dayBuckets.values())
-      .sort((a, b) => b.date.getTime() - a.date.getTime());
+      .sort((a, b) => b.dateMs - a.dateMs)
+      .map(b => ({ ...b, date: new Date(b.dateMs) }));
 
     return { revenue, expenses, profit, count, dailyBreakdown };
   }, [period, transactions]);
@@ -124,7 +159,10 @@ export default function PeriodDetailScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{periodLabel} Summary</Text>
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>{periodLabel} Summary</Text>
+          <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
+        </View>
         <View style={{ width: 40 }} />
       </View>
 
@@ -173,7 +211,7 @@ export default function PeriodDetailScreen() {
         </View>
 
         {/* Daily Breakdown */}
-        {stats.dailyBreakdown.map((day) => {
+        {stats.dailyBreakdown.map((day: any) => {
           if (day.count === 0) return null;
 
           return (
@@ -205,7 +243,7 @@ export default function PeriodDetailScreen() {
                 </Text>
               )}
               <View style={{ gap: 12, marginTop: period === 'today' ? 0 : 12 }}>
-                {day.transactions.map((t, idx) => (
+                {day.transactions.map((t: any, idx: number) => (
                   <TransactionItem
                     key={t.id}
                     transaction={t}
@@ -229,9 +267,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 16,
-    paddingTop: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   backButton: {
     width: 40,
@@ -241,10 +278,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
   headerTitle: {
     fontSize: 20,
     fontWeight: '800',
     color: '#fff',
+  },
+  headerSubtitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.7)',
+    marginTop: 2,
   },
   scrollContent: {
     padding: 16,
