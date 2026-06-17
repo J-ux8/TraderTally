@@ -3,17 +3,16 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { ArrowLeft, Calendar as CalendarIcon, TrendingDown, Plus, Check } from "lucide-react-native";
+import { router, useFocusEffect } from "expo-router";
+import { ArrowLeft, Calendar as CalendarIcon, TrendingDown, Check, ChevronDown } from "lucide-react-native";
 import React, { useCallback, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { FlatList, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useTheme } from '@/contexts/ThemeContext';
 
 const EXPENSE_TYPES = [
-  'Stock / Inventory',
   'Rent / Stall Fee',
   'Salaries / Helpers',
   'Transport / Fuel',
@@ -30,42 +29,25 @@ export default function RecordExpenseScreen() {
   const { theme } = useTheme();
   const { recordExpense } = useTransactionsContext();
   const { success: showSuccess, error: showError } = useToastContext();
-  const params = useLocalSearchParams<{
-    templateId?: string;
-    amount?: string;
-    category?: string;
-    description?: string;
-  }>();
   
   const [amount, setAmount] = useState("");
   const [expenseType, setExpenseType] = useState<string>("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [typePickerOpen, setTypePickerOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
 
   useFocusEffect(
     useCallback(() => {
-      // Pre-fill from template if provided
-      if (params.templateId && params.amount) {
-        setAmount(params.amount);
-        setExpenseType(params.category || "");
-        setDescription(params.description || "");
-        setDate(new Date());
-        setDatePickerOpen(false);
-        setShowDropdown(false);
-      } else {
-        // Reset form for new entry
-        setAmount("");
-        setExpenseType("");
-        setDescription("");
-        setDate(new Date());
-        setDatePickerOpen(false);
-        setShowDropdown(false);
-      }
-    }, [params.templateId, params.amount, params.category, params.description])
+      setAmount("");
+      setExpenseType("");
+      setDescription("");
+      setDate(new Date());
+      setDatePickerOpen(false);
+      setTypePickerOpen(false);
+    }, [])
   );
 
   const handleAmountChange = (value: string) => {
@@ -174,54 +156,30 @@ export default function RecordExpenseScreen() {
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Type of Expense</Text>
-            <TouchableOpacity 
-              style={[styles.dropdownButton, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor }]}
-              onPress={() => setShowDropdown(!showDropdown)}
-              activeOpacity={0.7}
+            <TouchableOpacity
+              style={[styles.quantityInput, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor, justifyContent: 'center' }]}
+              onPress={() => setTypePickerOpen(true)}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TrendingDown size={20} color={colors.textSecondary} style={{ marginRight: 12 }} />
-                <Text style={[styles.dropdownButtonText, { color: expenseType ? colors.textColor : colors.textSecondary }]}>
-                  {expenseType || 'Select expense type...'}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Text style={{ color: expenseType ? colors.textColor : colors.textSecondary, fontSize: 16, fontWeight: '600' }}>
+                  {expenseType || 'Tap to select type'}
                 </Text>
+                <ChevronDown size={20} color={colors.textSecondary} />
               </View>
-              <Plus size={20} color={colors.textSecondary} style={{ transform: [{ rotate: showDropdown ? '45deg' : '0deg' }] }} />
             </TouchableOpacity>
-
-            {showDropdown && (
-              <View style={[styles.dropdownContainer, { borderColor: colors.borderColor, backgroundColor: colors.cardBackground, marginTop: 8 }]}>
-                <ScrollView style={{ maxHeight: 250 }} nestedScrollEnabled keyboardShouldPersistTaps="always">
-                  {EXPENSE_TYPES.map((type) => (
-                    <TouchableOpacity
-                      key={type}
-                      style={[styles.option, { borderBottomColor: colors.borderColor, backgroundColor: expenseType === type ? 'rgba(30, 58, 138, 0.05)' : 'transparent' }]}
-                      onPress={() => {
-                        setExpenseType(type);
-                        setShowDropdown(false);
-                      }}
-                    >
-                      <Text style={[styles.optionText, { color: colors.textColor }]}>{type}</Text>
-                      {expenseType === type && <Check size={18} color="#1e3a8a" />}
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-            )}
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
             <Text style={[styles.label, { color: colors.textSecondary }]}>Notes / Description</Text>
-            <View style={[styles.inputContainer, { backgroundColor: colors.inputBackground, borderColor: colors.borderColor, height: 100, alignItems: 'flex-start', paddingTop: 12 }]}>
-              <TextInput
-                style={[styles.textInput, { color: colors.textColor, textAlignVertical: 'top' }]}
-                value={description}
-                onChangeText={setDescription}
-                placeholder="What was this expense for?"
-                placeholderTextColor={colors.textSecondary}
-                multiline
-                numberOfLines={3}
-              />
-            </View>
+            <TextInput
+              style={[styles.quantityInput, { color: colors.textColor, backgroundColor: colors.inputBackground, borderColor: colors.borderColor, paddingTop: 12, textAlignVertical: 'top' }]}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="What was this expense for?"
+              placeholderTextColor={colors.textSecondary}
+              multiline
+              numberOfLines={3}
+            />
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
@@ -238,9 +196,36 @@ export default function RecordExpenseScreen() {
 
         <View style={[styles.bottomActions, { backgroundColor: colors.cardBackground, borderTopColor: colors.borderColor }]}>
           <TouchableOpacity style={styles.saveButton} onPress={handleSubmit} disabled={!amount || loading}>
-            <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save Expense'}</Text>
+            <Text style={styles.saveButtonText}>{loading ? 'Saving...' : 'Save'}</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Type Picker Modal */}
+        <Modal visible={typePickerOpen} transparent animationType="slide">
+          <View style={styles.overlay}>
+            <View style={[styles.modalContent, { backgroundColor: colors.cardBackground, maxHeight: 400 }]}>
+              <Text style={[styles.modalTitle, { color: colors.textColor }]}>Select Expense Type</Text>
+              <FlatList
+                data={EXPENSE_TYPES}
+                keyExtractor={item => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.pickerItem, { borderBottomColor: colors.borderColor }]}
+                    onPress={() => { setExpenseType(item); setTypePickerOpen(false); }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Text style={[styles.pickerItemText, { color: colors.textColor }]}>{item}</Text>
+                      {expenseType === item && <Check size={18} color="#1e3a8a" />}
+                    </View>
+                  </TouchableOpacity>
+                )}
+              />
+              <TouchableOpacity style={styles.modalCloseButton} onPress={() => setTypePickerOpen(false)}>
+                <Text style={{ color: colors.textSecondary, fontWeight: '600' }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <Modal visible={datePickerOpen} transparent animationType="slide">
           <View style={styles.overlay}>
@@ -349,19 +334,17 @@ const styles = StyleSheet.create({
   amountContainer: { position: 'relative' },
   amountPrefix: { position: 'absolute', left: 16, top: '50%', marginTop: -24, fontSize: 32, fontWeight: '800', zIndex: 1 },
   amountInput: { width: '100%', height: 80, paddingLeft: 56, fontSize: 36, fontWeight: '800', borderRadius: 16, borderWidth: 2, borderColor: 'rgba(30, 58, 138, 0.3)', backgroundColor: 'rgba(30, 58, 138, 0.05)' },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 2, paddingHorizontal: 16 },
-  textInput: { flex: 1, fontSize: 16, fontWeight: '500' },
-  dropdownButton: { height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 2 },
-  dropdownButtonText: { fontSize: 16, fontWeight: '600' },
+  quantityInput: { width: '100%', height: 56, paddingHorizontal: 16, fontSize: 18, fontWeight: '600', borderRadius: 12, borderWidth: 2 },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  dropdownContainer: { borderRadius: 16, borderWidth: 1, maxHeight: 400, overflow: 'hidden' },
-  option: { padding: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1 },
-  optionText: { fontSize: 16, fontWeight: '600' },
   dateButton: { height: 56, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderRadius: 12, borderWidth: 2 },
   dateButtonText: { fontSize: 16, fontWeight: '600' },
   bottomActions: { padding: 20, borderTopWidth: 1 },
   saveButton: { height: 56, backgroundColor: '#1e3a8a', borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 4 },
   saveButtonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
   modalContent: { padding: 20, borderRadius: 24 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16 },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#eee' },
+  modalCloseButton: { padding: 12, alignItems: 'center', marginTop: 8 },
+  pickerItem: { paddingVertical: 14, borderBottomWidth: 1 },
+  pickerItemText: { fontSize: 16, fontWeight: '500' },
 });

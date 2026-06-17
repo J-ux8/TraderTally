@@ -1,10 +1,9 @@
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { SummaryCard } from '@/components/dashboard/SummaryCard';
-import { QuickTemplatesSection } from '@/components/templates/QuickTemplatesSection';
+
 import { GroupedTransactionsList } from '@/components/transactions/GroupedTransactionsList';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
-import { useTemplatesContext } from '@/contexts/TemplatesContext';
 import { useSummary } from '@/hooks/useSummary';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useGroupNavigation } from '@/hooks/useGroupNavigation';
@@ -12,13 +11,12 @@ import { signOut } from '@/lib/auth';
 import { getTopProductsByProfit, ProductProfit } from '@/lib/profitCalculations';
 import { router } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
-import { Activity, LogOut, Store, Plus, TrendingUp as TrendUp } from 'lucide-react-native';
+import { Activity, LogOut, Store, TrendingUp as TrendUp } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
 import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Template } from '@/lib/templates';
 import { TransactionGroup } from '@/types/grouping';
 
 import { useCustomAlert } from '@/components/ui/CustomAlertContext';
@@ -30,7 +28,7 @@ export default function HomeScreen() {
   const { theme } = useTheme();
   const colors = useThemeColors();
   const { transactions, refresh, groupedTransactions, groupingEnabled, toggleGrouping } = useTransactionsContext();
-  const { templates, loading: templatesLoading, deleteTemplate } = useTemplatesContext();
+
   const { actions: { navigateToGroup } } = useGroupNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const { daily, weekly, monthly } = useSummary(transactions);
@@ -149,51 +147,6 @@ export default function HomeScreen() {
   );
 
   const activeSummary = useMemo(() => activeTabInfo.summary, [activeTabInfo]);
-
-  // Template handlers
-  const handleTemplatePress = useCallback((template: Template) => {
-    // Navigate to transaction form with pre-filled data
-    if (template.type === 'sale') {
-      router.push({
-        pathname: '/modals/record-sale',
-        params: {
-          templateId: template.id,
-          amount: template.default_amount.toString(),
-          category: template.category || '',
-          description: template.description || '',
-        },
-      });
-    } else {
-      router.push({
-        pathname: '/modals/record-expense',
-        params: {
-          templateId: template.id,
-          amount: template.default_amount.toString(),
-          category: template.category || '',
-          description: template.description || '',
-        },
-      });
-    }
-  }, []);
-
-  const handleEditTemplate = useCallback((template: Template) => {
-    router.push({
-      pathname: '/modals/edit-template' as any,
-      params: { id: template.id },
-    });
-  }, []);
-
-  const handleDeleteTemplate = useCallback(async (template: Template) => {
-    try {
-      await deleteTemplate(template.id);
-    } catch (error) {
-      console.error('Error deleting template:', error);
-    }
-  }, [deleteTemplate]);
-
-  const handleCreateTemplate = useCallback(() => {
-    router.push('/modals/create-template' as any);
-  }, []);
 
   // Handle group press - navigate to group detail
   const handleGroupPress = useCallback((group: TransactionGroup) => {
@@ -398,28 +351,6 @@ export default function HomeScreen() {
 
           {/* Quick Actions */}
           <QuickActions />
-
-          {/* Quick Templates Section */}
-          <View style={[styles.templatesContainer, { backgroundColor: cardBackground }]}>
-            <View style={styles.templatesHeader}>
-              <Text style={[styles.templatesTitle, { color: textColor }]}>Quick Templates</Text>
-              <TouchableOpacity
-                style={styles.createTemplateButton}
-                onPress={handleCreateTemplate}
-                activeOpacity={0.7}
-              >
-                <Plus size={16} color="#1e3a8a" />
-                <Text style={styles.createTemplateText}>Create</Text>
-              </TouchableOpacity>
-            </View>
-            <QuickTemplatesSection
-              templates={templates}
-              onTemplatePress={handleTemplatePress}
-              onEditTemplate={handleEditTemplate}
-              onDeleteTemplate={handleDeleteTemplate}
-              loading={templatesLoading}
-            />
-          </View>
 
           {/* Grouped Transactions */}
           <View style={[styles.transactionsContainer, { backgroundColor: cardBackground }]}>
@@ -698,43 +629,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
-  },
-  templatesContainer: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.04)',
-    overflow: 'hidden',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
-    shadowRadius: 12,
-    elevation: 1,
-  },
-  templatesHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 8,
-  },
-  templatesTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  createTemplateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: 'rgba(30, 58, 138, 0.1)',
-    borderRadius: 8,
-  },
-  createTemplateText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1e3a8a',
   },
   transactionsContainer: {
     borderRadius: 20,

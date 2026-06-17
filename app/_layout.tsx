@@ -8,7 +8,7 @@ import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { TransactionsProvider } from '@/contexts/TransactionsContext';
 import { CategoriesProvider } from '@/contexts/CategoriesContext';
 import { ToastProvider } from '@/contexts/ToastContext';
-import { TemplatesProvider } from '@/contexts/TemplatesContext';
+
 import { CartProvider } from '@/contexts/CartContext';
 import { CustomAlertProvider } from '@/components/ui/CustomAlertContext';
 import { useNavigationGuard } from '@/hooks/useNavigationGuard';
@@ -159,20 +159,6 @@ function RootLayoutContent() {
           }} 
         />
         <Stack.Screen 
-          name="modals/create-template" 
-          options={{ 
-            headerShown: false, 
-            animation: 'slide_from_right'
-          }} 
-        />
-        <Stack.Screen 
-          name="modals/edit-template" 
-          options={{ 
-            headerShown: false, 
-            animation: 'slide_from_right'
-          }} 
-        />
-        <Stack.Screen 
           name="modals/transaction-group-detail" 
           options={{ 
             headerShown: false, 
@@ -219,15 +205,13 @@ export default function RootLayout() {
           <SyncProvider>
             <TransactionsProvider>
               <CategoriesProvider>
-                <TemplatesProvider>
-                  <CartProvider>
-                    <ToastProvider>
-                      <CustomAlertProvider>
-                        <RootLayoutContent />
-                      </CustomAlertProvider>
-                    </ToastProvider>
-                  </CartProvider>
-                </TemplatesProvider>
+                <CartProvider>
+                  <ToastProvider>
+                    <CustomAlertProvider>
+                      <RootLayoutContent />
+                    </CustomAlertProvider>
+                  </ToastProvider>
+                </CartProvider>
               </CategoriesProvider>
             </TransactionsProvider>
           </SyncProvider>

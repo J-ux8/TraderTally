@@ -4,7 +4,7 @@ import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { ArrowLeft, Calendar as CalendarIcon, ShoppingBag, User } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
@@ -23,13 +23,6 @@ export default function RecordSaleScreen() {
   const { theme } = useTheme();
   const { recordSale, refresh } = useTransactionsContext();
   const { success: showSuccess, error: showError } = useToastContext();
-  const params = useLocalSearchParams<{
-    templateId?: string;
-    amount?: string;
-    category?: string;
-    description?: string;
-  }>();
-  
   const [amount, setAmount] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -44,23 +37,15 @@ export default function RecordSaleScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (params.templateId && params.amount) {
-        setAmount(params.amount);
-        setDescription(params.description || "");
-        setPaymentMode('Paid');
-        setDate(new Date());
-        setDatePickerOpen(false);
-      } else {
-        setAmount("");
-        setSelectedProduct(null);
-        setCustomerName("");
-        setCustomerPhone("");
-        setPaymentMode('Paid');
-        setDescription("");
-        setDate(new Date());
-        setDatePickerOpen(false);
-      }
-    }, [params.templateId, params.amount, params.description])
+      setAmount("");
+      setSelectedProduct(null);
+      setCustomerName("");
+      setCustomerPhone("");
+      setPaymentMode('Paid');
+      setDescription("");
+      setDate(new Date());
+      setDatePickerOpen(false);
+    }, [])
   );
 
   useEffect(() => {
