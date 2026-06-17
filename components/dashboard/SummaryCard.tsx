@@ -1,4 +1,4 @@
-import { DollarSign, Package, TrendingDown, TrendingUp } from 'lucide-react-native';
+import { DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -7,7 +7,6 @@ interface Summary {
   profit: number;
   cogs: number;
   expenses: number;
-  stockOrders: number;
   transactionCount: number;
 }
 
@@ -72,23 +71,6 @@ export const SummaryCard = React.memo(function SummaryCard({ title, summary }: S
             </Text>
           </View>
         </View>
-
-        {summary.stockOrders > 0 && (
-          <View style={[styles.metricRow, styles.stockRow]}>
-            <View style={styles.accentBar}>
-              <View style={[styles.accentFill, { backgroundColor: '#8b5cf6' }]} />
-            </View>
-            <View style={styles.metricIcon}>
-              <Package size={20} color="#8b5cf6" />
-            </View>
-            <View style={styles.metricBody}>
-              <Text style={styles.metricLabel}>Stock Orders</Text>
-              <Text style={[styles.metricValue, { color: '#8b5cf6' }]}>
-                {formatCurrency(summary.stockOrders)}
-              </Text>
-            </View>
-          </View>
-        )}
       </View>
 
       <View style={styles.footer}>
@@ -105,9 +87,8 @@ export const SummaryCard = React.memo(function SummaryCard({ title, summary }: S
   const revenueEqual = prevProps.summary.revenue === nextProps.summary.revenue;
   const profitEqual = prevProps.summary.profit === nextProps.summary.profit;
   const expensesEqual = prevProps.summary.expenses === nextProps.summary.expenses;
-  const stockEqual = prevProps.summary.stockOrders === nextProps.summary.stockOrders;
   const countEqual = prevProps.summary.transactionCount === nextProps.summary.transactionCount;
-  return titleEqual && revenueEqual && profitEqual && expensesEqual && stockEqual && countEqual;
+  return titleEqual && revenueEqual && profitEqual && expensesEqual && countEqual;
 });
 
 const styles = StyleSheet.create({
@@ -148,10 +129,6 @@ const styles = StyleSheet.create({
   expenseRow: {
     borderWidth: 1,
     borderColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  stockRow: {
-    borderWidth: 1,
-    borderColor: 'rgba(139, 92, 246, 0.08)',
   },
   accentBar: {
     width: 4,
