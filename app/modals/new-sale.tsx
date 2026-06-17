@@ -11,18 +11,19 @@ import {
   ActivityIndicator,
   Animated,
   Modal,
+  Alert,
 } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ArrowLeft, Search, Plus, Minus, ShoppingCart, Trash2, X, CheckCircle2 } from 'lucide-react-native';
+import { ArrowLeft, Search, Plus, Minus, ShoppingCart, Trash2, X, CheckCircle2, Package } from 'lucide-react-native';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useCart } from '@/contexts/CartContext';
 import { useCategoriesContext } from '@/contexts/CategoriesContext';
-import { getProducts, searchProducts, Product, upsertProduct } from '@/lib/products';
+import { getProducts, searchProducts, Product, upsertProduct, deleteProduct } from '@/lib/products';
 import { completeSale } from '@/lib/sales';
 import { useToastContext } from '@/contexts/ToastContext';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
@@ -37,10 +38,11 @@ export default function NewSaleScreen() {
   const { success: showSuccess, error: showError } = useToastContext();
   const { refresh: refreshTransactions } = useTransactionsContext();
 
-  const [searchQuery, setSearchQuery] = useState('');
+  const [view, setView] = useState<'categories' | 'products'>('categories');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [products, setProducts] = useState<Product[]>([]);
-  const [quickProducts, setQuickProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
@@ -51,25 +53,14 @@ export default function NewSaleScreen() {
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [newProductName, setNewProductName] = useState('');
   const [newProductPrice, setNewProductPrice] = useState('');
+
   const searchInputRef = useRef<TextInput>(null);
   const priceInputRef = useRef<TextInput>(null);
-
-  // Auto-focus search on mount
-  useEffect(() => {
-    setTimeout(() => searchInputRef.current?.focus(), 100);
-  }, []);
-
-  // Focus price when modal opens
-  useEffect(() => {
-    if (isAddingProduct) {
-      setTimeout(() => priceInputRef.current?.focus(), 100);
-    }
-  }, [isAddingProduct]);
 
   // Cart animation
   const cartScale = useRef(new Animated.Value(1)).current;
 
-  // Load initial data
+  // Load products
   useEffect(() => {
     loadProducts();
   }, []);
@@ -77,11 +68,8 @@ export default function NewSaleScreen() {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      // 1. Fetch all products
       const allProducts = await getProducts();
-      const topProducts = await getProducts(true);
       setProducts(allProducts);
-      setQuickProducts(topProducts.slice(0, 10));
     } catch (error) {
       console.error('Failed to load products:', error);
       showError('Failed to load products');
@@ -120,15 +108,17 @@ export default function NewSaleScreen() {
         customerPhone.trim() || undefined
       );
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showSuccess(paymentMode === 'Credit' ? 'Credit Sale Recorded!' : 'Sale Recorded Successfully!');
+      const itemSummary = cart.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
+      const totalQty = cart.items.reduce((s, i) => s + i.quantity, 0);
+      showSuccess(
+        `Sold ${totalQty} item${totalQty > 1 ? 's' : ''}`,
+        { amount: cart.total_amount, message: `${itemSummary} — K${cart.total_amount.toLocaleString()} revenue` }
+      );
       clearCart();
       setShowCheckout(false);
-      
-      // Reset checkout states
       setPaymentMode('Paid');
       setCustomerName('');
       setCustomerPhone('');
-      
       refreshTransactions(); 
       router.back();
     } catch (error: any) {
@@ -138,16 +128,16 @@ export default function NewSaleScreen() {
     }
   };
 
-  const filteredProducts = useMemo(() => {
-    // 1. Get IDs of active categories for strict filtering
-    const activeCategoryNames = categories.map(c => c.name);
-    
-    // 2. Filter products: Must belong to an active category
-    const validProducts = products.filter(p => p.category_id && activeCategoryNames.includes(p.category_id));
-    
-    // 3. Apply the user's category filter selection
-    return validProducts.filter(p => !selectedCategory || p.category_id === selectedCategory);
-  }, [products, selectedCategory, categories]);
+  // Products in the selected category
+  const categoryProducts = useMemo(() => {
+    if (!selectedCategory) return [];
+    return products.filter(p => p.category_id === selectedCategory);
+  }, [products, selectedCategory]);
+
+  // Product count per category
+  const categoryProductCount = useCallback((categoryId: string) => {
+    return products.filter(p => p.category_id === categoryId).length;
+  }, [products]);
 
   const animateCart = () => {
     Animated.sequence([
@@ -171,17 +161,32 @@ export default function NewSaleScreen() {
 
     try {
       setLoading(true);
-      const product = await upsertProduct(newProductName, price, selectedCategory);
+      const product = await upsertProduct(newProductName, price, selectedCategory || undefined);
       addItem(product);
       setIsAddingProduct(false);
       setNewProductName('');
       setNewProductPrice('');
-      loadProducts(); // Reload to show the new product
+      loadProducts();
     } catch (error) {
       showError('Failed to add product');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectCategory = (catId: string, catName: string) => {
+    setSelectedCategory(catId);
+    setSelectedCategoryName(catName);
+    setView('products');
+    setSearchQuery('');
+  };
+
+  const handleBackToCategories = () => {
+    setView('categories');
+    setSelectedCategory(null);
+    setSelectedCategoryName('');
+    setSearchQuery('');
+    loadProducts();
   };
 
   const renderProductItem = ({ item }: { item: Product }) => {
@@ -192,7 +197,14 @@ export default function NewSaleScreen() {
       <View style={[styles.productItem, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
         <View style={styles.productInfo}>
           <Text style={[styles.productName, { color: colors.textColor }]}>{item.display_name}</Text>
-          <Text style={[styles.productPrice, { color: colors.textSecondary }]}>K{item.price.toLocaleString()}</Text>
+          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+            <Text style={[styles.productPrice, { color: colors.textSecondary }]}>K{item.price.toLocaleString()}</Text>
+            {item.stock_quantity != null && (
+              <Text style={{ color: '#10b981', fontSize: 11, fontWeight: '700' }}>
+                {item.stock_quantity} in stock
+              </Text>
+            )}
+          </View>
         </View>
         
         {quantity > 0 ? (
@@ -230,16 +242,114 @@ export default function NewSaleScreen() {
     );
   };
 
-  const renderQuickProduct = ({ item }: { item: Product }) => (
-    <TouchableOpacity 
-      style={[styles.quickProductItem, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}
-      onPress={() => onAddPress(item)}
-      activeOpacity={0.7}
-    >
-      <Text style={[styles.quickProductName, { color: colors.textColor }]} numberOfLines={1}>{item.display_name}</Text>
-      <Text style={[styles.quickProductPrice, { color: colors.primaryColor }]}>K{item.price}</Text>
-    </TouchableOpacity>
+  const renderCategoryCard = ({ item }: { item: any }) => {
+    const count = categoryProductCount(item.id);
+    return (
+      <TouchableOpacity
+        style={[styles.categoryCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}
+        onPress={() => handleSelectCategory(item.id, item.name)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.categoryCardIcon}>
+          <Package size={28} color="#1e3a8a" />
+        </View>
+        <Text style={[styles.categoryCardName, { color: colors.textColor }]} numberOfLines={1}>{item.name}</Text>
+        <Text style={[styles.categoryCardCount, { color: colors.textSecondary }]}>
+          {count} product{count !== 1 ? 's' : ''}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderCategoryGrid = () => (
+    <View style={styles.categoryGridContainer}>
+      <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Product Categories</Text>
+      {categories.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            No categories yet.{'\n'}Create products through Orders first.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          key="categories-grid"
+          data={categories}
+          renderItem={renderCategoryCard}
+          keyExtractor={item => item.id}
+          numColumns={2}
+          columnWrapperStyle={styles.categoryRow}
+          contentContainerStyle={styles.categoryList}
+        />
+      )}
+    </View>
   );
+
+  const renderProductList = () => {
+    const filtered = searchQuery.trim()
+      ? categoryProducts.filter(p =>
+          p.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          p.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      : categoryProducts;
+
+    return (
+      <View style={{ flex: 1 }}>
+        {/* Sub-header with back button */}
+        <View style={styles.subHeader}>
+          <TouchableOpacity onPress={handleBackToCategories} style={styles.subHeaderBack}>
+            <ArrowLeft size={20} color={colors.primaryColor} />
+            <Text style={[styles.subHeaderBackText, { color: colors.primaryColor }]}>Categories</Text>
+          </TouchableOpacity>
+          <Text style={[styles.subHeaderTitle, { color: colors.textColor }]}>{selectedCategoryName}</Text>
+          <TouchableOpacity 
+            onPress={() => setIsAddingProduct(true)}
+            style={styles.subHeaderAdd}
+          >
+            <Plus size={20} color={colors.primaryColor} />
+          </TouchableOpacity>
+        </View>
+
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primaryColor} />
+          </View>
+        ) : (
+          <FlatList
+            key="products-list"
+            data={filtered}
+            renderItem={renderProductItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.productList}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                {searchQuery.trim() ? (
+                  <>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No matches for "{searchQuery}"</Text>
+                    <TouchableOpacity 
+                      style={[styles.legacyButton, { borderColor: colors.primaryColor }]} 
+                      onPress={() => {
+                        setNewProductName(searchQuery);
+                        setIsAddingProduct(true);
+                        setSearchQuery('');
+                      }}
+                    >
+                      <Text style={{ color: colors.primaryColor, fontWeight: '700' }}>Add "{searchQuery}" as New Product</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                      No products in {selectedCategoryName}.{'\n'}Add them through Orders.
+                    </Text>
+                  </>
+                )}
+              </View>
+            }
+          />
+        )}
+      </View>
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.backgroundColor }]}>
@@ -259,133 +369,44 @@ export default function NewSaleScreen() {
             </View>
             <View style={styles.headerTextContainer}>
               <Text style={[styles.headerTitle, { color: colors.textColor }]}>Multi-Item Sale</Text>
-              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>Add items to your cart</Text>
+              <Text style={[styles.headerSubtitle, { color: colors.textSecondary }]}>
+                {view === 'categories' ? 'Select a category to browse products' : `Selling from ${selectedCategoryName}`}
+              </Text>
             </View>
           </View>
-          <TouchableOpacity 
-            style={styles.headerAddButton} 
-            onPress={() => setIsAddingProduct(true)}
-          >
-            <Plus size={20} color="#1e3a8a" />
-          </TouchableOpacity>
-        </View>
-
-        {/* Search Bar */}
-        <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, marginTop: 16, borderWidth: 1, borderColor: colors.borderColor }]}>
-          <Search size={20} color={colors.textSecondary} style={styles.searchIcon} />
-          <TextInput
-            ref={searchInputRef}
-            style={[styles.searchInput, { color: colors.textColor }]}
-            placeholder="Search products..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => handleSearch('')}>
-              <X size={20} color={colors.textSecondary} />
+          {view === 'products' && (
+            <TouchableOpacity 
+              style={styles.headerAddButton} 
+              onPress={() => setIsAddingProduct(true)}
+            >
+              <Plus size={20} color="#1e3a8a" />
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Search Bar (only in products view) */}
+        {view === 'products' && (
+          <View style={[styles.searchContainer, { backgroundColor: colors.inputBackground, marginTop: 16, borderWidth: 1, borderColor: colors.borderColor }]}>
+            <Search size={20} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              ref={searchInputRef}
+              style={[styles.searchInput, { color: colors.textColor }]}
+              placeholder="Search products..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={handleSearch}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => handleSearch('')}>
+                <X size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={styles.content}>
-        {/* Quick Products */}
-        {quickProducts.length > 0 && !searchQuery && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Quick Add</Text>
-            <FlatList
-              data={quickProducts}
-              renderItem={renderQuickProduct}
-              keyExtractor={item => item.id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.quickProductsList}
-            />
-          </View>
-        )}
-
-        {/* Categories */}
-        <View style={styles.categorySection}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryList}>
-            <TouchableOpacity 
-              style={[
-                styles.categoryChip, 
-                { backgroundColor: !selectedCategory ? colors.primaryColor : colors.inputBackground }
-              ]}
-              onPress={() => setSelectedCategory(null)}
-            >
-              <Text style={[styles.categoryText, { color: !selectedCategory ? '#ffffff' : colors.textSecondary }]}>All</Text>
-            </TouchableOpacity>
-            {categories.map(cat => (
-              <View 
-                key={cat.id}
-                style={[
-                  styles.categoryChipContainer, 
-                  { backgroundColor: selectedCategory === cat.name ? colors.primaryColor : colors.inputBackground }
-                ]}
-              >
-                <TouchableOpacity 
-                  style={styles.categoryChipMain}
-                  onPress={() => setSelectedCategory(prev => prev === cat.name ? null : cat.name)}
-                >
-                  <Text style={[styles.categoryText, { color: selectedCategory === cat.name ? '#ffffff' : colors.textSecondary }]}>{cat.name}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={[styles.categoryAddBtn, { borderLeftColor: selectedCategory === cat.name ? 'rgba(255,255,255,0.2)' : colors.borderColor }]}
-                  onPress={() => {
-                    setNewProductName(cat.name);
-                    setSelectedCategory(cat.name);
-                    setIsAddingProduct(true);
-                  }}
-                >
-                  <Plus size={14} color={selectedCategory === cat.name ? '#ffffff' : colors.primaryColor} />
-                </TouchableOpacity>
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Main Product List */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primaryColor} />
-            <Text style={{ color: colors.textSecondary, marginTop: 10 }}>Loading products...</Text>
-          </View>
-        ) : (
-          <FlatList
-            data={filteredProducts}
-            renderItem={renderProductItem}
-            keyExtractor={item => item.id}
-            contentContainerStyle={styles.productList}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                {searchQuery.length > 0 ? (
-                  <>
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No matches for "{searchQuery}"</Text>
-                    <TouchableOpacity 
-                      style={[styles.legacyButton, { borderColor: colors.primaryColor }]} 
-                      onPress={() => {
-                        setNewProductName(searchQuery);
-                        setIsAddingProduct(true);
-                        setSearchQuery('');
-                      }}
-                    >
-                      <Text style={{ color: colors.primaryColor, fontWeight: '700' }}>Add "{searchQuery}" as New Product</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <>
-                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Your product list is empty.</Text>
-                    <TouchableOpacity style={styles.refreshButton} onPress={loadProducts}>
-                      <Text style={{ color: colors.primaryColor, fontWeight: '700' }}>Refresh List</Text>
-                    </TouchableOpacity>
-                  </>
-                )}
-              </View>
-            }
-          />
-        )}
+        {view === 'categories' ? renderCategoryGrid() : renderProductList()}
       </View>
 
       {/* Add New Product Modal */}
@@ -414,7 +435,7 @@ export default function NewSaleScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Price (K)</Text>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Selling Price (K)</Text>
               <TextInput
                 ref={priceInputRef}
                 style={[styles.modalInput, { color: colors.textColor, borderColor: colors.borderColor }]}
@@ -627,18 +648,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  headerTextContainer: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
+  headerTextContainer: { flex: 1 },
+  headerTitle: { fontSize: 22, fontWeight: '800', marginBottom: 2 },
+  headerSubtitle: { fontSize: 13, fontWeight: '500' },
   headerAddButton: {
     width: 40,
     height: 40,
@@ -652,27 +664,57 @@ const styles = StyleSheet.create({
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, fontSize: 16, fontWeight: '500' },
   content: { flex: 1 },
-  section: { marginTop: 20, paddingHorizontal: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 15 },
-  quickProductsList: { paddingRight: 20 },
-  quickProductItem: { 
-    width: 120, 
-    padding: 15, 
-    borderRadius: 20, 
-    marginRight: 12, 
+  sectionTitle: { fontSize: 18, fontWeight: '800', marginBottom: 16, paddingHorizontal: 20, marginTop: 20 },
+
+  // Category grid
+  categoryGridContainer: { flex: 1 },
+  categoryList: { padding: 20, paddingBottom: 120 },
+  categoryRow: { gap: 12, marginBottom: 12 },
+  categoryCard: {
+    flex: 1,
+    padding: 20,
+    borderRadius: 20,
     borderWidth: 1,
     alignItems: 'center',
     gap: 8,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
-  quickProductName: { fontSize: 14, fontWeight: '700' },
-  quickProductPrice: { fontSize: 13, fontWeight: '900' },
-  categorySection: { marginTop: 20, paddingHorizontal: 10 },
-  categoryList: { paddingHorizontal: 10, gap: 8 },
-  categoryChip: { paddingHorizontal: 20, paddingVertical: 10, borderRadius: 14 },
-  categoryChipContainer: { flexDirection: 'row', alignItems: 'center', borderRadius: 14, overflow: 'hidden' },
-  categoryChipMain: { paddingLeft: 16, paddingRight: 8, paddingVertical: 10 },
-  categoryAddBtn: { paddingRight: 12, paddingLeft: 8, paddingVertical: 10, borderLeftWidth: 1 },
-  categoryText: { fontSize: 13, fontWeight: '700' },
+  categoryCardIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryCardName: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  categoryCardCount: { fontSize: 13, fontWeight: '500' },
+
+  // Sub-header for products view
+  subHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  subHeaderBack: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  subHeaderBackText: { fontSize: 14, fontWeight: '600' },
+  subHeaderTitle: { fontSize: 16, fontWeight: '800', flex: 1, textAlign: 'center' },
+  subHeaderAdd: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(30, 58, 138, 0.08)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Product list
   productList: { padding: 20, paddingBottom: 120 },
   productItem: { 
     flexDirection: 'row', 
@@ -690,8 +732,8 @@ const styles = StyleSheet.create({
   qtyButton: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   quantityText: { fontSize: 16, fontWeight: '900', minWidth: 20, textAlign: 'center' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyContainer: { alignItems: 'center', marginTop: 100 },
-  emptyText: { fontSize: 16, marginBottom: 20 },
+  emptyContainer: { alignItems: 'center', marginTop: 60, paddingHorizontal: 20 },
+  emptyText: { fontSize: 15, textAlign: 'center', marginBottom: 20, lineHeight: 22 },
   refreshButton: { padding: 10 },
   legacyButton: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, borderWidth: 1 },
   footer: { 

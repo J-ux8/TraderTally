@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { BookOpen, FileText, Plus, TrendingUp, TrendingDown } from 'lucide-react-native';
+import { BookOpen, FileText, Plus, TrendingUp, TrendingDown, Package } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -39,6 +39,17 @@ export const QuickActions = React.memo(function QuickActions() {
             <TrendingDown size={24} color="#ef4444" />
           </View>
           <Text style={styles.secondaryButtonText}>Record Expense</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => router.push('/modals/orders')}
+          activeOpacity={0.8}
+        >
+          <View style={[styles.iconContainer, styles.secondaryIcon, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+            <Package size={24} color="#10b981" />
+          </View>
+          <Text style={styles.secondaryButtonText}>Record Stock</Text>
         </TouchableOpacity>
 
         <TouchableOpacity

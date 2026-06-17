@@ -19,6 +19,7 @@ interface Transaction {
   transaction_date: string;
   created_at: string;
   user_id: string;
+  sale_items?: any[];
 }
 
 // Predefined selection list for editing
@@ -34,6 +35,43 @@ const CATEGORY_OPTIONS = [
   'Market Levy / Tax',
   'Other'
 ];
+
+function ProfitDisplay({ saleItems }: { saleItems: any[] }) {
+  const itemsWithCost = saleItems.filter((i: any) => i.unit_cost != null);
+  if (itemsWithCost.length === 0) return null;
+
+  // Group by category
+  const groups = new Map<string, { items: typeof itemsWithCost; profit: number }>();
+  for (const item of itemsWithCost) {
+    const catName = item.category_name || 'Uncategorized';
+    if (!groups.has(catName)) groups.set(catName, { items: [], profit: 0 });
+    const group = groups.get(catName)!;
+    group.items.push(item);
+    group.profit += (item.unit_price - item.unit_cost) * item.quantity;
+  }
+
+  const totalProfit = Array.from(groups.values()).reduce((s, g) => s + g.profit, 0);
+
+  return (
+    <View style={{ marginTop: 4 }}>
+      {Array.from(groups.entries()).map(([catName, group]) => (
+        <View key={catName} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+          <Text style={{ fontSize: 12, fontWeight: '700', color: group.profit >= 0 ? '#10b981' : '#ef4444' }}>
+            {catName}: Profit K{group.profit.toFixed(2)}
+          </Text>
+          <Text style={{ fontSize: 11, color: '#999', marginLeft: 4 }}>
+            ({group.items.map((i: any) => `${i.quantity}x ${i.product_name}`).join(', ')})
+          </Text>
+        </View>
+      ))}
+      {groups.size > 1 && (
+        <Text style={{ fontSize: 12, fontWeight: '800', color: totalProfit >= 0 ? '#10b981' : '#ef4444', marginTop: 3 }}>
+          Total Profit: K{totalProfit.toFixed(2)}
+        </Text>
+      )}
+    </View>
+  );
+}
 
 const TransactionItem = React.memo(({
   transaction,
@@ -104,6 +142,9 @@ const TransactionItem = React.memo(({
       )}
       {!!transaction.description && (
         <Text style={dynamicStyles.description}>{transaction.description}</Text>
+      )}
+      {transaction.amount > 0 && transaction.sale_items && transaction.sale_items.length > 0 && (
+        <ProfitDisplay saleItems={transaction.sale_items} />
       )}
     </View>
   );

@@ -126,10 +126,18 @@ export default function RecordSaleScreen() {
         getLocalISOString(date)
       );
 
-      showSuccess(paymentMode === 'Credit' ? 'Credit Sale Recorded' : 'Sale Recorded', {
-        amount: numericAmount,
-        message: 'Transaction saved successfully',
-      });
+      const profitEst = selectedProduct.cost_price != null
+        ? (numericAmount - selectedProduct.cost_price)
+        : null;
+      showSuccess(
+        `Sold 1 ${selectedProduct.display_name}`,
+        {
+          amount: numericAmount,
+          message: profitEst != null
+            ? `K${numericAmount.toLocaleString()} revenue · K${profitEst.toFixed(2)} profit`
+            : `K${numericAmount.toLocaleString()} revenue`
+        }
+      );
       // Refresh context so transaction list updates immediately (non-blocking)
       refresh();
       router.back();

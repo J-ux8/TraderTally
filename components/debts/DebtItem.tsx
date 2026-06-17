@@ -35,7 +35,7 @@ export const DebtItem = React.memo(function DebtItem({ debt, onSettle, onClick, 
   const handleRemind = async () => {
     const amount = Number(debt.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const formattedDueDate = dueDate ? formatDate(dueDate) : 'soon';
-    const business = businessName || 'MobiBooks';
+    const business = businessName || 'TraderBooks';
 
     const message = `Hi ${debt.customer_name}, this is a friendly reminder that you have an outstanding balance of K ${amount} at ${business}. Due date: ${formattedDueDate}. Thank you! 🙏`;
 

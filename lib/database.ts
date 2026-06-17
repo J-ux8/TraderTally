@@ -60,7 +60,7 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
     await database.execAsync(SCHEMA.TABLES.sync_metadata);
   }
 
-  const tablesToSync = ['transactions', 'categories', 'debts', 'transaction_templates', 'customers', 'products', 'sales', 'sale_items'];
+  const tablesToSync = ['transactions', 'categories', 'debts', 'transaction_templates', 'customers', 'products', 'sales', 'sale_items', 'stock_batches'];
   
   for (const table of tablesToSync) {
     try {
@@ -163,6 +163,24 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
         if (!columns.includes('stock_quantity')) {
           console.log(`[Database] Migrating products: adding stock_quantity column`);
           await database.execAsync(`ALTER TABLE products ADD COLUMN stock_quantity REAL`);
+        }
+        if (!columns.includes('cost_price')) {
+          console.log(`[Database] Migrating products: adding cost_price column`);
+          await database.execAsync(`ALTER TABLE products ADD COLUMN cost_price REAL`);
+        }
+      }
+
+      if (table === 'sale_items') {
+        if (!columns.includes('unit_cost')) {
+          console.log(`[Database] Migrating sale_items: adding unit_cost column`);
+          await database.execAsync(`ALTER TABLE sale_items ADD COLUMN unit_cost REAL`);
+        }
+      }
+
+      if (table === 'stock_batches') {
+        if (!columns.includes('user_id')) {
+          console.log(`[Database] Migrating stock_batches: adding user_id column`);
+          await database.execAsync(`ALTER TABLE stock_batches ADD COLUMN user_id TEXT`);
         }
       }
     } catch (e) {

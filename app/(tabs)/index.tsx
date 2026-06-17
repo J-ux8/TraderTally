@@ -9,9 +9,10 @@ import { useSummary } from '@/hooks/useSummary';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { useGroupNavigation } from '@/hooks/useGroupNavigation';
 import { signOut } from '@/lib/auth';
+import { getTopProductsByProfit, ProductProfit } from '@/lib/profitCalculations';
 import { router } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
-import { Activity, LogOut, Store, Plus } from 'lucide-react-native';
+import { Activity, LogOut, Store, Plus, TrendingUp as TrendUp } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
 import { Image } from 'expo-image';
@@ -35,6 +36,7 @@ export default function HomeScreen() {
   const { daily, weekly, monthly } = useSummary(transactions);
   const [activeTab, setActiveTab] = useState<'today' | 'week' | 'month'>('today');
   const lastDateRef = useRef<string>(new Date().toDateString());
+  const [topProduct, setTopProduct] = useState<ProductProfit | null>(null);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -70,6 +72,15 @@ export default function HomeScreen() {
     
     return () => clearTimeout(mountTimer);
   }, []);
+
+  // Load top profitable product
+  useEffect(() => {
+    let mounted = true;
+    getTopProductsByProfit(1).then(prods => {
+      if (mounted && prods.length > 0) setTopProduct(prods[0]);
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, [transactions]);
 
   // Listen for app state changes to detect day changes
   useEffect(() => {
@@ -256,7 +267,7 @@ export default function HomeScreen() {
                 </View>
 
                 <View>
-                  <Text style={[styles.heroTitle, { color: textColor }]}>MobiBooks</Text>
+                  <Text style={[styles.heroTitle, { color: textColor }]}>TraderBooks</Text>
                   <Text style={[styles.heroDate, { color: textSecondary }]}>{formatDate(new Date())}</Text>
                 </View>
               </View>
@@ -364,7 +375,26 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
 
-          {/* Removed share card from here, moved to Reports */}
+          {/* Most Profitable Product */}
+          {topProduct && topProduct.gross_profit > 0 && (
+            <TouchableOpacity
+              style={[styles.consistencyCard, { backgroundColor: cardBackground }]}
+              onPress={() => router.push('/(tabs)/reports')}
+              activeOpacity={0.7}
+            >
+              <View style={styles.consistencyLeft}>
+                <View style={[styles.consistencyIconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.1)' }]}>
+                  <TrendUp size={20} color="#10b981" />
+                </View>
+                <View>
+                  <Text style={[styles.consistencyTitle, { color: textColor }]}>Top Product: {topProduct.product_name}</Text>
+                  <Text style={[styles.consistencyValue, { color: textSecondary }]}>
+                    K{topProduct.gross_profit.toFixed(2)} profit · {topProduct.profit_margin.toFixed(0)}% margin
+                  </Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
 
           {/* Quick Actions */}
           <QuickActions />

@@ -15,11 +15,12 @@ export class SyncEngine {
     'profiles', 
     'categories', 
     'products', 
-    'customers', // Sync customers before debts
+    'customers',
     'debts', 
     'transaction_templates', 
-    'sales', // Sync sales before sale_items
-    'sale_items', 
+    'sales',
+    'sale_items',
+    'stock_batches',
     'transactions'
   ];
 
@@ -131,7 +132,8 @@ export class SyncEngine {
     ]);
 
     // 2. Dependent tables (order matters)
-    await this.pushTable('products'); // depends on categories
+    await this.pushTable('products');
+    await this.pushTable('stock_batches'); // depends on products
     await this.pushTable('sales');
     await this.pushTable('sale_items'); // depends on sales & products
     
@@ -190,7 +192,8 @@ export class SyncEngine {
     ]);
 
     // 2. Dependent tables (order matters)
-    await this.pullTable('products', lastSyncTime); // depends on categories
+    await this.pullTable('products', lastSyncTime);
+    await this.pullTable('stock_batches', lastSyncTime); // depends on products
     await this.pullTable('sales', lastSyncTime);
     await this.pullTable('sale_items', lastSyncTime); // depends on sales & products
     

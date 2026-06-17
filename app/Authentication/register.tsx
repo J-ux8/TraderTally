@@ -108,7 +108,7 @@ export default function RegisterScreen() {
                   />
                 </View>
                 <View>
-                  <Text style={styles.headerTitle}>MobiBooks</Text>
+                  <Text style={styles.headerTitle}>TraderBooks</Text>
                 </View>
               </View>
             </View>

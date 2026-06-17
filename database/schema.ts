@@ -120,6 +120,7 @@ export const SCHEMA = {
         name TEXT NOT NULL,
         display_name TEXT NOT NULL,
         price REAL NOT NULL,
+        cost_price REAL,
         category_id TEXT,
         usage_count INTEGER DEFAULT 0,
         stock_quantity REAL,
@@ -151,6 +152,7 @@ export const SCHEMA = {
         product_name TEXT NOT NULL,
         quantity REAL NOT NULL,
         unit_price REAL NOT NULL,
+        unit_cost REAL,
         total_price REAL NOT NULL,
         is_deleted INTEGER DEFAULT 0,
         sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
@@ -158,6 +160,24 @@ export const SCHEMA = {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (sale_id) REFERENCES sales(id),
+        FOREIGN KEY (product_id) REFERENCES products(id)
+      );
+    `,
+    stock_batches: `
+      CREATE TABLE IF NOT EXISTS stock_batches (
+        id TEXT PRIMARY KEY NOT NULL,
+        user_id TEXT NOT NULL,
+        product_id TEXT NOT NULL,
+        total_cost REAL NOT NULL,
+        units_in_batch REAL NOT NULL,
+        unit_cost REAL NOT NULL,
+        units_remaining REAL NOT NULL,
+        purchased_at TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        is_deleted INTEGER DEFAULT 0,
+        sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
+        retry_count INTEGER DEFAULT 0,
         FOREIGN KEY (product_id) REFERENCES products(id)
       );
     `,
@@ -205,6 +225,11 @@ export const SCHEMA = {
     sale_items: `
       CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
       CREATE INDEX IF NOT EXISTS idx_sale_items_sync ON sale_items(sync_status);
+    `,
+    stock_batches: `
+      CREATE INDEX IF NOT EXISTS idx_stock_batches_product_id ON stock_batches(product_id);
+      CREATE INDEX IF NOT EXISTS idx_stock_batches_purchased_at ON stock_batches(purchased_at);
+      CREATE INDEX IF NOT EXISTS idx_stock_batches_sync ON stock_batches(sync_status);
     `,
   }
 };

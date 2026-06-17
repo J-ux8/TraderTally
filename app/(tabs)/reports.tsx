@@ -1,6 +1,7 @@
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useDebts } from '@/hooks/useDebts';
 import { useThemeColors } from '@/hooks/useThemeColors';
+import { getProductProfits, ProductProfit } from '@/lib/profitCalculations';
 import {
   BarChart3,
   Share as ShareIcon,
@@ -9,7 +10,7 @@ import {
   EyeOff,
   TrendingUp,
   TrendingDown,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
@@ -73,6 +74,9 @@ export default function ReportsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
+  const [productProfits, setProductProfits] = useState<ProductProfit[]>([]);
+  const [productProfitsLoading, setProductProfitsLoading] = useState(true);
+  const [totalCOGS, setTotalCOGS] = useState(0);
 
   // Refresh data when screen comes into focus
   useFocusEffect(
@@ -196,6 +200,8 @@ export default function ReportsScreen() {
     return { revenueGrowth, expenseGrowth, profitGrowth };
   }, [currentMetrics, previousMetrics]);
 
+  const grossProfit = useMemo(() => currentMetrics.revenue - totalCOGS, [currentMetrics.revenue, totalCOGS]);
+
   const cashFlowData = useMemo(() => {
     const totalIn = currentMetrics.revenue;
     const totalOut = currentMetrics.expenses;
@@ -278,6 +284,30 @@ export default function ReportsScreen() {
   const averageDailyProfit = useMemo(() => {
     return dailyTimeline.length > 0 ? dailyTimeline.reduce((sum, d) => sum + d.net, 0) / dailyTimeline.length : 0;
   }, [dailyTimeline]);
+
+  // Load product profits for current period
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setProductProfitsLoading(true);
+      try {
+        const range = getDateRange(selectedPeriod);
+        const startDate = range ? range.start.toISOString() : undefined;
+        const endDate = range ? range.end.toISOString() : undefined;
+        const data = await getProductProfits(startDate, endDate);
+        if (mounted) {
+          setProductProfits(data);
+          setTotalCOGS(data.reduce((sum, p) => sum + p.total_cost, 0));
+        }
+      } catch (e) {
+        console.error('Failed to load product profits:', e);
+      } finally {
+        if (mounted) setProductProfitsLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, [selectedPeriod, getDateRange]);
 
   const debtRiskData = useMemo(() => {
     const activeDebts = debts.filter(d => !d.is_settled);
@@ -500,7 +530,7 @@ export default function ReportsScreen() {
   const handleShareReport = async (type: 'whatsapp' | 'text') => {
     const periodLabel = selectedPeriod === 'all' ? 'All Time' : `Last ${selectedPeriod}`;
     const topCategory = categoryMetrics.length > 0 ? categoryMetrics[0].category : 'N/A';
-    let message = `📊 *MobiBooks Financial Report* (${periodLabel})\n\n`;
+    let message = `📊 *TraderBooks Financial Report* (${periodLabel})\n\n`;
     message += `💰 Revenue: ${formatCurrency(currentMetrics.revenue)}\n`;
     message += `💸 Expenses: ${formatCurrency(currentMetrics.expenses)}\n`;
     message += `📈 Net Profit: ${formatCurrency(currentMetrics.netProfit)}\n`;
@@ -508,7 +538,7 @@ export default function ReportsScreen() {
     message += `💧 Cash Flow: ${formatCurrency(cashFlowData.netCashFlow)}\n`;
     message += `⭐ Top Category: ${topCategory}\n`;
     message += `❤️ Business Health: ${healthScore.score}/100\n\n`;
-    message += `_Growing with MobiBooks!_ 🇿🇲`;
+    message += `_Growing with TraderBooks!_ 🇿🇲`;
     try {
       if (type === 'whatsapp') {
         const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
@@ -699,6 +729,26 @@ export default function ReportsScreen() {
                 <Text style={[styles.growthText, { color: '#666' }]}>Pending</Text>
               </View>
             </View>
+
+            <View style={styles.metricBox}>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>COGS (Cost of Goods Sold)</Text>
+              <Text style={[styles.metricValue, { color: '#ef4444' }]}>{formatCurrency(totalCOGS)}</Text>
+              <View style={styles.growthBadge}>
+                <Text style={[styles.growthText, { color: totalCOGS > 0 ? '#666' : '#10b981' }]}>
+                  {totalCOGS > 0 ? 'From product sales' : 'No data'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.metricBox}>
+              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Gross Profit (Rev − COGS)</Text>
+              <Text style={[styles.metricValue, { color: grossProfit >= 0 ? '#1e3a8a' : '#ef4444' }]}>{formatCurrency(grossProfit)}</Text>
+              <View style={styles.growthBadge}>
+                <Text style={[styles.growthText, { color: currentMetrics.revenue > 0 ? '#10b981' : '#666' }]}>
+                  {currentMetrics.revenue > 0 ? `${((grossProfit / currentMetrics.revenue) * 100).toFixed(0)}% margin` : '—'}
+                </Text>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -872,7 +922,48 @@ export default function ReportsScreen() {
           </>
         )}
 
-        {/* SECTION 6: CREDIT & DEBT ANALYSIS */}
+        {/* SECTION 6: PRODUCT PROFITABILITY */}
+        {productProfits.length > 0 && (
+          <>
+            <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
+              <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Product Profitability</Text>
+            </View>
+
+            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+              {productProfitsLoading ? (
+                <Text style={{ color: colors.textSecondary, textAlign: 'center', padding: 20 }}>Loading...</Text>
+              ) : (
+                <View style={styles.productProfitList}>
+                  {productProfits.slice(0, 5).map((prod, idx) => (
+                    <View key={`${prod.product_id}-${idx}`} style={[styles.productProfitRow, { borderBottomColor: colors.borderColor }]}>
+                      <View style={styles.productProfitLeft}>
+                        <View style={[styles.productProfitRank, { backgroundColor: idx === 0 ? '#1e3a8a' : 'rgba(16, 185, 129, 0.1)' }]}>
+                          <Text style={[styles.productProfitRankText, { color: idx === 0 ? '#ffffff' : '#1e3a8a' }]}>#{idx + 1}</Text>
+                        </View>
+                        <View style={styles.productProfitInfo}>
+                          <Text style={[styles.productProfitName, { color: colors.textColor }]}>{prod.product_name}</Text>
+                          <Text style={[styles.productProfitMeta, { color: colors.textSecondary }]}>
+                            {prod.units_sold} sold · K{prod.revenue.toLocaleString()} rev
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.productProfitRight}>
+                        <Text style={[styles.productProfitAmount, { color: prod.gross_profit >= 0 ? '#1e3a8a' : '#ef4444' }]}>
+                          K{prod.gross_profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </Text>
+                        <Text style={[styles.productProfitMargin, { color: prod.profit_margin >= 20 ? '#10b981' : prod.profit_margin >= 0 ? '#f59e0b' : '#ef4444' }]}>
+                          {prod.profit_margin.toFixed(0)}% margin
+                        </Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          </>
+        )}
+
+        {/* SECTION 7: CREDIT & DEBT ANALYSIS */}
         <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
           <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Credit & Debt Analysis</Text>
         </View>
@@ -915,7 +1006,7 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-        {/* SECTION 7: BUSINESS HEALTH DIAGNOSTICS */}
+        {/* SECTION 8: BUSINESS HEALTH DIAGNOSTICS */}
         <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
           <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Business Health Diagnostics</Text>
         </View>
@@ -971,7 +1062,7 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-        {/* SECTION 8: INTELLIGENT INSIGHTS */}
+        {/* SECTION 9: INTELLIGENT INSIGHTS */}
         {suggestions.length > 0 && (
           <>
             <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
@@ -1132,6 +1223,17 @@ const styles = StyleSheet.create({
   topGroupName: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
   topGroupCount: { fontSize: 11, fontWeight: '500' },
   topGroupAmount: { fontSize: 13, fontWeight: '700' },
+  productProfitList: { gap: 0 },
+  productProfitRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
+  productProfitLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
+  productProfitRank: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+  productProfitRankText: { fontSize: 12, fontWeight: '700' },
+  productProfitInfo: { flex: 1 },
+  productProfitName: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
+  productProfitMeta: { fontSize: 11, fontWeight: '500' },
+  productProfitRight: { alignItems: 'flex-end' },
+  productProfitAmount: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
+  productProfitMargin: { fontSize: 11, fontWeight: '700' },
   privacyToggle: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12 },
   chartCard: { paddingBottom: 15 },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

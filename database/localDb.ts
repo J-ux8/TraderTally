@@ -343,7 +343,7 @@ export class LocalDB {
    */
   static async recoverSyncStatus(): Promise<void> {
     const db = await getDatabase();
-    const tables = ['profiles', 'transactions', 'categories', 'debts', 'transaction_templates', 'products', 'sales', 'sale_items'];
+    const tables = ['profiles', 'transactions', 'categories', 'debts', 'transaction_templates', 'products', 'sales', 'sale_items', 'stock_batches'];
     for (const table of tables) {
       await db.runAsync(
         `UPDATE ${table} SET sync_status = 'pending' WHERE sync_status = 'syncing'`

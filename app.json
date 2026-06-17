@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "mobibooks",
-    "slug": "mobibooks",
+    "name": "TraderBooks",
+    "slug": "traderbooks",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
@@ -11,13 +11,13 @@
       "resizeMode": "contain",
       "backgroundColor": "#1e3a8a"
     },
-    "scheme": "mobibooks",
+    "scheme": "traderbooks",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
     "android": {
-      "package": "com.mobibooks.app",
+      "package": "com.traderbooks.app",
       "adaptiveIcon": {
         "backgroundColor": "#1e3a8a",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

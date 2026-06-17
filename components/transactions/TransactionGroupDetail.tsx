@@ -160,17 +160,65 @@ export const TransactionItem = memo<TransactionItemProps>(({
           {/* Itemized Breakdown for Sales */}
           {transaction.sale_items && transaction.sale_items.length > 0 && (
             <View style={[styles.itemizedBreakdown, { borderTopColor: colors.borderColor }]}>
-              {transaction.sale_items.map((item, idx) => (
-                <View key={item.id || idx} style={styles.itemRow}>
-                  <Text style={[styles.itemName, { color: colors.textColor }]} numberOfLines={1}>
-                    {item.quantity}x {item.product_name}
-                  </Text>
-                  <Text style={[styles.itemPrice, { color: colors.textSecondary }]}>
-                    {item.quantity > 1 ? `@ K${item.unit_price.toLocaleString()} = ` : ''}
-                    K{item.total_price.toLocaleString()}
-                  </Text>
-                </View>
-              ))}
+              {transaction.sale_items.map((item, idx) => {
+                const profit = item.unit_cost != null
+                  ? (item.unit_price - item.unit_cost) * item.quantity
+                  : null;
+                return (
+                  <View key={item.id || idx}>
+                    <View style={styles.itemRow}>
+                      <Text style={[styles.itemName, { color: colors.textColor }]} numberOfLines={1}>
+                        {item.quantity}x {item.product_name}
+                      </Text>
+                      <Text style={[styles.itemPrice, { color: colors.textSecondary }]}>
+                        {item.quantity > 1 ? `@ K${item.unit_price.toLocaleString()} = ` : ''}
+                        K{item.total_price.toLocaleString()}
+                      </Text>
+                    </View>
+                    {item.category_name && (
+                      <Text style={{ fontSize: 10, color: '#999', marginLeft: 28, marginTop: 1 }}>
+                        {item.category_name}
+                      </Text>
+                    )}
+                    {profit != null && (
+                      <Text style={{ fontSize: 11, fontWeight: '600', color: profit >= 0 ? '#10b981' : '#ef4444', marginTop: 2, marginLeft: 28 }}>
+                        Profit: K{profit.toFixed(2)}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+              {/* Per-category profit breakdown */}
+              {(() => {
+                const itemsWithCost = transaction.sale_items.filter((i: any) => i.unit_cost != null);
+                if (itemsWithCost.length === 0) return null;
+                const groups = new Map<string, number>();
+                for (const item of itemsWithCost) {
+                  const cat = item.category_name || 'Uncategorized';
+                  groups.set(cat, (groups.get(cat) || 0) + (item.unit_price - item.unit_cost) * item.quantity);
+                }
+                const totalProfit = Array.from(groups.values()).reduce((s, v) => s + v, 0);
+                return (
+                  <View style={{ borderTopWidth: 1, borderTopColor: colors.borderColor, paddingTop: 8, marginTop: 4 }}>
+                    {Array.from(groups.entries()).map(([cat, profit]) => (
+                      <View key={cat} style={[styles.itemRow, { marginTop: 2 }]}>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textColor }}>{cat}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: '700', color: profit >= 0 ? '#10b981' : '#ef4444' }}>
+                          K{profit.toFixed(2)}
+                        </Text>
+                      </View>
+                    ))}
+                    {groups.size > 1 && (
+                      <View style={[styles.itemRow, { borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.05)', paddingTop: 4, marginTop: 4 }]}>
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: colors.textColor }}>Total Profit</Text>
+                        <Text style={{ fontSize: 13, fontWeight: '800', color: totalProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                          K{totalProfit.toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })()}
             </View>
           )}
         </View>

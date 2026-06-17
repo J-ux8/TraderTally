@@ -43,7 +43,11 @@ export async function getSaleItemsBatch(saleIds: string[]): Promise<Record<strin
   const db = await getDatabase();
   const placeholders = saleIds.map(() => '?').join(', ');
   const rows = await db.getAllAsync<any>(
-    `SELECT * FROM sale_items WHERE sale_id IN (${placeholders}) AND is_deleted = 0`,
+    `SELECT si.*, p.category_id, c.name as category_name
+     FROM sale_items si
+     LEFT JOIN products p ON si.product_id = p.id
+     LEFT JOIN categories c ON p.category_id = c.id
+     WHERE si.sale_id IN (${placeholders}) AND si.is_deleted = 0`,
     saleIds
   );
   // Group results by sale_id

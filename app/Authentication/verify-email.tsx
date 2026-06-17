@@ -239,7 +239,7 @@ export default function VerifyEmailScreen() {
 
           Alert.alert(
             "Success! 🎉",
-            "Your account is verified. You can now start using MobiBooks!",
+            "Your account is verified. You can now start using TraderBooks!",
             [{ text: "Get Started", onPress: () => router.replace("/(tabs)") }]
           );
         } else if (type === 'recovery') {
@@ -302,7 +302,7 @@ export default function VerifyEmailScreen() {
                     />
                   </View>
                   <View>
-                    <Text style={styles.headerTitle}>MobiBooks</Text>
+                    <Text style={styles.headerTitle}>TraderBooks</Text>
                   </View>
                 </View>
 

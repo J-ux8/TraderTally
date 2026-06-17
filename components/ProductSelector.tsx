@@ -59,11 +59,11 @@ export const ProductSelector = ({ selectedProduct, onSelect }: ProductSelectorPr
 
         setIsSaving(true);
         try {
-            const product = await upsertProduct(
+        const product = await upsertProduct(
                 newProductName.trim(), 
                 parseFloat(newProductPrice), 
                 newProductCategory
-            );
+              );
             await loadProducts();
             onSelect(product);
             
@@ -93,6 +93,11 @@ export const ProductSelector = ({ selectedProduct, onSelect }: ProductSelectorPr
                         <Text style={[styles.dropdownButtonText, { color: selectedProduct ? colors.textColor : colors.textSecondary }]}>
                             {selectedProduct ? selectedProduct.display_name : 'Select product...'}
                         </Text>
+                        {selectedProduct && selectedProduct.stock_quantity != null && (
+                          <Text style={{ color: colors.textSecondary, fontSize: 12, marginLeft: 8 }}>
+                            — {selectedProduct.stock_quantity} in stock
+                          </Text>
+                        )}
                     </View>
                     <Plus size={20} color={colors.textSecondary} style={{ transform: [{ rotate: dropdownVisible ? '45deg' : '0deg' }] }} />
                 </TouchableOpacity>
@@ -132,7 +137,14 @@ export const ProductSelector = ({ selectedProduct, onSelect }: ProductSelectorPr
                                 >
                                     <View>
                                         <Text style={[styles.optionText, { color: colors.textColor }]}>{prod.display_name}</Text>
-                                        <Text style={{ color: colors.textSecondary, fontSize: 12 }}>K{prod.price}</Text>
+                                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                                          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>K{prod.price}</Text>
+                                          {prod.stock_quantity != null && (
+                                            <Text style={{ color: '#10b981', fontSize: 12, fontWeight: '600' }}>
+                                              {prod.stock_quantity} in stock
+                                            </Text>
+                                          )}
+                                        </View>
                                     </View>
                                     {selectedProduct?.id === prod.id && <Check size={18} color="#1e3a8a" />}
                                 </TouchableOpacity>
@@ -162,7 +174,7 @@ export const ProductSelector = ({ selectedProduct, onSelect }: ProductSelectorPr
                             placeholderTextColor={colors.textSecondary}
                         />
 
-                        <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Unit Price (K)</Text>
+                        <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Selling Price (K)</Text>
                         <TextInput
                             style={[styles.input, { color: colors.textColor, borderColor: colors.borderColor, backgroundColor: colors.inputBackground }]}
                             value={newProductPrice}

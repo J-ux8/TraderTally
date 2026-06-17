@@ -7,9 +7,7 @@
       "@/*": [
         "./*"
       ]
-    },
-    "jsx": "react-native",
-    "esModuleInterop": true
+    }
   },
   "include": [
     "**/*.ts",
@@ -19,6 +17,8 @@
   ],
   "exclude": [
     "node_modules",
-    "supabase_functions"
+    "supabase_functions",
+    "**/*.test.ts",
+    "**/*.test.tsx"
   ]
 }

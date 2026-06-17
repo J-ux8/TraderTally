@@ -66,7 +66,7 @@ export async function authenticateBiometric(): Promise<boolean> {
     if (!hasHardware || !isEnrolled) return false;
 
     const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock MobiBooks',
+        promptMessage: 'Unlock TraderBooks',
         fallbackLabel: 'Use PIN',
     });
 

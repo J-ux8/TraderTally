@@ -282,7 +282,7 @@ export default function SettingsScreen() {
   async function handleExportData() {
     setIsExporting(true);
     try {
-      const fileName = `mobibooks_export_${new Date().getTime()}.json`;
+      const fileName = `traderbooks_export_${new Date().getTime()}.json`;
       const filePath = `${documentDirectory}${fileName}`;
       await FileSystem.writeAsStringAsync(filePath, JSON.stringify(transactions, null, 2));
 
@@ -528,7 +528,7 @@ export default function SettingsScreen() {
             
             <TouchableOpacity
               style={dynamicStyles.settingItem}
-              onPress={() => Linking.openURL('mailto:mobibooks.support@gmail.com')}
+              onPress={() => Linking.openURL('mailto:traderbooks.support@gmail.com')}
               activeOpacity={0.7}
             >
               <View style={styles.settingLeft}>
@@ -608,7 +608,7 @@ export default function SettingsScreen() {
           </View>
 
           <View style={styles.footer}>
-            <Text style={[styles.footerText, { color: textSecondary }]}>MobiBooks Version 1.0.0</Text>
+            <Text style={[styles.footerText, { color: textSecondary }]}>TraderBooks Version 1.0.0</Text>
           </View>
         </View>
       </ScrollView>
@@ -786,21 +786,21 @@ export default function SettingsScreen() {
               {legalModalType === 'terms' ? (
                 <View style={styles.legalContent}>
                   <Text style={[styles.legalTitle, { color: textColor }]}>1. Acceptance of Terms</Text>
-                  <Text style={[styles.legalText, { color: textSecondary }]}>By using MobiBooks, you agree to these terms. MobiBooks is a record-keeping tool for small businesses and independent traders.</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>By using TraderBooks, you agree to these terms. TraderBooks is a record-keeping tool for small businesses and independent traders.</Text>
                   
                   <Text style={[styles.legalTitle, { color: textColor }]}>2. User Accounts</Text>
-                  <Text style={[styles.legalText, { color: textSecondary }]}>You are responsible for maintaining the confidentiality of your account credentials. MobiBooks is not liable for any loss resulting from unauthorized access to your account.</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>You are responsible for maintaining the confidentiality of your account credentials. TraderBooks is not liable for any loss resulting from unauthorized access to your account.</Text>
                   
                   <Text style={[styles.legalTitle, { color: textColor }]}>3. Data Ownership</Text>
-                  <Text style={[styles.legalText, { color: textSecondary }]}>You retain all ownership rights to the data you enter. By using the sync feature, you authorize MobiBooks to store this data on our secure cloud servers.</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>You retain all ownership rights to the data you enter. By using the sync feature, you authorize TraderBooks to store this data on our secure cloud servers.</Text>
                   
                   <Text style={[styles.legalTitle, { color: textColor }]}>4. Limitation of Liability</Text>
-                  <Text style={[styles.legalText, { color: textSecondary }]}>MobiBooks is provided "as is" without warranties of any kind. We are not responsible for any financial errors or business losses resulting from the use of the application.</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>TraderBooks is provided "as is" without warranties of any kind. We are not responsible for any financial errors or business losses resulting from the use of the application.</Text>
                 </View>
               ) : (
                 <View style={styles.legalContent}>
                   <Text style={[styles.legalTitle, { color: textColor }]}>1. Information Collection</Text>
-                  <Text style={[styles.legalText, { color: textSecondary }]}>We collect your email address and profile information (name, business type) to provide and improve the MobiBooks service.</Text>
+                  <Text style={[styles.legalText, { color: textSecondary }]}>We collect your email address and profile information (name, business type) to provide and improve the TraderBooks service.</Text>
                   
                   <Text style={[styles.legalTitle, { color: textColor }]}>2. Data Storage</Text>
                   <Text style={[styles.legalText, { color: textSecondary }]}>Your business records are stored locally on your device and, if synced, on our secure encrypted cloud database.</Text>

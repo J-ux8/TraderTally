@@ -6,6 +6,7 @@ export interface Product extends LocalBaseModel {
   name: string;
   display_name: string;
   price: number;
+  cost_price: number | null;
   category_id: string | null;
   usage_count: number;
   stock_quantity: number | null;
@@ -30,7 +31,7 @@ export async function upsertProduct(displayName: string, price: number, category
   );
 
   if (existing) {
-    // Update existing product price if it changed
+    // Update existing product
     await LocalDB.update('products', existing.id, {
       price: price,
       display_name: displayName.trim(),
@@ -45,6 +46,7 @@ export async function upsertProduct(displayName: string, price: number, category
       name: normalizedName,
       display_name: displayName.trim(),
       price: price,
+      cost_price: null,
       category_id: categoryId || 'General',
       usage_count: 0,
       stock_quantity: null
@@ -82,6 +84,14 @@ export async function getProducts(sortByUsage: boolean = false): Promise<Product
     `SELECT * FROM products WHERE user_id = ? AND is_deleted = 0 ORDER BY ${orderBy}`,
     userId
   );
+}
+
+/**
+ * Delete a product (soft delete)
+ */
+export async function deleteProduct(productId: string): Promise<void> {
+  await LocalDB.delete('products', productId);
+  SyncEngine.syncAll().catch(console.error);
 }
 
 /**

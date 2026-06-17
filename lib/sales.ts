@@ -3,7 +3,6 @@ import { LocalDB, LocalBaseModel } from "../database/localDb";
 import { SyncEngine } from "../sync/syncEngine";
 import { randomUUID } from 'expo-crypto';
 import { CartItem } from "../contexts/CartContext";
-import { incrementProductUsage } from "./products";
 
 export interface Sale extends LocalBaseModel {
   total_amount: number;
@@ -15,11 +14,13 @@ export interface SaleItem extends LocalBaseModel {
   product_name: string;
   quantity: number;
   unit_price: number;
+  unit_cost: number | null;
   total_price: number;
 }
 
 /**
- * Complete a multi-item sale atomically
+ * Complete a multi-item sale atomically.
+ * Uses product-level stock_quantity and cost_price (no FIFO batches).
  */
 export async function completeSale(
   items: CartItem[], 
@@ -33,6 +34,27 @@ export async function completeSale(
   const db = await getDatabase();
   const userId = await LocalDB.getUserId();
   if (!userId) throw new Error('User must be authenticated');
+
+  // Pre-check: read stock_quantity + cost_price for each product
+  type StockInfo = { stockQty: number | null; costPrice: number | null };
+  const stockInfoMap = new Map<string, StockInfo>();
+
+  for (const item of items) {
+    const product = await db.getFirstAsync<{ stock_quantity: number | null; cost_price: number | null }>(
+      'SELECT stock_quantity, cost_price FROM products WHERE id = ? AND is_deleted = 0',
+      item.product_id
+    );
+    if (!product) {
+      throw new Error(`Product "${item.name}" not found.`);
+    }
+    const available = product.stock_quantity ?? 0;
+    if (available < item.quantity) {
+      throw new Error(
+        `Insufficient stock for "${item.name}". Only ${available} in stock, but ${item.quantity} requested. Please restock first.`
+      );
+    }
+    stockInfoMap.set(item.product_id, { stockQty: product.stock_quantity, costPrice: product.cost_price });
+  }
 
   const now = date || new Date().toISOString();
   const saleId = randomUUID();
@@ -49,7 +71,6 @@ export async function completeSale(
   };
 
   try {
-    // Perform everything in a single atomic transaction
     await db.withTransactionAsync(async () => {
       // 1. Insert Sales Record
       await db.runAsync(
@@ -65,31 +86,34 @@ export async function completeSale(
         now
       );
 
-      // 2. Insert Sale Items and update usage counts
+      // 2. Insert Sale Items, snapshot cost, decrement stock
       const itemNames = items.map(i => `${i.quantity}x ${i.name}`).join(', ');
-      // Get the primary category from the first item to better categorize the transaction
       let primaryCategory = 'Sale';
-      
+
       for (const item of items) {
-        // Find category if possible
-        const product = await db.getFirstAsync<{category_id: string}>('SELECT category_id FROM products WHERE id = ?', item.product_id);
+        const product = await db.getFirstAsync<{category_id: string | null}>(
+          'SELECT category_id FROM products WHERE id = ?', item.product_id
+        );
         if (product && product.category_id && primaryCategory === 'Sale') {
           primaryCategory = product.category_id;
         }
 
+        const stockInfo = stockInfoMap.get(item.product_id)!;
+        // unit_cost = product's cost_price at time of sale (NULL if legacy product with no cost tracking)
+        const unitCost = stockInfo.costPrice;
         const itemId = randomUUID();
         const itemTotal = item.price * item.quantity;
 
-        // Insert Item
         await db.runAsync(
-          `INSERT INTO sale_items (id, sale_id, product_id, product_name, quantity, unit_price, total_price, is_deleted, sync_status, retry_count, created_at, updated_at) 
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO sale_items (id, sale_id, product_id, product_name, quantity, unit_price, unit_cost, total_price, is_deleted, sync_status, retry_count, created_at, updated_at) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           itemId,
           saleId,
           item.product_id,
           item.name,
           item.quantity,
           item.price,
+          unitCost,
           itemTotal,
           0,
           'pending',
@@ -98,9 +122,15 @@ export async function completeSale(
           now
         );
 
-        // 3. Increment Usage Count
+        // Decrement product stock_quantity
         await db.runAsync(
-          'UPDATE products SET usage_count = usage_count + ?, updated_at = ?, sync_status = ? WHERE id = ?',
+          `UPDATE products SET 
+           stock_quantity = stock_quantity - ?,
+           usage_count = usage_count + ?,
+           updated_at = ?,
+           sync_status = ?
+           WHERE id = ?`,
+          item.quantity,
           item.quantity,
           now,
           'pending',
@@ -108,9 +138,8 @@ export async function completeSale(
         );
       }
 
-      // 4. Handle Payment Status Tracking
+      // 3. Handle Payment Status Tracking
       if (paymentStatus === 'Paid') {
-        // If PAID, create a transaction to show cash inflow immediately
         const transactionId = randomUUID();
         await db.runAsync(
           `INSERT INTO transactions (id, user_id, amount, category, description, transaction_date, is_deleted, sync_status, retry_count, created_at, updated_at, customer_id, linked_sale_id) 
@@ -130,7 +159,6 @@ export async function completeSale(
           saleId
         );
       } else if (paymentStatus === 'Credit') {
-        // If ON CREDIT, we do NOT create a transaction yet. We create a Receivable Debt instead.
         const debtId = randomUUID();
         await db.runAsync(
           `INSERT INTO debts (id, user_id, customer_name, customer_phone, customer_id, amount, due_date, note, type, is_settled, created_at, updated_at, is_deleted, sync_status, retry_count)
@@ -155,10 +183,7 @@ export async function completeSale(
     });
 
     console.log('[SalesLib] Sale completed successfully:', saleId);
-    
-    // Trigger background sync (non-blocking)
     SyncEngine.syncAll().catch(console.error);
-    
     return saleRecord;
   } catch (error) {
     console.error('[SalesLib] Transaction failed, rolled back:', error);
