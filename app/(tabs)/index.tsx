@@ -31,8 +31,7 @@ export default function HomeScreen() {
 
   const { actions: { navigateToGroup } } = useGroupNavigation();
   const [refreshing, setRefreshing] = useState(false);
-  const { daily, weekly, monthly } = useSummary(transactions);
-  const [activeTab, setActiveTab] = useState<'today' | 'week' | 'month'>('today');
+  const { daily } = useSummary(transactions);
   const lastDateRef = useRef<string>(new Date().toDateString());
   const [topProduct, setTopProduct] = useState<ProductProfit | null>(null);
 
@@ -135,18 +134,11 @@ export default function HomeScreen() {
     return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
   }, []);
 
-  const tabs = useMemo(() => [
-    { id: 'today' as const, label: 'Today', summary: daily, title: "Today's Profit" },
-    { id: 'week' as const, label: 'This Week', summary: weekly, title: "This Week's Profit" },
-    { id: 'month' as const, label: 'This Month', summary: monthly, title: "This Month's Profit" },
-  ], [daily, weekly, monthly]);
-
-  const activeTabInfo = useMemo(() =>
-    tabs.find((t) => t.id === activeTab) || tabs[0],
-    [tabs, activeTab]
-  );
-
-  const activeSummary = useMemo(() => activeTabInfo.summary, [activeTabInfo]);
+  const periodTabs = [
+    { id: 'today' as const, label: 'Today' },
+    { id: 'week' as const, label: 'This Week' },
+    { id: 'month' as const, label: 'This Month' },
+  ];
 
   // Handle group press - navigate to group detail
   const handleGroupPress = useCallback((group: TransactionGroup) => {
@@ -275,32 +267,18 @@ export default function HomeScreen() {
 
           {/* Period Profit Cards */}
           <View style={styles.tabsContainer}>
-            {tabs.map((tab) => (
+            {periodTabs.map((tab) => (
               <TouchableOpacity
                 key={tab.id}
-                style={[
-                  styles.tab,
-                  { backgroundColor: cardBackground },
-                  activeTab === tab.id && styles.tabActive,
-                ]}
-                onPress={() => setActiveTab(tab.id)}
+                style={[styles.tab, { backgroundColor: cardBackground }]}
+                onPress={() => router.push({
+                  pathname: '/modals/period-detail',
+                  params: { period: tab.id },
+                })}
                 activeOpacity={0.7}
               >
-                <Text
-                  style={[
-                    styles.tabLabel,
-                    { color: activeTab === tab.id ? '#ffffff' : textSecondary },
-                  ]}
-                >
+                <Text style={[styles.tabLabel, { color: textSecondary }]}>
                   {tab.label}
-                </Text>
-                <Text
-                  style={[
-                    styles.tabProfit,
-                    { color: activeTab === tab.id ? '#ffffff' : textColor },
-                  ]}
-                >
-                  K{Math.round(tab.summary.profit).toLocaleString()}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -308,18 +286,13 @@ export default function HomeScreen() {
 
           {/* Summary Card */}
           <TouchableOpacity
-            onPress={() => {
-              router.push({
-                pathname: '/modals/period-detail',
-                params: { period: activeTab }
-              });
-            }}
+            onPress={() => router.push({
+              pathname: '/modals/period-detail',
+              params: { period: 'today' },
+            })}
             activeOpacity={0.9}
           >
-            <SummaryCard
-              title={activeTabInfo.title}
-              summary={activeSummary}
-            />
+            <SummaryCard title="Today's Profit" summary={daily} />
           </TouchableOpacity>
 
           {/* Most Profitable Product */}
@@ -526,26 +499,9 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 1,
   },
-  tabActive: {
-    backgroundColor: "#1e3a8a",
-    borderColor: "#1e3a8a",
-    shadowColor: "#1e3a8a",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 2,
-  },
   tabLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    marginBottom: 4,
-  },
-  tabProfit: {
-    fontSize: 15,
-    fontWeight: "800",
-  },
-  tabTextActive: {
-    color: "#ffffff",
+    fontSize: 13,
+    fontWeight: "700",
   },
   shareCard: {
     flexDirection: 'row',
