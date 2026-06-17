@@ -1,4 +1,4 @@
-import { DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
+import { DollarSign, TrendingDown, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -19,60 +19,144 @@ function formatCurrency(amount: number): string {
   return `K ${amount.toFixed(2)}`;
 }
 
+function formatPercent(ratio: number): string {
+  return `${Math.round(ratio * 100)}%`;
+}
+
 export const SummaryCard = React.memo(function SummaryCard({ title, summary }: SummaryCardProps) {
   const hasActivity = summary.transactionCount > 0;
+  const revenue = summary.revenue;
+  const profit = summary.profit;
+  const expenses = summary.expenses;
+  const netProfit = profit - expenses;
+  const isOverspending = netProfit < 0;
+
+  // Bar widths as % of revenue (caps at 100%)
+  const profitPct = revenue > 0 ? Math.min(profit / revenue, 1) : 0;
+  const expensePct = revenue > 0 ? Math.min(expenses / revenue, 1) : 0;
+
+  // Margin percentage
+  const marginPct = revenue > 0 ? profit / revenue : 0;
+
+  // Health indicator
+  const expenseRatio = profit > 0 ? expenses / profit : Infinity;
+  let healthIcon: React.ReactNode;
+  let healthText: string;
+  let healthColor: string;
+
+  if (!hasActivity) {
+    healthIcon = null;
+    healthText = '';
+    healthColor = '#94a3b8';
+  } else if (profit <= 0 && expenses > 0) {
+    healthIcon = <AlertTriangle size={14} color="#ef4444" />;
+    healthText = 'Loss — spending exceeds earnings';
+    healthColor = '#ef4444';
+  } else if (expenses === 0) {
+    healthIcon = <CheckCircle size={14} color="#10b981" />;
+    healthText = 'No operating expenses';
+    healthColor = '#10b981';
+  } else if (expenseRatio <= 0.5) {
+    healthIcon = <CheckCircle size={14} color="#10b981" />;
+    healthText = `Healthy — ${formatPercent(expenseRatio)} of profit spent`;
+    healthColor = '#10b981';
+  } else if (expenseRatio <= 1) {
+    healthIcon = <AlertTriangle size={14} color="#f59e0b" />;
+    healthText = `Caution — ${formatPercent(expenseRatio)} of profit spent`;
+    healthColor = '#f59e0b';
+  } else {
+    healthIcon = <AlertTriangle size={14} color="#ef4444" />;
+    healthText = `Overspending — ${formatPercent(expenseRatio)} of profit spent`;
+    healthColor = '#ef4444';
+  }
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>{title}</Text>
 
-      <View style={styles.metricsWrapper}>
-        <View style={[styles.metricRow, styles.revenueRow]}>
-          <View style={styles.accentBar}>
-            <View style={[styles.accentFill, { backgroundColor: '#3b82f6' }]} />
-          </View>
-          <View style={styles.metricIcon}>
-            <DollarSign size={20} color="#3b82f6" />
-          </View>
-          <View style={styles.metricBody}>
+      {/* Revenue */}
+      <View style={styles.metricBlock}>
+        <View style={styles.metricHeader}>
+          <View style={styles.metricLabelRow}>
+            <DollarSign size={16} color="#3b82f6" />
             <Text style={styles.metricLabel}>Revenue</Text>
-            <Text style={[styles.metricValue, { color: '#0f172a' }]}>
-              {hasActivity ? formatCurrency(summary.revenue) : 'K 0.00'}
-            </Text>
           </View>
+          <Text style={[styles.metricValue, { color: '#0f172a' }]}>
+            {hasActivity ? formatCurrency(revenue) : 'K 0.00'}
+          </Text>
         </View>
-
-        <View style={[styles.metricRow, styles.profitRow]}>
-          <View style={styles.accentBar}>
-            <View style={[styles.accentFill, { backgroundColor: '#10b981' }]} />
+        {hasActivity && revenue > 0 && (
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: '100%', backgroundColor: '#3b82f6' }]} />
           </View>
-          <View style={styles.metricIcon}>
-            <TrendingUp size={22} color="#10b981" />
-          </View>
-          <View style={styles.metricBody}>
-            <Text style={styles.metricLabel}>Total Profits</Text>
-            <Text style={[styles.metricValueLarge, { color: '#10b981' }]}>
-              {hasActivity ? formatCurrency(summary.profit) : 'K 0.00'}
-            </Text>
-          </View>
-        </View>
-
-        <View style={[styles.metricRow, styles.expenseRow]}>
-          <View style={styles.accentBar}>
-            <View style={[styles.accentFill, { backgroundColor: '#ef4444' }]} />
-          </View>
-          <View style={styles.metricIcon}>
-            <TrendingDown size={20} color="#ef4444" />
-          </View>
-          <View style={styles.metricBody}>
-            <Text style={styles.metricLabel}>Expenses</Text>
-            <Text style={[styles.metricValue, { color: '#ef4444' }]}>
-              {hasActivity ? formatCurrency(summary.expenses) : 'K 0.00'}
-            </Text>
-          </View>
-        </View>
+        )}
       </View>
 
+      {/* Total Profits */}
+      <View style={styles.metricBlock}>
+        <View style={styles.metricHeader}>
+          <View style={styles.metricLabelRow}>
+            <TrendingUp size={16} color="#10b981" />
+            <Text style={styles.metricLabel}>Total Profits</Text>
+          </View>
+          <View style={styles.profitRight}>
+            <Text style={[styles.metricValueLarge, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
+              {hasActivity ? formatCurrency(profit) : 'K 0.00'}
+            </Text>
+            {hasActivity && revenue > 0 && (
+              <View style={[styles.marginBadge, { backgroundColor: marginPct >= 0.2 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+                <Text style={[styles.marginText, { color: marginPct >= 0.2 ? '#10b981' : '#ef4444' }]}>
+                  {formatPercent(marginPct)}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+        {hasActivity && revenue > 0 && (
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${Math.round(profitPct * 100)}%`, backgroundColor: '#10b981' }]} />
+          </View>
+        )}
+      </View>
+
+      {/* Expenses */}
+      <View style={styles.metricBlock}>
+        <View style={styles.metricHeader}>
+          <View style={styles.metricLabelRow}>
+            <TrendingDown size={16} color="#ef4444" />
+            <Text style={styles.metricLabel}>Expenses</Text>
+          </View>
+          <Text style={[styles.metricValue, { color: '#ef4444' }]}>
+            {hasActivity ? formatCurrency(expenses) : 'K 0.00'}
+          </Text>
+        </View>
+        {hasActivity && revenue > 0 && (
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${Math.round(expensePct * 100)}%`, backgroundColor: '#ef4444' }]} />
+          </View>
+        )}
+      </View>
+
+      {/* Net Profit & Health Indicator — only when there are expenses */}
+      {hasActivity && expenses > 0 && (
+        <>
+          <View style={styles.divider} />
+
+          <View style={styles.netRow}>
+            <Text style={styles.netLabel}>Net Profit</Text>
+            <Text style={[styles.netValue, { color: isOverspending ? '#ef4444' : '#0f172a' }]}>
+              {isOverspending ? '-' : ''}{formatCurrency(Math.abs(netProfit))}
+            </Text>
+          </View>
+
+          <View style={[styles.healthRow, { backgroundColor: `${healthColor}12` as any }]}>
+            {healthIcon}
+            <Text style={[styles.healthText, { color: healthColor }]}>{healthText}</Text>
+          </View>
+        </>
+      )}
+
+      {/* Footer */}
       <View style={styles.footer}>
         <Text style={styles.footerText}>
           {hasActivity
@@ -106,51 +190,21 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#0f172a',
-    marginBottom: 14,
+    marginBottom: 16,
   },
-  metricsWrapper: {
-    gap: 10,
+  metricBlock: {
+    marginBottom: 12,
   },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  revenueRow: {
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.08)',
-  },
-  profitRow: {
-    borderWidth: 1,
-    borderColor: 'rgba(16, 185, 129, 0.12)',
-  },
-  expenseRow: {
-    borderWidth: 1,
-    borderColor: 'rgba(239, 68, 68, 0.08)',
-  },
-  accentBar: {
-    width: 4,
-    alignSelf: 'stretch',
-  },
-  accentFill: {
-    flex: 1,
-    borderTopRightRadius: 2,
-    borderBottomRightRadius: 2,
-  },
-  metricIcon: {
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  metricBody: {
-    flex: 1,
+  metricHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingRight: 16,
+    marginBottom: 6,
+  },
+  metricLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   metricLabel: {
     fontSize: 14,
@@ -165,9 +219,66 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
   },
+  profitRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  marginBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  marginText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  barTrack: {
+    height: 4,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  barFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 8,
+  },
+  netRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  netLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  netValue: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  healthRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  healthText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   footer: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: 8,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
     alignItems: 'center',
