@@ -28,8 +28,6 @@ export const SummaryCard = React.memo(function SummaryCard({ title, summary }: S
   const revenue = summary.revenue;
   const profit = summary.profit;
   const expenses = summary.expenses;
-  const netProfit = profit - expenses;
-  const isOverspending = netProfit < 0;
 
   // Bar widths as % of revenue (caps at 100%)
   const profitPct = revenue > 0 ? Math.min(profit / revenue, 1) : 0;
@@ -137,23 +135,12 @@ export const SummaryCard = React.memo(function SummaryCard({ title, summary }: S
         )}
       </View>
 
-      {/* Net Profit & Health Indicator — only when there are expenses */}
+      {/* Health Indicator — only when there are expenses */}
       {hasActivity && expenses > 0 && (
-        <>
-          <View style={styles.divider} />
-
-          <View style={styles.netRow}>
-            <Text style={styles.netLabel}>Net Profit</Text>
-            <Text style={[styles.netValue, { color: isOverspending ? '#ef4444' : '#0f172a' }]}>
-              {isOverspending ? '-' : ''}{formatCurrency(Math.abs(netProfit))}
-            </Text>
-          </View>
-
-          <View style={[styles.healthRow, { backgroundColor: `${healthColor}12` as any }]}>
-            {healthIcon}
-            <Text style={[styles.healthText, { color: healthColor }]}>{healthText}</Text>
-          </View>
-        </>
+        <View style={[styles.healthRow, { backgroundColor: `${healthColor}12` as any }]}>
+          {healthIcon}
+          <Text style={[styles.healthText, { color: healthColor }]}>{healthText}</Text>
+        </View>
       )}
 
       {/* Footer */}
@@ -242,26 +229,6 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 8,
-  },
-  netRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  netLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  netValue: {
-    fontSize: 22,
-    fontWeight: '800',
   },
   healthRow: {
     flexDirection: 'row',
