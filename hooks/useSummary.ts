@@ -21,6 +21,7 @@ interface Summary {
   profit: number;
   cogs: number;
   expenses: number;
+  stockOrders: number;
   transactionCount: number;
 }
 
@@ -45,6 +46,7 @@ export function useSummary(transactions: Transaction[]) {
     let profit = 0;
     let cogs = 0;
     let expenses = 0;
+    let stockOrders = 0;
     let transactionCount = 0;
 
     transactions.forEach((t) => {
@@ -70,7 +72,9 @@ export function useSummary(transactions: Transaction[]) {
             t.category === 'Stock / Inventory' ||
             (t.description && t.description.startsWith('Order:'));
 
-          if (!isStockPurchase) {
+          if (isStockPurchase) {
+            stockOrders += Math.abs(amt);
+          } else {
             expenses += Math.abs(amt);
           }
         }
@@ -84,6 +88,7 @@ export function useSummary(transactions: Transaction[]) {
       profit,
       cogs,
       expenses,
+      stockOrders,
       transactionCount,
     };
   };

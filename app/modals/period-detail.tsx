@@ -2,7 +2,7 @@ import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { startOfDay, startOfWeek, startOfMonth, toLocalTime } from '@/lib/dateUtils';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { ArrowLeft, Calendar, DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
+import { ArrowLeft, Calendar, DollarSign, Package, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React, { useMemo } from 'react';
 import { TransactionItem } from '@/components/transactions/TransactionGroupDetail';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -71,6 +71,7 @@ export default function PeriodDetailScreen() {
 
     let revenue = 0;
     let expenses = 0;
+    let stockOrders = 0;
     let profit = 0;
     let count = 0;
 
@@ -94,10 +95,14 @@ export default function PeriodDetailScreen() {
           const itemProfit = computeSaleProfit(t);
           profit += itemProfit;
           bucket.profit += itemProfit;
-        } else if (amt < 0 && !isStockPurchase(t)) {
+        } else if (amt < 0) {
           const absAmt = Math.abs(amt);
-          expenses += absAmt;
-          bucket.expenses += absAmt;
+          if (isStockPurchase(t)) {
+            stockOrders += absAmt;
+          } else {
+            expenses += absAmt;
+            bucket.expenses += absAmt;
+          }
         }
 
         count++;
@@ -117,7 +122,7 @@ export default function PeriodDetailScreen() {
     const dailyBreakdown = Array.from(dayBuckets.values())
       .sort((a, b) => b.date.getTime() - a.date.getTime());
 
-    return { revenue, expenses, profit, count, dailyBreakdown };
+    return { revenue, expenses, stockOrders, profit, count, dailyBreakdown };
   }, [period, transactions]);
 
   return (
@@ -149,6 +154,17 @@ export default function PeriodDetailScreen() {
               {stats.profit < 0 ? '-' : ''}{formatCurrency(stats.profit)}
             </Text>
           </View>
+
+          {/* Stock Orders — only shown when present */}
+          {stats.stockOrders > 0 && (
+            <View style={[styles.stockOrderBar, { backgroundColor: 'rgba(139, 92, 246, 0.08)' }]}>
+              <View style={styles.stockOrderContent}>
+                <Package size={16} color="#8b5cf6" />
+                <Text style={styles.stockOrderLabel}>Stock Orders</Text>
+              </View>
+              <Text style={styles.stockOrderValue}>{formatCurrency(stats.stockOrders)}</Text>
+            </View>
+          )}
 
           {/* Revenue & Expenses row */}
           <View style={styles.statsRow}>
@@ -290,6 +306,30 @@ const styles = StyleSheet.create({
   profitHeroValue: {
     fontSize: 40,
     fontWeight: '900',
+  },
+  stockOrderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    marginBottom: 16,
+  },
+  stockOrderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stockOrderLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#8b5cf6',
+  },
+  stockOrderValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#8b5cf6',
   },
   statsRow: {
     flexDirection: 'row',
