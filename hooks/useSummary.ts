@@ -1,18 +1,27 @@
 import { useMemo } from 'react';
 import { startOfDay, startOfWeek, startOfMonth, toLocalTime } from '../lib/dateUtils';
 
+interface SaleItem {
+  unit_price: number;
+  unit_cost: number | null;
+  quantity: number;
+}
+
 interface Transaction {
   amount: number;
   created_at: string;
   category?: string | null;
+  description?: string | null;
+  linked_sale_id?: string | null;
+  sale_items?: SaleItem[];
 }
 
 interface Summary {
   revenue: number;
+  profit: number;
+  cogs: number;
   expenses: number;
-  net: number;
   transactionCount: number;
-  topExpenseCategory?: string;
 }
 
 export function useSummary(transactions: Transaction[]) {
@@ -33,39 +42,49 @@ export function useSummary(transactions: Transaction[]) {
     }
 
     let revenue = 0;
+    let profit = 0;
+    let cogs = 0;
     let expenses = 0;
     let transactionCount = 0;
-    const catTotals: Record<string, number> = {};
 
     transactions.forEach((t) => {
       const createdAtLocal = toLocalTime(t.created_at);
-      
-      // Filter: created_at >= startDate && created_at <= now
+
       if (createdAtLocal >= startDate && createdAtLocal <= now) {
         const amt = Number(t.amount);
+
         if (amt > 0) {
           revenue += amt;
+
+          if (t.sale_items && t.sale_items.length > 0) {
+            for (const item of t.sale_items) {
+              if (item.unit_cost != null) {
+                const itemCogs = item.unit_cost * item.quantity;
+                cogs += itemCogs;
+                profit += (item.unit_price - item.unit_cost) * item.quantity;
+              }
+            }
+          }
         } else if (amt < 0) {
-          const absAmt = Math.abs(amt);
-          expenses += absAmt;
-          const cat = t.category;
-          if (cat) catTotals[cat] = (catTotals[cat] || 0) + absAmt;
+          const isStockPurchase =
+            t.category === 'Stock / Inventory' ||
+            (t.description && t.description.startsWith('Order:'));
+
+          if (!isStockPurchase) {
+            expenses += Math.abs(amt);
+          }
         }
+
         transactionCount++;
       }
     });
 
-    const categories = Object.entries(catTotals);
-    const topExpenseCategory = categories.length > 0
-      ? categories.sort((a, b) => b[1] - a[1])[0][0]
-      : undefined;
-
     return {
       revenue,
+      profit,
+      cogs,
       expenses,
-      net: revenue - expenses,
       transactionCount,
-      topExpenseCategory,
     };
   };
 
@@ -75,4 +94,3 @@ export function useSummary(transactions: Transaction[]) {
 
   return { daily, weekly, monthly };
 }
-

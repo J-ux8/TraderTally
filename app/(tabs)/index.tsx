@@ -306,7 +306,7 @@ export default function HomeScreen() {
                     { color: activeTab === tab.id ? '#ffffff' : textColor },
                   ]}
                 >
-                  K{Math.round(tab.summary.net).toLocaleString()}
+                  K{Math.round(tab.summary.profit).toLocaleString()}
                 </Text>
               </TouchableOpacity>
             ))}
