@@ -24,8 +24,8 @@ interface TransactionsContextType {
   refresh: () => Promise<void>;
   updateTransaction: (id: string, amount: number, category: string | null, description: string | null, date?: string, customerId?: string) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
-  recordSale: (amount: number, category: string | null, description: string | null, transaction_date?: string, customerId?: string) => Promise<any>;
-  recordExpense: (amount: number, category: string | null, description: string | null, transaction_date?: string, customerId?: string) => Promise<any>;
+  recordSale: (amount: number, category: string | null, description: string | null, transaction_date?: string, customerId?: string, linkedSaleId?: string) => Promise<any>;
+  recordExpense: (amount: number, category: string | null, description: string | null, transaction_date?: string, customerId?: string, linkedSaleId?: string) => Promise<any>;
   totalProfit: number;
 
   // New grouping functionality

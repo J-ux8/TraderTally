@@ -47,7 +47,8 @@ export const SCHEMA = {
         sync_status TEXT CHECK(sync_status IN ('pending', 'syncing', 'synced', 'failed')) DEFAULT 'pending',
         retry_count INTEGER DEFAULT 0,
         customer_phone TEXT,
-        customer_id TEXT
+        customer_id TEXT,
+        linked_sale_id TEXT
       );
 
     `,

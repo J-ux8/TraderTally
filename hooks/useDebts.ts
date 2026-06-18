@@ -163,7 +163,8 @@ export function useDebts() {
             'Revenue Collection',
             `Received: ${debtToSettle.customer_name}${debtToSettle.note ? ' (' + debtToSettle.note + ')' : ''}`,
             getLocalISOString(),
-            debtToSettle.customer_id
+            debtToSettle.customer_id,
+            debtToSettle.linked_sale_id
           );
         }
       } catch (txError) {

@@ -161,8 +161,8 @@ export async function completeSale(
       } else if (paymentStatus === 'Credit') {
         const debtId = randomUUID();
         await db.runAsync(
-          `INSERT INTO debts (id, user_id, customer_name, customer_phone, customer_id, amount, due_date, note, type, is_settled, created_at, updated_at, is_deleted, sync_status, retry_count)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO debts (id, user_id, customer_name, customer_phone, customer_id, amount, due_date, note, type, is_settled, created_at, updated_at, is_deleted, sync_status, retry_count, linked_sale_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           debtId,
           userId,
           customerName || 'Unknown Customer',
@@ -177,7 +177,8 @@ export async function completeSale(
           now,
           0,
           'pending',
-          0
+          0,
+          saleId
         );
       }
     });
