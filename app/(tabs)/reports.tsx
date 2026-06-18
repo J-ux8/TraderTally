@@ -621,273 +621,181 @@ export default function ReportsScreen() {
           </Text>
         </View>
 
-        {/* SECTION 1: BUSINESS OVERVIEW */}
+        {/* SECTION 1: PERFORMANCE OVERVIEW */}
         <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Business Overview</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Performance Overview</Text>
         </View>
 
-          {/* REVENUE TREND CHART */}
-          <View style={[styles.card, styles.chartCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-            <View style={styles.chartHeader}>
-              <View>
-                <Text style={[styles.chartTitle, { color: colors.textColor }]}>Revenue Trend</Text>
-                <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>
-                  {selectedPeriod === 'all' ? 'Lifetime' : selectedPeriod === 'week' ? 'This Week' : selectedPeriod === 'month' ? 'This Month' : selectedPeriod === 'quarter' ? 'This Quarter' : 'This Year'}
-                </Text>
-              </View>
-              <View style={[styles.chartMetric, { backgroundColor: 'rgba(30, 58, 138, 0.1)' }]}>
-                <TrendingUp size={16} color="#1e3a8a" />
-                <Text style={styles.chartMetricText}>{formatGrowth(growthMetrics.revenueGrowth)}</Text>
-              </View>
+        {/* REVENUE TREND CHART */}
+        <View style={[styles.card, styles.chartCard, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+          <View style={styles.chartHeader}>
+            <View>
+              <Text style={[styles.chartTitle, { color: colors.textColor }]}>Revenue Trend</Text>
+              <Text style={[styles.chartSubtitle, { color: colors.textSecondary }]}>
+                {selectedPeriod === 'all' ? 'Lifetime' : selectedPeriod === 'week' ? 'This Week' : selectedPeriod === 'month' ? 'This Month' : selectedPeriod === 'quarter' ? 'This Quarter' : 'This Year'}
+              </Text>
             </View>
+            <View style={[styles.chartMetric, { backgroundColor: 'rgba(30, 58, 138, 0.1)' }]}>
+              <TrendingUp size={16} color="#1e3a8a" />
+              <Text style={styles.chartMetricText}>{formatGrowth(growthMetrics.revenueGrowth)}</Text>
+            </View>
+          </View>
 
-            <View style={styles.visualChartContainer}>
-              {chartData.length < 2 ? (
-                <View style={styles.noDataChart}>
-                  <BarChart3 size={40} color={colors.borderColor} />
-                  <Text style={{ color: colors.textSecondary, marginTop: 8 }}>Need more data for trends</Text>
-                </View>
-              ) : (
-                <View style={styles.barChart}>
-                  {chartData.map((d, idx) => {
-                    const maxVal = Math.max(...chartData.map(x => Math.max(x.revenue, x.expenses)), 1);
-                    const revHeight = Math.max(3, (d.revenue / maxVal) * 100);
-                    const expHeight = Math.max(3, (d.expenses / maxVal) * 100);
-                    const showLabel = selectedPeriod === 'month'
-                      ? parseInt(d.label, 10) % 5 === 0 || idx === chartData.length - 1
-                      : true;
-                    return (
-                      <View key={`${d.label}-${idx}`} style={styles.barGroup}>
-                        <View style={styles.barPair}>
-                          <View style={[styles.barFill, styles.barRevenue, { height: `${revHeight}%` }]} />
-                          <View style={[styles.barFill, styles.barExpense, { height: `${expHeight}%` }]} />
-                        </View>
-                        {showLabel && (
-                          <Text style={[styles.barLabel, { color: colors.textSecondary }]} numberOfLines={1}>
-                            {d.label}
-                          </Text>
-                        )}
+          <View style={styles.visualChartContainer}>
+            {chartData.length < 2 ? (
+              <View style={styles.noDataChart}>
+                <BarChart3 size={40} color={colors.borderColor} />
+                <Text style={{ color: colors.textSecondary, marginTop: 8 }}>Need more data for trends</Text>
+              </View>
+            ) : (
+              <View style={styles.barChart}>
+                {chartData.map((d, idx) => {
+                  const maxVal = Math.max(...chartData.map(x => Math.max(x.revenue, x.expenses)), 1);
+                  const revHeight = Math.max(3, (d.revenue / maxVal) * 100);
+                  const expHeight = Math.max(3, (d.expenses / maxVal) * 100);
+                  const showLabel = selectedPeriod === 'month'
+                    ? parseInt(d.label, 10) % 5 === 0 || idx === chartData.length - 1
+                    : true;
+                  return (
+                    <View key={`${d.label}-${idx}`} style={styles.barGroup}>
+                      <View style={styles.barPair}>
+                        <View style={[styles.barFill, styles.barRevenue, { height: `${revHeight}%` }]} />
+                        <View style={[styles.barFill, styles.barExpense, { height: `${expHeight}%` }]} />
                       </View>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
-
-            {chartData.length >= 2 && (
-              <View style={styles.chartLegend}>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#1e3a8a' }]} />
-                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>Revenue</Text>
-                </View>
-                <View style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
-                  <Text style={[styles.legendText, { color: colors.textSecondary }]}>Expenses</Text>
-                </View>
+                      {showLabel && (
+                        <Text style={[styles.barLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                          {d.label}
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>
 
+          {chartData.length >= 2 && (
+            <View style={styles.chartLegend}>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#1e3a8a' }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Revenue</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Expenses</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* KPI GRID */}
         <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-          <View style={styles.metricsGrid}>
-            <View style={styles.metricBox}>
-              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Revenue</Text>
-              <Text style={[styles.metricValue, { color: '#1e3a8a' }]}>{formatCurrency(currentMetrics.revenue)}</Text>
-              <View style={styles.growthBadge}>
-                <Text style={[styles.growthText, { color: growthMetrics.revenueGrowth >= 0 ? '#10b981' : '#ef4444' }]}>
+          <View style={styles.kpiGrid}>
+            <View style={styles.kpiBox}>
+              <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Revenue</Text>
+              <Text style={[styles.kpiValue, { color: '#1e3a8a' }]}>{formatCurrency(currentMetrics.revenue)}</Text>
+              <View style={styles.kpiChange}>
+                <TrendingUp size={12} color={growthMetrics.revenueGrowth >= 0 ? '#10b981' : '#ef4444'} />
+                <Text style={[styles.kpiChangeText, { color: growthMetrics.revenueGrowth >= 0 ? '#10b981' : '#ef4444' }]}>
                   {formatGrowth(growthMetrics.revenueGrowth)}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.metricBox}>
-              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Expenses</Text>
-              <Text style={[styles.metricValue, { color: '#ef4444' }]}>{formatCurrency(currentMetrics.expenses)}</Text>
-              <View style={styles.growthBadge}>
-                <Text style={[styles.growthText, { color: growthMetrics.expenseGrowth <= 0 ? '#10b981' : '#ef4444' }]}>
+            <View style={styles.kpiBox}>
+              <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Expenses</Text>
+              <Text style={[styles.kpiValue, { color: '#ef4444' }]}>{formatCurrency(currentMetrics.expenses)}</Text>
+              <View style={styles.kpiChange}>
+                <TrendingDown size={12} color={growthMetrics.expenseGrowth <= 0 ? '#10b981' : '#ef4444'} />
+                <Text style={[styles.kpiChangeText, { color: growthMetrics.expenseGrowth <= 0 ? '#10b981' : '#ef4444' }]}>
                   {formatGrowth(growthMetrics.expenseGrowth)}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.metricBox}>
-              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Net Profit</Text>
-              <Text style={[styles.metricValue, { color: currentMetrics.netProfit >= 0 ? '#1e3a8a' : '#ef4444' }]}>
+            <View style={styles.kpiBox}>
+              <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Net Profit</Text>
+              <Text style={[styles.kpiValue, { color: currentMetrics.netProfit >= 0 ? '#059669' : '#dc2626' }]}>
                 {formatCurrency(currentMetrics.netProfit)}
               </Text>
-              <View style={styles.growthBadge}>
-                <Text style={[styles.growthText, { color: growthMetrics.profitGrowth >= 0 ? '#10b981' : '#ef4444' }]}>
+              <View style={styles.kpiChange}>
+                <TrendingUp size={12} color={growthMetrics.profitGrowth >= 0 ? '#10b981' : '#ef4444'} />
+                <Text style={[styles.kpiChangeText, { color: growthMetrics.profitGrowth >= 0 ? '#10b981' : '#ef4444' }]}>
                   {formatGrowth(growthMetrics.profitGrowth)}
                 </Text>
               </View>
             </View>
 
-            <View style={styles.metricBox}>
-              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Customers Owe</Text>
-              <Text style={[styles.metricValue, { color: '#f59e0b' }]}>{formatCurrency(currentMetrics.customersOwe)}</Text>
-              <View style={styles.growthBadge}>
-                <Text style={[styles.growthText, { color: '#666' }]}>Pending</Text>
-              </View>
-            </View>
-
-            <View style={styles.metricBox}>
-              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>COGS (Cost of Goods Sold)</Text>
-              <Text style={[styles.metricValue, { color: '#ef4444' }]}>{formatCurrency(totalCOGS)}</Text>
-              <View style={styles.growthBadge}>
-                <Text style={[styles.growthText, { color: totalCOGS > 0 ? '#666' : '#10b981' }]}>
-                  {totalCOGS > 0 ? 'From product sales' : 'No data'}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.metricBox}>
-              <Text style={[styles.metricLabel, { color: colors.textSecondary }]}>Gross Profit (Rev − COGS)</Text>
-              <Text style={[styles.metricValue, { color: grossProfit >= 0 ? '#1e3a8a' : '#ef4444' }]}>{formatCurrency(grossProfit)}</Text>
-              <View style={styles.growthBadge}>
-                <Text style={[styles.growthText, { color: currentMetrics.revenue > 0 ? '#10b981' : '#666' }]}>
-                  {currentMetrics.revenue > 0 ? `${((grossProfit / currentMetrics.revenue) * 100).toFixed(0)}% margin` : '—'}
+            <View style={styles.kpiBox}>
+              <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Profit Margin</Text>
+              <Text style={[styles.kpiValue, { color: currentMetrics.revenue > 0 ? (currentMetrics.netProfit / currentMetrics.revenue >= 0.2 ? '#059669' : '#f59e0b') : '#666' }]}>
+                {currentMetrics.revenue > 0 ? `${((currentMetrics.netProfit / currentMetrics.revenue) * 100).toFixed(1)}%` : '—'}
+              </Text>
+              <View style={styles.kpiChange}>
+                <Text style={[styles.kpiChangeText, { color: colors.textSecondary }]}>
+                  of revenue
                 </Text>
               </View>
             </View>
           </View>
-        </View>
 
-        {/* SECTION 2: CASH FLOW ANALYSIS */}
-        <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Cash Flow Analysis</Text>
-        </View>
-
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-          <View style={styles.cashFlowGrid}>
-            <View style={styles.cashFlowItem}>
-              <Text style={[styles.cashFlowLabel, { color: colors.textSecondary }]}>Money In</Text>
-              <Text style={[styles.cashFlowValue, { color: '#10b981' }]}>{formatCurrency(cashFlowData.totalIn)}</Text>
-            </View>
-            <View style={styles.cashFlowDivider} />
-            <View style={styles.cashFlowItem}>
-              <Text style={[styles.cashFlowLabel, { color: colors.textSecondary }]}>Money Out</Text>
-              <Text style={[styles.cashFlowValue, { color: '#ef4444' }]}>{formatCurrency(cashFlowData.totalOut)}</Text>
-            </View>
-          </View>
-
+          {/* Divider */}
           <View style={[styles.divider, { backgroundColor: colors.borderColor }]} />
 
-          <View style={styles.cashFlowGrid}>
-            <View style={styles.cashFlowItem}>
-              <Text style={[styles.cashFlowLabel, { color: colors.textSecondary }]}>Net Cash Flow</Text>
-              <Text style={[styles.cashFlowValue, { color: cashFlowData.netCashFlow >= 0 ? '#1e3a8a' : '#ef4444' }]}>
-                {formatCurrency(cashFlowData.netCashFlow)}
+          {/* COGS & GROSS PROFIT */}
+          <View style={styles.subMetricRow}>
+            <View style={styles.subMetricItem}>
+              <Text style={[styles.subMetricLabel, { color: colors.textSecondary }]}>Cost of Goods Sold</Text>
+              <Text style={[styles.subMetricValue, { color: '#dc2626' }]}>{formatCurrency(totalCOGS)}</Text>
+              <Text style={[styles.subMetricCaption, { color: colors.textSecondary }]}>
+                {totalCOGS > 0 ? 'Inventory cost of products sold' : 'No product sales'}
               </Text>
             </View>
-            <View style={styles.cashFlowDivider} />
-            <View style={styles.cashFlowItem}>
-              <Text style={[styles.cashFlowLabel, { color: colors.textSecondary }]}>Closing Balance</Text>
-              <Text style={[styles.cashFlowValue, { color: cashFlowData.closingBalance >= 0 ? '#1e3a8a' : '#ef4444' }]}>
-                {formatCurrency(cashFlowData.closingBalance)}
+            <View style={[styles.subMetricDivider, { backgroundColor: colors.borderColor }]} />
+            <View style={styles.subMetricItem}>
+              <Text style={[styles.subMetricLabel, { color: colors.textSecondary }]}>Gross Profit</Text>
+              <Text style={[styles.subMetricValue, { color: grossProfit >= 0 ? '#059669' : '#dc2626' }]}>{formatCurrency(grossProfit)}</Text>
+              <Text style={[styles.subMetricCaption, { color: colors.textSecondary }]}>
+                {currentMetrics.revenue > 0
+                  ? `${((grossProfit / Math.abs(currentMetrics.revenue)) * 100).toFixed(0)}% margin`
+                  : '—'}
               </Text>
             </View>
           </View>
-        </View>
 
-        {/* SECTION 3: FINANCIAL TRENDS */}
-        <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Financial Trends</Text>
-        </View>
+          {/* Divider */}
+          <View style={[styles.divider, { backgroundColor: colors.borderColor }]} />
 
-        <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-          <View style={styles.trendsGrid}>
+          {/* KEY TRENDS */}
+          <View style={styles.trendRow}>
             <View style={styles.trendItem}>
-              <Text style={[styles.trendLabel, { color: colors.textSecondary }]}>Best Sales Day</Text>
-              <Text style={styles.trendValue}>{bestSalesDay ? formatCurrency(bestSalesDay.revenue) : 'N/A'}</Text>
-              <Text style={[styles.trendDate, { color: colors.textSecondary }]}>
+              <Text style={[styles.trendLabel, { color: colors.textSecondary }]}>Best Day</Text>
+              <Text style={styles.trendValue}>{bestSalesDay ? formatCurrency(bestSalesDay.revenue) : 'K 0.00'}</Text>
+              <Text style={[styles.trendCaption, { color: colors.textSecondary }]}>
                 {bestSalesDay ? bestSalesDay.date : 'No data'}
               </Text>
             </View>
-
             <View style={styles.trendItem}>
               <Text style={[styles.trendLabel, { color: colors.textSecondary }]}>Avg Daily Revenue</Text>
               <Text style={styles.trendValue}>{formatCurrency(averageDailyRevenue)}</Text>
-              <Text style={[styles.trendDate, { color: colors.textSecondary }]}>Per day</Text>
+              <Text style={[styles.trendCaption, { color: colors.textSecondary }]}>per day</Text>
             </View>
-
             <View style={styles.trendItem}>
               <Text style={[styles.trendLabel, { color: colors.textSecondary }]}>Avg Daily Profit</Text>
-              <Text style={[styles.trendValue, { color: averageDailyProfit >= 0 ? '#1e3a8a' : '#ef4444' }]}>
+              <Text style={[styles.trendValue, { color: averageDailyProfit >= 0 ? '#059669' : '#dc2626' }]}>
                 {formatCurrency(averageDailyProfit)}
               </Text>
-              <Text style={[styles.trendDate, { color: colors.textSecondary }]}>Per day</Text>
+              <Text style={[styles.trendCaption, { color: colors.textSecondary }]}>per day</Text>
             </View>
           </View>
         </View>
 
-        {/* SECTION 4: GROUPING INSIGHTS (when grouping enabled) */}
-        {groupingEnabled && groupedTransactions.length > 0 && (
-          <>
-            <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
-              <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Transaction Grouping Insights</Text>
-            </View>
 
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-              <View style={styles.groupingGrid}>
-                <View style={styles.groupingItem}>
-                  <Text style={[styles.groupingLabel, { color: colors.textSecondary }]}>Total Groups</Text>
-                  <Text style={[styles.groupingValue, { color: '#1e3a8a' }]}>{groupingMetrics.totalGroups}</Text>
-                  <Text style={[styles.groupingSubtext, { color: colors.textSecondary }]}>
-                    from {transactions.length} transactions
-                  </Text>
-                </View>
 
-                <View style={styles.groupingItem}>
-                  <Text style={[styles.groupingLabel, { color: colors.textSecondary }]}>Avg Group Size</Text>
-                  <Text style={[styles.groupingValue, { color: '#10b981' }]}>{groupingMetrics.averageGroupSize.toFixed(1)}</Text>
-                  <Text style={[styles.groupingSubtext, { color: colors.textSecondary }]}>
-                    transactions per group
-                  </Text>
-                </View>
 
-                <View style={styles.groupingItem}>
-                  <Text style={[styles.groupingLabel, { color: colors.textSecondary }]}>Efficiency</Text>
-                  <Text style={[styles.groupingValue, { color: '#f59e0b' }]}>{(groupingMetrics.groupingEfficiency * 100).toFixed(0)}%</Text>
-                  <Text style={[styles.groupingSubtext, { color: colors.textSecondary }]}>
-                    data reduction
-                  </Text>
-                </View>
-              </View>
 
-              <View style={[styles.divider, { backgroundColor: colors.borderColor }]} />
 
-              <Text style={[styles.groupingInsightTitle, { color: colors.textColor }]}>Top Product Groups</Text>
-              <View style={styles.topGroupsList}>
-                {groupedTransactions
-                  .filter(group => group.transactionCount > 1)
-                  .sort((a, b) => b.totalAmount - a.totalAmount)
-                  .slice(0, 3)
-                  .map((group, idx) => (
-                    <View key={group.id} style={[styles.topGroupRow, { borderBottomColor: colors.borderColor }]}>
-                      <View style={styles.topGroupLeft}>
-                        <View style={[styles.topGroupRank, { backgroundColor: idx === 0 ? '#1e3a8a' : 'rgba(16, 185, 129, 0.1)' }]}>
-                          <Text style={[styles.topGroupRankText, { color: idx === 0 ? '#ffffff' : '#1e3a8a' }]}>#{idx + 1}</Text>
-                        </View>
-                        <View style={styles.topGroupInfo}>
-                          <Text style={[styles.topGroupName, { color: colors.textColor }]}>
-                            {group.description || 'Unnamed'}
-                          </Text>
-                          <Text style={[styles.topGroupCount, { color: colors.textSecondary }]}>
-                            {group.transactionCount} transactions
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={[styles.topGroupAmount, { color: group.totalAmount >= 0 ? '#1e3a8a' : '#ef4444' }]}>
-                        {formatCurrency(group.totalAmount)}
-                      </Text>
-                    </View>
-                  ))}
-              </View>
-            </View>
-          </>
-        )}
-
-        {/* SECTION 5: CATEGORY PERFORMANCE */}
+        {/* SECTION 2: CATEGORY PERFORMANCE */}
         {categoryMetrics.length > 0 && (
           <>
             <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
@@ -921,8 +829,7 @@ export default function ReportsScreen() {
             </View>
           </>
         )}
-
-        {/* SECTION 6: PRODUCT PROFITABILITY */}
+        {/* SECTION 3: PRODUCT PROFITABILITY */}
         {productProfits.length > 0 && (
           <>
             <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
@@ -962,8 +869,7 @@ export default function ReportsScreen() {
             </View>
           </>
         )}
-
-        {/* SECTION 7: CREDIT & DEBT ANALYSIS */}
+        {/* SECTION 4: CREDIT & DEBT ANALYSIS */}
         <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
           <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Credit & Debt Analysis</Text>
         </View>
@@ -1006,9 +912,9 @@ export default function ReportsScreen() {
           </View>
         </View>
 
-        {/* SECTION 8: BUSINESS HEALTH DIAGNOSTICS */}
+        {/* SECTION 5: BUSINESS HEALTH */}
         <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
-          <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Business Health Diagnostics</Text>
+          <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Business Health</Text>
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
@@ -1060,16 +966,10 @@ export default function ReportsScreen() {
               <Text style={[styles.scoreValue, { color: colors.textColor }]}>{healthScore.debtRisk.toFixed(1)}/25</Text>
             </View>
           </View>
-        </View>
 
-        {/* SECTION 9: INTELLIGENT INSIGHTS */}
-        {suggestions.length > 0 && (
-          <>
-            <View style={[styles.sectionHeader, { borderBottomColor: colors.borderColor }]}>
-              <Text style={[styles.sectionTitle, { color: colors.textColor }]}>Intelligent Insights</Text>
-            </View>
-
-            <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
+          {suggestions.length > 0 && (
+            <>
+              <View style={[styles.divider, { backgroundColor: colors.borderColor }]} />
               <View style={styles.suggestionsList}>
                 {suggestions.map((sugg) => (
                   <View key={sugg.id} style={[styles.suggestionItem, { backgroundColor: sugg.type === 'warning' ? 'rgba(239, 68, 68, 0.05)' : sugg.type === 'action' ? 'rgba(59, 130, 246, 0.05)' : 'rgba(16, 185, 129, 0.05)', borderLeftColor: sugg.type === 'warning' ? '#ef4444' : sugg.type === 'action' ? '#3b82f6' : '#10b981' }]}>
@@ -1081,9 +981,9 @@ export default function ReportsScreen() {
                   </View>
                 ))}
               </View>
-            </View>
-          </>
-        )}
+            </>
+          )}
+        </View>
 
         <TouchableOpacity style={styles.shareButton} onPress={() => setShareModalVisible(true)} activeOpacity={0.8}>
           <ShareIcon size={20} color="#ffffff" />
@@ -1136,23 +1036,21 @@ const styles = StyleSheet.create({
   sectionHeader: { borderBottomWidth: 2, paddingBottom: 12, marginTop: 24, marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '700' },
   card: { borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  metricsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  metricBox: { flex: 1, minWidth: '45%', padding: 16, backgroundColor: 'rgba(16, 185, 129, 0.05)', borderRadius: 12, alignItems: 'center' },
-  metricLabel: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
-  metricValue: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
-  growthBadge: { paddingHorizontal: 8, paddingVertical: 4, backgroundColor: 'rgba(0, 0, 0, 0.05)', borderRadius: 6 },
-  growthText: { fontSize: 11, fontWeight: '600' },
-  cashFlowGrid: { flexDirection: 'row', alignItems: 'center', gap: 16 },
-  cashFlowItem: { flex: 1, padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.05)', borderRadius: 12 },
-  cashFlowLabel: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
-  cashFlowValue: { fontSize: 18, fontWeight: '800' },
-  cashFlowDivider: { width: 1, height: 60, backgroundColor: 'rgba(0, 0, 0, 0.1)' },
-  divider: { height: 1, marginVertical: 16 },
-  trendsGrid: { flexDirection: 'row', gap: 12 },
-  trendItem: { flex: 1, padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.05)', borderRadius: 12, alignItems: 'center' },
-  trendLabel: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
-  trendValue: { fontSize: 18, fontWeight: '800', marginBottom: 4, color: '#1e3a8a' },
-  trendDate: { fontSize: 10, fontWeight: '500' },
+  kpiGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  kpiBox: { width: '48%', padding: 16, backgroundColor: 'rgba(16, 185, 129, 0.04)', borderRadius: 12 },
+  kpiLabel: { fontSize: 11, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  kpiValue: { fontSize: 22, fontWeight: '800', marginBottom: 6 },
+  kpiChange: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  kpiChangeText: { fontSize: 12, fontWeight: '600' },
+  subMetricRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  subMetricItem: { flex: 1, padding: 12, backgroundColor: 'rgba(30, 58, 138, 0.04)', borderRadius: 10 },
+  subMetricLabel: { fontSize: 11, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.3 },
+  subMetricValue: { fontSize: 18, fontWeight: '800', marginBottom: 4 },
+  subMetricCaption: { fontSize: 11, fontWeight: '500' },
+  subMetricDivider: { width: 1, height: 48 },
+  trendRow: { flexDirection: 'row', gap: 10 },
+  trendItem: { flex: 1, padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.04)', borderRadius: 10 },
+  trendLabel: { fontSize: 10, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.3, color: '#64748b' },
   categoryList: { gap: 0 },
   categoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
   categoryLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
@@ -1206,23 +1104,9 @@ const styles = StyleSheet.create({
   shareOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, paddingHorizontal: 12, borderRadius: 12, marginBottom: 12, gap: 16 },
   shareOptionTitle: { fontSize: 16, fontWeight: '600' },
   shareOptionLast: { justifyContent: 'center' },
-  
-  // Grouping insights styles
-  groupingGrid: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  groupingItem: { flex: 1, padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.05)', borderRadius: 12, alignItems: 'center' },
-  groupingLabel: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
-  groupingValue: { fontSize: 18, fontWeight: '800', marginBottom: 4 },
-  groupingSubtext: { fontSize: 10, fontWeight: '500', textAlign: 'center' },
-  groupingInsightTitle: { fontSize: 14, fontWeight: '700', marginBottom: 12 },
-  topGroupsList: { gap: 0 },
-  topGroupRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
-  topGroupLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
-  topGroupRank: { width: 28, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
-  topGroupRankText: { fontSize: 11, fontWeight: '700' },
-  topGroupInfo: { flex: 1 },
-  topGroupName: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
-  topGroupCount: { fontSize: 11, fontWeight: '500' },
-  topGroupAmount: { fontSize: 13, fontWeight: '700' },
+  divider: { height: 1, marginVertical: 16 },
+  trendValue: { fontSize: 18, fontWeight: '800', marginBottom: 4, color: '#1e3a8a' },
+  trendCaption: { fontSize: 10, fontWeight: '500' },
   productProfitList: { gap: 0 },
   productProfitRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
   productProfitLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
