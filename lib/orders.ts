@@ -6,6 +6,7 @@ import { randomUUID } from 'expo-crypto';
 export async function placeOrder(params: {
   productName: string;
   categoryId: string;
+  categoryName: string;
   orderPricePerUnit: number;
   quantity: number;
   sellingPrice: number;
@@ -74,7 +75,7 @@ export async function placeOrder(params: {
       randomUUID(),
       userId,
       -totalCost,
-      'Stock / Inventory',
+       params.categoryName,
       `Order: ${params.quantity}x ${displayName}`,
       params.purchasedAt,
       0,

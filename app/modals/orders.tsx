@@ -98,6 +98,7 @@ export default function OrdersScreen() {
       await placeOrder({
         productName: name,
         categoryId: selectedCategory.id,
+        categoryName: selectedCategory.name,
         orderPricePerUnit: numericOrderPrice,
         quantity: numericQty,
         sellingPrice: numericSellingPrice,
