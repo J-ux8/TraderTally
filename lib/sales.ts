@@ -21,11 +21,15 @@ export interface SaleItem extends LocalBaseModel {
 /**
  * Complete a multi-item sale atomically.
  * Uses product-level stock_quantity and cost_price (no FIFO batches).
+ * @param amountPaidNow - how much cash the customer pays now. Defaults to totalAmount (full cash).
+ *   If 0 < amountPaidNow < totalAmount, a debt is created for the remainder.
+ *   If amountPaidNow >= totalAmount, no debt (standard cash sale).
+ *   If amountPaidNow <= 0, full credit (standard credit sale).
  */
 export async function completeSale(
   items: CartItem[], 
   totalAmount: number,
-  paymentStatus: 'Paid' | 'Credit' = 'Paid',
+  amountPaidNow: number = totalAmount,
   customerId?: string,
   customerName?: string,
   customerPhone?: string,
@@ -131,15 +135,21 @@ export async function completeSale(
         );
       }
 
-      // 3. Handle Payment Status Tracking
-      if (paymentStatus === 'Paid') {
+      // 3. Handle Payment — three cases based on amountPaidNow
+      const debtAmount = totalAmount - amountPaidNow;
+      const isFullCash = amountPaidNow >= totalAmount;
+      const isFullCredit = amountPaidNow <= 0;
+      const isPartial = !isFullCash && !isFullCredit;
+
+      if (amountPaidNow > 0) {
+        // Record the cash received as a transaction
         const transactionId = randomUUID();
         await db.runAsync(
           `INSERT INTO transactions (id, user_id, amount, category, description, transaction_date, is_deleted, sync_status, retry_count, created_at, updated_at, customer_id, linked_sale_id) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           transactionId,
           userId,
-          totalAmount,
+          amountPaidNow,
           primaryCategory,
           `Sale: ${itemNames}`,
           now,
@@ -151,19 +161,22 @@ export async function completeSale(
           customerId || null,
           saleId
         );
-      } else if (paymentStatus === 'Credit') {
+      }
+
+      if (debtAmount > 0) {
+        // Record the unpaid balance as a debt
         const debtId = randomUUID();
         await db.runAsync(
-          `INSERT INTO debts (id, user_id, customer_name, customer_phone, customer_id, amount, due_date, note, type, is_settled, created_at, updated_at, is_deleted, sync_status, retry_count, linked_sale_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO debts (id, user_id, customer_name, customer_phone, customer_id, amount, due_date, note, type, is_settled, created_at, updated_at, is_deleted, sync_status, retry_count, linked_sale_id, amount_paid_at_sale)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           debtId,
           userId,
           customerName || 'Unknown Customer',
           customerPhone || null,
           customerId || null,
-          totalAmount,
+          debtAmount,
           null,
-          `Credit Sale: ${itemNames}`,
+          isPartial ? `Credit Sale: ${itemNames}` : `Credit Sale: ${itemNames}`,
           'receivable',
           0,
           now,
@@ -171,7 +184,8 @@ export async function completeSale(
           0,
           'pending',
           0,
-          saleId
+          saleId,
+          amountPaidNow > 0 ? amountPaidNow : 0
         );
       }
     });

@@ -147,6 +147,10 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
           console.log(`[Database] Migrating debts: adding type column`);
           await database.execAsync(`ALTER TABLE debts ADD COLUMN type TEXT DEFAULT 'receivable'`);
         }
+        if (!columns.includes('amount_paid_at_sale')) {
+          console.log(`[Database] Migrating debts: adding amount_paid_at_sale`);
+          await database.execAsync(`ALTER TABLE debts ADD COLUMN amount_paid_at_sale REAL DEFAULT 0`);
+        }
       }
 
       if (table === 'products') {

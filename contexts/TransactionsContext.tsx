@@ -1,4 +1,5 @@
 import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib, batchUpdateTransactions, batchDeleteTransactions, getSaleItemsBatch } from '@/lib/transactions';
+import { getUserDebts } from '@/lib/debts';
 import { TransactionGroup, Transaction as GroupingTransaction } from '@/types/grouping';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
 import { useSync } from '@/context/SyncContext';
@@ -16,6 +17,7 @@ interface Transaction {
   customer_id: string | null;
   linked_sale_id: string | null;
   sale_items?: any[];
+  has_outstanding_debt?: boolean;
 }
 
 interface TransactionsContextType {
@@ -86,22 +88,55 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
       setLoading(true);
       const data = await getUserTransactions();
 
-      // Batch-fetch all sale items in ONE query instead of N+1 individual queries
+      // Batch-fetch all sale items in ONE query
       const linkedSaleIds = (data as Transaction[])
         .map(tx => tx.linked_sale_id)
         .filter((id): id is string => !!id);
 
       const saleItemsMap = await getSaleItemsBatch(linkedSaleIds);
 
-      const enrichedData = (data as Transaction[]).map(tx => ({
-        ...tx,
-        sale_items: tx.linked_sale_id ? (saleItemsMap[tx.linked_sale_id] || []) : undefined,
-      }));
+      // Fetch unsettled debts to flag transactions with outstanding balance
+      let unsettledSaleIds = new Set<string>();
+      try {
+        const debts = await getUserDebts();
+        debts
+          .filter(d => !d.is_settled && d.linked_sale_id)
+          .forEach(d => unsettledSaleIds.add(d.linked_sale_id!));
+      } catch (e) {
+        console.warn('[Transactions] Failed to fetch debts for outstanding flag:', e);
+      }
+
+      // Deduplicate sale_items: only attach to the first transaction per linked_sale_id
+      // (sorted oldest-first so the original "Sale" transaction gets them)
+      const usedSaleIds = new Set<string>();
+      const sorted = [...(data as Transaction[])].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+
+      const enrichedMap = new Map<string, Transaction>();
+      for (const tx of sorted) {
+        let sale_items: any[] | undefined;
+        if (tx.linked_sale_id) {
+          if (!usedSaleIds.has(tx.linked_sale_id)) {
+            sale_items = saleItemsMap[tx.linked_sale_id] || undefined;
+            usedSaleIds.add(tx.linked_sale_id);
+          }
+        }
+        enrichedMap.set(tx.id, {
+          ...tx,
+          sale_items,
+          has_outstanding_debt: tx.linked_sale_id ? unsettledSaleIds.has(tx.linked_sale_id) : false,
+        });
+      }
+
+      // Restore original order (newest first)
+      const enrichedData = sorted
+        .map(tx => enrichedMap.get(tx.id)!)
+        .reverse();
 
       setTransactions(enrichedData);
     } catch (error) {
       console.error('Error loading transactions:', error);
-      // Don't clear transactions on error - keep existing data
     } finally {
       setLoading(false);
       isLoadingRef.current = false;

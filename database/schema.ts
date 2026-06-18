@@ -48,9 +48,9 @@ export const SCHEMA = {
         retry_count INTEGER DEFAULT 0,
         customer_phone TEXT,
         customer_id TEXT,
-        linked_sale_id TEXT
+        linked_sale_id TEXT,
+        amount_paid_at_sale REAL DEFAULT 0
       );
-
     `,
     security_settings: `
       CREATE TABLE IF NOT EXISTS security_settings (

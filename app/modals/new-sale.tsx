@@ -46,7 +46,7 @@ export default function NewSaleScreen() {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [paymentMode, setPaymentMode] = useState<'Paid' | 'Credit'>('Paid');
+  const [amountPaidNow, setAmountPaidNow] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   
@@ -91,9 +91,13 @@ export default function NewSaleScreen() {
 
   const handleCompleteSale = async () => {
     if (cart.items.length === 0) return;
-    
-    if (paymentMode === 'Credit' && !customerName.trim()) {
-      showError('Customer Required', { message: 'Please enter a customer name for credit sales.' });
+
+    const paid = parseFloat(amountPaidNow) || cart.total_amount;
+    const clampedPaid = Math.min(Math.max(paid, 0), cart.total_amount);
+    const debtAmount = cart.total_amount - clampedPaid;
+
+    if (debtAmount > 0 && !customerName.trim()) {
+      showError('Customer Required', { message: 'Please enter a customer name for the balance to be recorded against.' });
       return;
     }
 
@@ -102,7 +106,7 @@ export default function NewSaleScreen() {
       await completeSale(
         cart.items, 
         cart.total_amount, 
-        paymentMode, 
+        clampedPaid,
         undefined, 
         customerName.trim() || undefined, 
         customerPhone.trim() || undefined
@@ -110,13 +114,20 @@ export default function NewSaleScreen() {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const itemSummary = cart.items.map(i => `${i.quantity}x ${i.name}`).join(', ');
       const totalQty = cart.items.reduce((s, i) => s + i.quantity, 0);
-      showSuccess(
-        `Sold ${totalQty} item${totalQty > 1 ? 's' : ''}`,
-        { amount: cart.total_amount, message: `${itemSummary} — K${cart.total_amount.toLocaleString()} revenue` }
-      );
+
+      let successMsg: string;
+      let successExtra: any;
+      if (debtAmount === 0) {
+        successMsg = `Sold ${totalQty} item${totalQty > 1 ? 's' : ''}`;
+        successExtra = { amount: cart.total_amount, message: `${itemSummary} — K${cart.total_amount.toLocaleString()} revenue` };
+      } else {
+        successMsg = `Sold ${totalQty} item${totalQty > 1 ? 's' : ''}`;
+        successExtra = { amount: cart.total_amount, message: `${itemSummary} — K${cart.total_amount.toLocaleString()} total. K${clampedPaid.toLocaleString()} received, K${debtAmount.toLocaleString()} added to ${customerName.trim()}'s balance.` };
+      }
+      showSuccess(successMsg, successExtra);
       clearCart();
       setShowCheckout(false);
-      setPaymentMode('Paid');
+      setAmountPaidNow('');
       setCustomerName('');
       setCustomerPhone('');
       refreshTransactions(); 
@@ -476,24 +487,45 @@ export default function NewSaleScreen() {
             </View>
 
             <View style={styles.formGroup}>
-              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Payment Status</Text>
-              <View style={styles.segmentedContainer}>
-                <TouchableOpacity
-                  style={[styles.segment, paymentMode === 'Paid' && { backgroundColor: colors.primaryColor }]}
-                  onPress={() => setPaymentMode('Paid')}
-                >
-                  <Text style={[styles.segmentText, paymentMode === 'Paid' && { color: '#fff' }]}>Paid Full</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.segment, paymentMode === 'Credit' && { backgroundColor: '#ef4444' }]}
-                  onPress={() => setPaymentMode('Credit')}
-                >
-                  <Text style={[styles.segmentText, paymentMode === 'Credit' && { color: '#fff' }]}>On Credit</Text>
-                </TouchableOpacity>
+              <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Amount Paid Now</Text>
+              <View style={styles.amountInputRow}>
+                <Text style={[styles.currencyPrefix, { color: colors.textColor }]}>K</Text>
+                <TextInput
+                  style={[styles.modalInput, styles.amountInput, { color: colors.textColor, borderColor: colors.borderColor }]}
+                  keyboardType="decimal-pad"
+                  placeholder={cart.total_amount.toLocaleString()}
+                  value={amountPaidNow}
+                  onChangeText={setAmountPaidNow}
+                  placeholderTextColor={colors.textSecondary}
+                />
               </View>
             </View>
 
-            {paymentMode === 'Credit' && (
+            {(() => {
+              const raw = amountPaidNow.trim();
+              if (!raw) return null;
+              const paid = parseFloat(raw) || 0;
+              const clamped = Math.min(Math.max(paid, 0), cart.total_amount);
+              const debtAmt = cart.total_amount - clamped;
+              if (debtAmt > 0) {
+                return (
+                  <View style={[styles.balancePreview, { backgroundColor: '#fef3c7' }]}>
+                    <Text style={{ color: '#92400e', fontSize: 14, fontWeight: '600' }}>
+                      Balance: K{debtAmt.toLocaleString()} — customer will owe this amount
+                    </Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
+
+            {(() => {
+              const raw = amountPaidNow.trim();
+              if (!raw) return null;
+              const paid = parseFloat(raw) || 0;
+              const clamped = Math.min(Math.max(paid, 0), cart.total_amount);
+              return clamped < cart.total_amount;
+            })() && (
               <>
                 <View style={styles.formGroup}>
                   <Text style={[styles.modalLabel, { color: colors.textSecondary }]}>Customer Name (Required)</Text>
@@ -522,16 +554,16 @@ export default function NewSaleScreen() {
             <TouchableOpacity 
               style={[
                 styles.saveProductButton, 
-                { backgroundColor: paymentMode === 'Credit' ? '#ef4444' : colors.primaryColor },
-                (paymentMode === 'Credit' && !customerName.trim()) && { opacity: 0.5 }
+                { backgroundColor: ((parseFloat(amountPaidNow) || cart.total_amount) < cart.total_amount) ? '#ef4444' : colors.primaryColor },
+                ((parseFloat(amountPaidNow) || cart.total_amount) < cart.total_amount && !customerName.trim()) && { opacity: 0.5 }
               ]}
               onPress={handleCompleteSale}
-              disabled={completing || (paymentMode === 'Credit' && !customerName.trim())}
+              disabled={completing || (((parseFloat(amountPaidNow) || cart.total_amount) < cart.total_amount) && !customerName.trim())}
             >
               {completing ? (
                 <ActivityIndicator color="#ffffff" size="small" />
               ) : (
-                <Text style={styles.saveProductText}>Confirm {paymentMode === 'Credit' ? 'Credit' : 'Payment'}</Text>
+                <Text style={styles.saveProductText}>Confirm Sale</Text>
               )}
             </TouchableOpacity>
           </KeyboardAvoidingView>
@@ -789,6 +821,10 @@ const styles = StyleSheet.create({
   formGroup: { marginBottom: 20 },
   modalLabel: { fontSize: 14, fontWeight: '700', marginBottom: 8 },
   modalInput: { height: 56, borderWidth: 1, borderRadius: 12, paddingHorizontal: 16, fontSize: 16 },
+  amountInputRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  currencyPrefix: { fontSize: 18, fontWeight: '800' },
+  amountInput: { flex: 1 },
+  balancePreview: { padding: 12, borderRadius: 10, marginBottom: 16 },
   saveProductButton: { height: 56, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
   saveProductText: { color: '#ffffff', fontSize: 16, fontWeight: '800' },
   segmentedContainer: { flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 12, padding: 4 },

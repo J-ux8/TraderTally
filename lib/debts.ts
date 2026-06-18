@@ -12,6 +12,7 @@ export interface Debt extends LocalBaseModel {
   is_settled: number;
   type: 'receivable' | 'payable';
   linked_sale_id: string | null;
+  amount_paid_at_sale: number;
 }
 
 

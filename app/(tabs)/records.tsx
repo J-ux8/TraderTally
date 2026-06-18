@@ -21,6 +21,7 @@ interface Transaction {
   user_id: string;
   customer_id?: string | null;
   linked_sale_id?: string | null;
+  has_outstanding_debt?: boolean;
   sale_items?: any[];
 }
 
@@ -140,6 +141,11 @@ const TransactionItem = React.memo(({
       )}
       {!!transaction.description && (
         <Text style={dynamicStyles.description}>{transaction.description}</Text>
+      )}
+      {transaction.has_outstanding_debt && (
+        <View style={styles.outstandingBadge}>
+          <Text style={styles.outstandingBadgeText}>Partially paid — balance outstanding</Text>
+        </View>
       )}
       {transaction.amount > 0 && transaction.sale_items && transaction.sale_items.length > 0 && (
         <ProfitDisplay saleItems={transaction.sale_items} />
@@ -566,6 +572,8 @@ const styles = StyleSheet.create({
   categoryContainer: { marginTop: 8, marginBottom: 4 },
   category: { fontSize: 14, fontWeight: '600' },
   description: { fontSize: 14, lineHeight: 20 },
+  outstandingBadge: { marginTop: 6, marginBottom: 4, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, backgroundColor: '#fef3c7', borderRadius: 8 },
+  outstandingBadgeText: { fontSize: 12, fontWeight: '600', color: '#92400e' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end' },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)' },
   modalContent: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '90%', paddingBottom: 20 },

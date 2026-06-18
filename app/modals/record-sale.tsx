@@ -28,7 +28,7 @@ export default function RecordSaleScreen() {
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
 
-  const [paymentMode, setPaymentMode] = useState<'Paid' | 'Credit'>('Paid');
+  const [amountPaidNow, setAmountPaidNow] = useState("");
   const [description, setDescription] = useState("");
   const [date, setDate] = useState<Date>(new Date());
   const [loading, setLoading] = useState(false);
@@ -41,20 +41,12 @@ export default function RecordSaleScreen() {
       setSelectedProduct(null);
       setCustomerName("");
       setCustomerPhone("");
-      setPaymentMode('Paid');
+      setAmountPaidNow("");
       setDescription("");
       setDate(new Date());
       setDatePickerOpen(false);
     }, [])
   );
-
-  useEffect(() => {
-    if (paymentMode === 'Credit' && !customerName.trim()) {
-      showError('Customer Required', { message: 'Credit sales require a customer name' });
-      setPaymentMode('Paid');
-    }
-  }, [paymentMode]);
-
 
   const handleAmountChange = (value: string) => {
     const cleaned = value.replace(/[^0-9.]/g, '');
@@ -75,9 +67,13 @@ export default function RecordSaleScreen() {
       showError('Missing Product', { message: 'Please select or create a product' });
       return;
     }
-    
-    if (paymentMode === 'Credit' && !customerName.trim()) {
-      showError('Customer Required', { message: 'Please enter a customer name for credit sales.' });
+
+    const paid = parseFloat(amountPaidNow) || numericAmount;
+    const clampedPaid = Math.min(Math.max(paid, 0), numericAmount);
+    const debtAmount = numericAmount - clampedPaid;
+
+    if (debtAmount > 0 && !customerName.trim()) {
+      showError('Customer Required', { message: 'Please enter a customer name for the balance to be recorded against.' });
       return;
     }
 
@@ -104,7 +100,7 @@ export default function RecordSaleScreen() {
       await completeSale(
         [cartItem], 
         numericAmount, 
-        paymentMode, 
+        clampedPaid,
         customerId, 
         customerName.trim(), 
         customerPhone.trim(),
@@ -114,16 +110,25 @@ export default function RecordSaleScreen() {
       const profitEst = selectedProduct.cost_price != null
         ? (numericAmount - selectedProduct.cost_price)
         : null;
-      showSuccess(
-        `Sold 1 ${selectedProduct.display_name}`,
-        {
+
+      let successMsg: string;
+      let successExtra: any;
+      if (debtAmount === 0) {
+        successMsg = `Sold 1 ${selectedProduct.display_name}`;
+        successExtra = {
           amount: numericAmount,
           message: profitEst != null
             ? `K${numericAmount.toLocaleString()} revenue · K${profitEst.toFixed(2)} profit`
             : `K${numericAmount.toLocaleString()} revenue`
-        }
-      );
-      // Refresh context so transaction list updates immediately (non-blocking)
+        };
+      } else {
+        successMsg = `Sold 1 ${selectedProduct.display_name}`;
+        successExtra = {
+          amount: numericAmount,
+          message: `K${numericAmount.toLocaleString()} total. K${clampedPaid.toLocaleString()} received, K${debtAmount.toLocaleString()} added to ${customerName.trim()}'s balance.`
+        };
+      }
+      showSuccess(successMsg, successExtra);
       refresh();
       router.back();
     } catch (error: any) {
@@ -196,7 +201,7 @@ export default function RecordSaleScreen() {
               />
             </View>
             
-            {paymentMode === 'Credit' && (
+            {(parseFloat(amountPaidNow) || 0) > 0 && (parseFloat(amountPaidNow) || 0) < (parseFloat(amount) || 0) && (
               <>
                 <Text style={[styles.label, { color: colors.textSecondary, marginTop: 16 }]}>Customer Phone (Optional)</Text>
                 <View style={[styles.inputContainer, { borderColor: colors.borderColor, backgroundColor: colors.inputBackground }]}>
@@ -243,21 +248,32 @@ export default function RecordSaleScreen() {
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
-            <Text style={[styles.label, { color: colors.textSecondary }]}>Payment Status</Text>
-            <View style={styles.segmentedContainer}>
-              <TouchableOpacity
-                style={[styles.segment, paymentMode === 'Paid' && styles.segmentActive]}
-                onPress={() => setPaymentMode('Paid')}
-              >
-                <Text style={[styles.segmentText, paymentMode === 'Paid' && styles.segmentTextActive]}>Paid Full</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.segment, paymentMode === 'Credit' && styles.segmentActiveCredit]}
-                onPress={() => setPaymentMode('Credit')}
-              >
-                <Text style={[styles.segmentText, paymentMode === 'Credit' && styles.segmentTextActive]}>On Credit</Text>
-              </TouchableOpacity>
+            <Text style={[styles.label, { color: colors.textSecondary }]}>Amount Paid Now</Text>
+            <View style={styles.amountContainer}>
+              <Text style={[styles.amountPrefix, { color: colors.textColor }]}>K</Text>
+              <TextInput
+                style={[styles.amountInput, { color: colors.textColor }]}
+                value={amountPaidNow}
+                onChangeText={(v) => setAmountPaidNow(v.replace(/[^0-9.]/g, ''))}
+                placeholder={(() => {
+                  const a = parseFloat(amount);
+                  return isNaN(a) ? 'Full amount' : a.toLocaleString();
+                })()}
+                keyboardType="decimal-pad"
+                placeholderTextColor={colors.textSecondary}
+              />
             </View>
+            {(() => {
+              const a = parseFloat(amount);
+              const p = parseFloat(amountPaidNow) || 0;
+              if (isNaN(a)) return null;
+              const clamped = Math.min(Math.max(p, 0), a);
+              const debtAmt = a - clamped;
+              if (debtAmt > 0) {
+                return <Text style={{ color: '#92400e', fontSize: 13, fontWeight: '600', marginTop: 6 }}>Balance: K{debtAmt.toLocaleString()} — customer will owe this amount</Text>;
+              }
+              return null;
+            })()}
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.cardBackground }]}>
