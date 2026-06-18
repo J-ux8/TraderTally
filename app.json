@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "TraderBooks",
-    "slug": "traderbooks",
+    "name": "TraderTally",
+    "slug": "tradertally",
     "version": "1.0.0",
     "sdkVersion": "54.0.0",
     "orientation": "portrait",
@@ -11,13 +11,13 @@
       "resizeMode": "contain",
       "backgroundColor": "#1e3a8a"
     },
-    "scheme": "traderbooks",
+    "scheme": "tradertally",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
     },
     "android": {
-      "package": "com.traderbooks.app",
+      "package": "com.tradertally.app",
       "adaptiveIcon": {
         "backgroundColor": "#1e3a8a",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

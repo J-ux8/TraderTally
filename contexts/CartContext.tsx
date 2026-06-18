@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Product } from '../lib/products';
 
-const CART_STORAGE_KEY = '@mobibooks_cart';
+const CART_STORAGE_KEY = '@tradertally_cart';
 const CART_EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export interface CartItem {

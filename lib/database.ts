@@ -15,8 +15,8 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
   initPromise = (async () => {
     try {
-      console.log('[Database] Opening database: mobibooks.db');
-      const _db = await SQLite.openDatabaseAsync('mobibooks.db');
+      console.log('[Database] Opening database: tradertally.db');
+      const _db = await SQLite.openDatabaseAsync('tradertally.db');
       console.log('[Database] Setting up tables...');
       await setupDatabase(_db);
       console.log('[Database] Database ready');
@@ -214,7 +214,7 @@ export async function wipeDatabase() {
     console.log('[Database] Starting database wipe...');
     
     if (!db) {
-      db = await SQLite.openDatabaseAsync('mobibooks.db');
+      db = await SQLite.openDatabaseAsync('tradertally.db');
     }
     
     // Drop all tables

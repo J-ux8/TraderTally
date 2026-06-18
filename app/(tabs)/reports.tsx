@@ -529,7 +529,7 @@ export default function ReportsScreen() {
   const handleShareReport = async (type: 'whatsapp' | 'text') => {
     const periodLabel = selectedPeriod === 'all' ? 'All Time' : `Last ${selectedPeriod}`;
     const topCategory = categoryMetrics.length > 0 ? categoryMetrics[0].category : 'N/A';
-    let message = `📊 *TraderBooks Financial Report* (${periodLabel})\n\n`;
+    let message = `📊 *TraderTally Financial Report* (${periodLabel})\n\n`;
     message += `💰 Revenue: ${formatCurrency(currentMetrics.revenue)}\n`;
     message += `💸 Expenses: ${formatCurrency(currentMetrics.expenses)}\n`;
     message += `📈 Net Profit: ${formatCurrency(currentMetrics.netProfit)}\n`;
@@ -537,7 +537,7 @@ export default function ReportsScreen() {
     message += `💧 Cash Flow: ${formatCurrency(cashFlowData.netCashFlow)}\n`;
     message += `⭐ Top Category: ${topCategory}\n`;
     message += `❤️ Business Health: ${healthScore.score}/100\n\n`;
-    message += `_Growing with TraderBooks!_ 🇿🇲`;
+    message += `_Growing with TraderTally!_ 🇿🇲`;
     try {
       if (type === 'whatsapp') {
         const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;

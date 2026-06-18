@@ -22,7 +22,7 @@ const SLIDES = [
     {
         id: '1',
         icon: BookOpen,
-        title: 'Welcome to TraderBooks',
+        title: 'Welcome to TraderTally',
         subtitle: 'Your simple business companion',
         description:
             'Built for micro-entrepreneurs like street vendors, grocery shops, salons, and more. Manage your money with ease.',

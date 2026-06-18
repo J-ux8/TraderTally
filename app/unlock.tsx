@@ -91,7 +91,7 @@ export default function UnlockScreen() {
                     <Lock size={48} color="#1e3a8a" />
                 </View>
                 <Text style={styles.title}>Welcome Back</Text>
-                <Text style={styles.subtitle}>Enter your PIN to unlock TraderBooks</Text>
+                <Text style={styles.subtitle}>Enter your PIN to unlock TraderTally</Text>
             </View>
 
             <View style={styles.pinDisplay}>

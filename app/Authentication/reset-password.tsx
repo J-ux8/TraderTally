@@ -66,7 +66,7 @@ export default function ResetPasswordScreen() {
                   />
                 </View>
                 <View>
-                  <Text style={styles.headerTitle}>TraderBooks</Text>
+                  <Text style={styles.headerTitle}>TraderTally</Text>
                 </View>
               </View>
             </View>

@@ -115,7 +115,7 @@ export default function LoginScreen() {
                   />
                 </View>
                 <View>
-                  <Text style={styles.headerTitle}>TraderBooks</Text>
+                  <Text style={styles.headerTitle}>TraderTally</Text>
                 </View>
               </View>
             </View>

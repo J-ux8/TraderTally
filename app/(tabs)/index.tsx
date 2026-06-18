@@ -212,7 +212,7 @@ export default function HomeScreen() {
                 </View>
 
                 <View>
-                  <Text style={[styles.heroTitle, { color: textColor }]}>TraderBooks</Text>
+                  <Text style={[styles.heroTitle, { color: textColor }]}>TraderTally</Text>
                   <Text style={[styles.heroDate, { color: textSecondary }]}>{formatDate(new Date())}</Text>
                 </View>
               </View>

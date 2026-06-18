@@ -29,11 +29,11 @@ Deno.serve(async (req: Request) => {
     }
 
     // Determine the subject based on the action type
-    let subject = "Verify Your Email - TraderBooks";
-    if (email_action_type === 'recovery') subject = "Reset Your Password - TraderBooks";
-    if (email_action_type === 'email_change') subject = "Confirm Email Change - TraderBooks";
+    let subject = "Verify Your Email - TraderTally";
+    if (email_action_type === 'recovery') subject = "Reset Your Password - TraderTally";
+    if (email_action_type === 'email_change') subject = "Confirm Email Change - TraderTally";
 
-    const userName = user.user_metadata?.full_name || "TraderBooks User";
+    const userName = user.user_metadata?.full_name || "TraderTally User";
 
     const emailResponse = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -42,7 +42,7 @@ Deno.serve(async (req: Request) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "TraderBooks <onboarding@resend.dev>", // Replace with your verified domain in production
+        from: "TraderTally <onboarding@resend.dev>", // Replace with your verified domain in production
         to: user.email,
         subject: subject,
         html: `
@@ -61,17 +61,17 @@ Deno.serve(async (req: Request) => {
           <body>
             <div class="container">
               <div class="header">
-                <h1 style="color: white; margin: 0;">TraderBooks</h1>
+                <h1 style="color: white; margin: 0;">TraderTally</h1>
               </div>
               <div class="content">
                 <h2>Hello ${userName},</h2>
-                <p>Welcome to TraderBooks! Please use the following verification code to complete your ${email_action_type.replace('_', ' ')}:</p>
+                <p>Welcome to TraderTally! Please use the following verification code to complete your ${email_action_type.replace('_', ' ')}:</p>
                 <div class="otp-box">
                   <p class="otp-code">${token}</p>
                 </div>
                 <p>This code is valid for 10 minutes. If you didn't request this, please ignore this email.</p>
                 <div class="footer">
-                  © 2026 TraderBooks. All rights reserved.
+                  © 2026 TraderTally. All rights reserved.
                 </div>
               </div>
             </div>
