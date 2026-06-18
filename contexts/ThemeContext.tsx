@@ -12,7 +12,7 @@ interface ThemeContextType {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
-const THEME_STORAGE_KEY = '@tradertally_theme_mode';
+const THEME_STORAGE_KEY = '@mobibooks_theme_mode';
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const systemColorScheme = useRNColorScheme();
