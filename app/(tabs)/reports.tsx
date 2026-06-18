@@ -31,7 +31,8 @@ interface CategoryMetrics {
   expenses: number;
   net: number;
   count: number;
-  percentage: number;
+  revenueShare: number;
+  marginPct: number;
 }
 
 interface Suggestion {
@@ -358,21 +359,17 @@ export default function ReportsScreen() {
 
   const categoryMetrics = useMemo(() => {
     const categoryMap = new Map<string, CategoryMetrics>();
-    
-    // Use grouped data when grouping is enabled for better insights
-    // but still calculate from individual transactions for accuracy
+
     const totalAmount = filteredTransactions.reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-    
+
     if (groupingEnabled) {
-      // When using grouped data, aggregate from groups but maintain transaction-level accuracy
       groupedTransactions.forEach(group => {
         const category = group.category || 'Uncategorized';
         if (!categoryMap.has(category)) {
-          categoryMap.set(category, { category, revenue: 0, expenses: 0, net: 0, count: 0, percentage: 0 });
+          categoryMap.set(category, { category, revenue: 0, expenses: 0, net: 0, count: 0, revenueShare: 0, marginPct: 0 });
         }
         const cat = categoryMap.get(category)!;
-        
-        // Aggregate from individual transactions within the group for accuracy
+
         group.transactions.forEach((tx: any) => {
           cat.count++;
           if (tx.amount > 0) {
@@ -384,11 +381,10 @@ export default function ReportsScreen() {
         cat.net = cat.revenue - cat.expenses;
       });
     } else {
-      // Use individual transactions directly
       filteredTransactions.forEach(t => {
         const category = t.category || 'Uncategorized';
         if (!categoryMap.has(category)) {
-          categoryMap.set(category, { category, revenue: 0, expenses: 0, net: 0, count: 0, percentage: 0 });
+          categoryMap.set(category, { category, revenue: 0, expenses: 0, net: 0, count: 0, revenueShare: 0, marginPct: 0 });
         }
         const cat = categoryMap.get(category)!;
         cat.count++;
@@ -400,21 +396,24 @@ export default function ReportsScreen() {
         cat.net = cat.revenue - cat.expenses;
       });
     }
-    
+
+    const totalRevenue = Array.from(categoryMap.values()).reduce((s, c) => s + c.revenue, 0);
+
     return Array.from(categoryMap.values())
       .map(cat => ({
         ...cat,
-        percentage: totalAmount > 0 ? (((cat.revenue + cat.expenses) / totalAmount) * 100) : 0,
+        revenueShare: totalRevenue > 0 ? (cat.revenue / totalRevenue) * 100 : 0,
+        marginPct: cat.revenue > 0 ? (cat.net / cat.revenue) * 100 : 0,
       }))
-      .sort((a, b) => (b.revenue + b.expenses) - (a.revenue + a.expenses));
+      .filter(cat => cat.revenue > 0)
+      .sort((a, b) => b.revenue - a.revenue);
   }, [filteredTransactions, groupedTransactions, groupingEnabled]);
 
   const revenueConcentration = useMemo(() => {
     const totalRevenue = categoryMetrics.reduce((sum, c) => sum + c.revenue, 0);
     if (totalRevenue === 0 || categoryMetrics.length === 0) return { isConcentrated: false, topCategory: null, percentage: 0 };
     const topCategory = categoryMetrics[0];
-    const percentage = (topCategory.revenue / totalRevenue) * 100;
-    return { isConcentrated: percentage > 50, topCategory: topCategory.category, percentage };
+    return { isConcentrated: topCategory.revenueShare > 50, topCategory: topCategory.category, percentage: topCategory.revenueShare };
   }, [categoryMetrics]);
 
   const healthScore = useMemo(() => {
@@ -463,7 +462,7 @@ export default function ReportsScreen() {
         id: 'top-category',
         type: 'opportunity',
         title: 'Top Revenue Driver',
-        description: `${categoryMetrics[0].category} generates ${categoryMetrics[0].percentage.toFixed(0)}% of your activity.`,
+        description: `${categoryMetrics[0].category} generates ${categoryMetrics[0].revenueShare.toFixed(0)}% of revenue.`,
         icon: '⭐',
       });
     }
@@ -803,28 +802,49 @@ export default function ReportsScreen() {
             </View>
 
             <View style={[styles.card, { backgroundColor: colors.cardBackground, borderColor: colors.borderColor }]}>
-              <View style={styles.categoryList}>
-                {categoryMetrics.slice(0, 5).map((cat, idx) => (
-                  <View key={cat.category} style={[styles.categoryRow, { borderBottomColor: colors.borderColor }]}>
-                    <View style={styles.categoryLeft}>
-                      <View style={[styles.categoryRank, { backgroundColor: idx < 2 ? '#1e3a8a' : 'rgba(16, 185, 129, 0.1)' }]}>
-                        <Text style={[styles.categoryRankText, { color: idx < 2 ? '#ffffff' : '#1e3a8a' }]}>#{idx + 1}</Text>
+              <View style={styles.catPerfList}>
+                {categoryMetrics.slice(0, 5).map((cat, idx) => {
+                  const barWidth = categoryMetrics[0].revenue > 0
+                    ? `${Math.max(4, (cat.revenue / categoryMetrics[0].revenue) * 100)}%`
+                    : '0%';
+                  const marginColor = cat.marginPct >= 20 ? '#059669' : cat.marginPct >= 0 ? '#d97706' : '#dc2626';
+                  return (
+                    <View key={cat.category} style={[styles.catPerfRow, idx < categoryMetrics.length - 1 && { borderBottomWidth: 1, borderBottomColor: 'rgba(0,0,0,0.06)' }]}>
+                      <View style={styles.catPerfHeader}>
+                        <View style={styles.catPerfRankWrap}>
+                          <View style={[styles.catPerfRank, { backgroundColor: idx === 0 ? '#1e3a8a' : 'rgba(30, 58, 138, 0.08)' }]}>
+                            <Text style={[styles.catPerfRankText, { color: idx === 0 ? '#ffffff' : '#1e3a8a' }]}>#{idx + 1}</Text>
+                          </View>
+                          <Text style={[styles.catPerfName, { color: colors.textColor }]} numberOfLines={1}>{cat.category}</Text>
+                        </View>
+                        <Text style={[styles.catPerfRevenue, { color: '#0f172a' }]}>{formatCurrency(cat.revenue)}</Text>
                       </View>
-                      <View style={styles.categoryInfo}>
-                        <Text style={[styles.categoryName, { color: colors.textColor }]}>{cat.category}</Text>
-                        <Text style={[styles.categoryPercent, { color: colors.textSecondary }]}>{cat.percentage.toFixed(1)}% of activity</Text>
+
+                      {/* Horizontal bar */}
+                      <View style={styles.catPerfBarTrack}>
+                        <View style={[styles.catPerfBarFill, {
+                          width: barWidth as any,
+                          backgroundColor: idx === 0 ? '#1e3a8a' : idx === 1 ? '#3b82f6' : '#93c5fd',
+                        }]} />
+                      </View>
+
+                      {/* Stats row */}
+                      <View style={styles.catPerfStats}>
+                        <Text style={[styles.catPerfShare, { color: colors.textSecondary }]}>
+                          {cat.revenueShare.toFixed(0)}% of revenue
+                        </Text>
+                        <View style={styles.catPerfStatsRight}>
+                          <Text style={[styles.catPerfNet, { color: cat.net >= 0 ? '#059669' : '#dc2626' }]}>
+                            {cat.net >= 0 ? '+' : ''}{formatCurrency(cat.net)}
+                          </Text>
+                          <Text style={[styles.catPerfMargin, { color: marginColor }]}>
+                            {cat.marginPct.toFixed(0)}% margin
+                          </Text>
+                        </View>
                       </View>
                     </View>
-                    <View style={styles.categoryRight}>
-                      <Text style={[styles.categoryProfit, { color: cat.net >= 0 ? '#1e3a8a' : '#ef4444' }]}>
-                        {formatCurrency(cat.net)}
-                      </Text>
-                      <Text style={[styles.categoryRevenue, { color: colors.textSecondary }]}>
-                        Rev: {formatCurrency(cat.revenue)}
-                      </Text>
-                    </View>
-                  </View>
-                ))}
+                  );
+                })}
               </View>
             </View>
           </>
@@ -1051,17 +1071,21 @@ const styles = StyleSheet.create({
   trendRow: { flexDirection: 'row', gap: 10 },
   trendItem: { flex: 1, padding: 12, backgroundColor: 'rgba(16, 185, 129, 0.04)', borderRadius: 10 },
   trendLabel: { fontSize: 10, fontWeight: '600', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.3, color: '#64748b' },
-  categoryList: { gap: 0 },
-  categoryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1 },
-  categoryLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 12 },
-  categoryRank: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  categoryRankText: { fontSize: 12, fontWeight: '700' },
-  categoryInfo: { flex: 1 },
-  categoryName: { fontSize: 14, fontWeight: '600', marginBottom: 2 },
-  categoryPercent: { fontSize: 11, fontWeight: '500' },
-  categoryRight: { alignItems: 'flex-end' },
-  categoryProfit: { fontSize: 14, fontWeight: '700', marginBottom: 2 },
-  categoryRevenue: { fontSize: 11, fontWeight: '500' },
+  catPerfList: { gap: 0 },
+  catPerfRow: { paddingVertical: 14 },
+  catPerfHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  catPerfRankWrap: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  catPerfRank: { width: 28, height: 28, borderRadius: 6, justifyContent: 'center', alignItems: 'center' },
+  catPerfRankText: { fontSize: 11, fontWeight: '700' },
+  catPerfName: { fontSize: 14, fontWeight: '600', flex: 1 },
+  catPerfRevenue: { fontSize: 16, fontWeight: '800' },
+  catPerfBarTrack: { height: 6, backgroundColor: 'rgba(0,0,0,0.06)', borderRadius: 3, overflow: 'hidden', marginBottom: 8 },
+  catPerfBarFill: { height: '100%', borderRadius: 3 },
+  catPerfStats: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  catPerfShare: { fontSize: 11, fontWeight: '500' },
+  catPerfStatsRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  catPerfNet: { fontSize: 12, fontWeight: '700' },
+  catPerfMargin: { fontSize: 11, fontWeight: '600' },
   debtSummary: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 16 },
   debtSummaryItem: { alignItems: 'center' },
   debtLabel: { fontSize: 11, fontWeight: '500', marginBottom: 8 },
