@@ -1,4 +1,4 @@
-import { DollarSign, TrendingDown, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react-native';
+import { DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -35,38 +35,6 @@ export const SummaryCard = React.memo(function SummaryCard({ title, summary }: S
 
   // Margin percentage
   const marginPct = revenue > 0 ? profit / revenue : 0;
-
-  // Health indicator
-  const expenseRatio = profit > 0 ? expenses / profit : Infinity;
-  let healthIcon: React.ReactNode;
-  let healthText: string;
-  let healthColor: string;
-
-  if (!hasActivity) {
-    healthIcon = null;
-    healthText = '';
-    healthColor = '#94a3b8';
-  } else if (profit <= 0 && expenses > 0) {
-    healthIcon = <AlertTriangle size={14} color="#ef4444" />;
-    healthText = 'Loss — spending exceeds earnings';
-    healthColor = '#ef4444';
-  } else if (expenses === 0) {
-    healthIcon = <CheckCircle size={14} color="#10b981" />;
-    healthText = 'No operating expenses';
-    healthColor = '#10b981';
-  } else if (expenseRatio <= 0.5) {
-    healthIcon = <CheckCircle size={14} color="#10b981" />;
-    healthText = `Healthy — ${formatPercent(expenseRatio)} of profit spent`;
-    healthColor = '#10b981';
-  } else if (expenseRatio <= 1) {
-    healthIcon = <AlertTriangle size={14} color="#f59e0b" />;
-    healthText = `Caution — ${formatPercent(expenseRatio)} of profit spent`;
-    healthColor = '#f59e0b';
-  } else {
-    healthIcon = <AlertTriangle size={14} color="#ef4444" />;
-    healthText = `Overspending — ${formatPercent(expenseRatio)} of profit spent`;
-    healthColor = '#ef4444';
-  }
 
   return (
     <View style={styles.container}>
@@ -134,14 +102,6 @@ export const SummaryCard = React.memo(function SummaryCard({ title, summary }: S
           </View>
         )}
       </View>
-
-      {/* Health Indicator — only when there are expenses */}
-      {hasActivity && expenses > 0 && (
-        <View style={[styles.healthRow, { backgroundColor: `${healthColor}12` as any }]}>
-          {healthIcon}
-          <Text style={[styles.healthText, { color: healthColor }]}>{healthText}</Text>
-        </View>
-      )}
 
       {/* Footer */}
       <View style={styles.footer}>
@@ -229,19 +189,6 @@ const styles = StyleSheet.create({
   barFill: {
     height: '100%',
     borderRadius: 2,
-  },
-  healthRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 10,
-    marginBottom: 4,
-  },
-  healthText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   footer: {
     marginTop: 8,
