@@ -88,16 +88,9 @@ export async function completeSale(
 
       // 2. Insert Sale Items, snapshot cost, decrement stock
       const itemNames = items.map(i => `${i.quantity}x ${i.name}`).join(', ');
-      let primaryCategory = 'Sale';
+      const primaryCategory = 'Sale';
 
       for (const item of items) {
-        const product = await db.getFirstAsync<{category_id: string | null}>(
-          'SELECT category_id FROM products WHERE id = ?', item.product_id
-        );
-        if (product && product.category_id && primaryCategory === 'Sale') {
-          primaryCategory = product.category_id;
-        }
-
         const stockInfo = stockInfoMap.get(item.product_id)!;
         // unit_cost = product's cost_price at time of sale (NULL if legacy product with no cost tracking)
         const unitCost = stockInfo.costPrice;

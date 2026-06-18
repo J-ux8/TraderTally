@@ -107,7 +107,7 @@ export class TransactionGroupingEngine implements GroupingEngine {
       : (transaction.description || 'null').toLowerCase();
     
     // Handle category (always case-sensitive for categories)
-    const category = transaction.category || 'null';
+    const category = transaction.linked_sale_id ? 'sale' : (transaction.category || 'null');
     
     // Create composite key with pipe separator
     return `${description}|${category}|${date}`;

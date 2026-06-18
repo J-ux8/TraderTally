@@ -38,7 +38,7 @@ export default function DayTransactionsScreen() {
   const handleTransactionPress = (transaction: any) => {
     Alert.alert(
       'Transaction Details',
-      `Amount: K${Math.abs(transaction.amount).toFixed(2)}\nType: ${transaction.amount >= 0 ? 'Sale' : 'Expense'}\nCategory: ${transaction.category || 'Uncategorized'}\nDescription: ${transaction.description || 'No description'}\nTime: ${new Date(transaction.created_at).toLocaleTimeString()}`,
+      `Amount: K${Math.abs(transaction.amount).toFixed(2)}\nType: ${transaction.amount >= 0 ? 'Sale' : 'Expense'}\nCategory: ${transaction.linked_sale_id ? 'Sale' : transaction.category || 'Uncategorized'}\nDescription: ${transaction.description || 'No description'}\nTime: ${new Date(transaction.created_at).toLocaleTimeString()}`,
       [{ text: 'OK' }]
     );
   };

@@ -382,7 +382,7 @@ export default function ReportsScreen() {
       });
     } else {
       filteredTransactions.forEach(t => {
-        const category = t.category || 'Uncategorized';
+        const category = t.linked_sale_id ? 'Sale' : (t.category || 'Uncategorized');
         if (!categoryMap.has(category)) {
           categoryMap.set(category, { category, revenue: 0, expenses: 0, net: 0, count: 0, revenueShare: 0, marginPct: 0 });
         }

@@ -19,6 +19,8 @@ interface Transaction {
   transaction_date: string;
   created_at: string;
   user_id: string;
+  customer_id?: string | null;
+  linked_sale_id?: string | null;
   sale_items?: any[];
 }
 
@@ -131,9 +133,9 @@ const TransactionItem = React.memo(({
           </TouchableOpacity>
         </View>
       </View>
-      {!!transaction.category && (
+      {(!!transaction.category || transaction.linked_sale_id) && (
         <View style={styles.categoryContainer}>
-          <Text style={dynamicStyles.category}>{transaction.category}</Text>
+          <Text style={dynamicStyles.category}>{transaction.linked_sale_id ? 'Sale' : transaction.category}</Text>
         </View>
       )}
       {!!transaction.description && (
@@ -211,7 +213,7 @@ export default function RecordsScreen() {
     setSelectedTransaction(transaction);
     setEditAmount(Math.abs(transaction.amount).toString());
     setEditDescription(transaction.description || "");
-    setEditCategory(transaction.category);
+    setEditCategory(transaction.linked_sale_id ? 'Sale' : transaction.category);
     setEditDate(new Date(transaction.transaction_date));
     setEditModalVisible(true);
   }

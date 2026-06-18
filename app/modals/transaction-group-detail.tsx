@@ -49,7 +49,7 @@ export default function TransactionGroupDetailModal() {
       // For now, we'll show an alert with transaction info
       Alert.alert(
         'Transaction Details',
-        `Amount: K${Math.abs(transaction.amount)}\nDescription: ${transaction.description || 'No description'}\nCategory: ${transaction.category || 'No category'}\nDate: ${new Date(transaction.transaction_date).toLocaleString()}`,
+        `Amount: K${Math.abs(transaction.amount)}\nDescription: ${transaction.description || 'No description'}\nCategory: ${transaction.linked_sale_id ? 'Sale' : transaction.category || 'No category'}\nDate: ${new Date(transaction.transaction_date).toLocaleString()}`,
         [
           { text: 'OK', style: 'default' },
           { 

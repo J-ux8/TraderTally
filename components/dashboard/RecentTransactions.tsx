@@ -10,6 +10,7 @@ interface Transaction {
   description: string | null;
   transaction_date: string;
   created_at: string;
+  linked_sale_id?: string | null;
 }
 
 interface Category {
@@ -51,8 +52,8 @@ export const RecentTransactions = React.memo(function RecentTransactions({ trans
             {formatDate(item.transaction_date)}
           </Text>
         </View>
-        {item.category && (
-          <Text style={styles.transactionCategory}>{item.category}</Text>
+        {(item.category || item.linked_sale_id) && (
+          <Text style={styles.transactionCategory}>{item.linked_sale_id ? 'Sale' : item.category}</Text>
         )}
         {item.description && (
           <Text style={styles.transactionDescription} numberOfLines={1}>

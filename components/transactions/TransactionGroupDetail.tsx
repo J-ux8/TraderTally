@@ -124,7 +124,7 @@ export const TransactionItem = memo<TransactionItemProps>(({
               numberOfLines={1}
               ellipsizeMode="tail"
             >
-              {transaction.description || transaction.category || 'No description'}
+              {transaction.description || (transaction.linked_sale_id ? 'Sale' : transaction.category) || 'No description'}
             </Text>
             <Text style={[styles.transactionAmount, { color: amountColor }]}>
               {formatAmount(transaction.amount)}
@@ -139,11 +139,11 @@ export const TransactionItem = memo<TransactionItemProps>(({
               </Text>
             </View>
             
-            {transaction.category && (
+            {(transaction.category || transaction.linked_sale_id) && (
               <View style={styles.categoryBadge}>
                 <Tag size={10} color={colors.textSecondary} />
                 <Text style={[styles.categoryText, { color: colors.textSecondary }]}>
-                  {transaction.category}
+                  {transaction.linked_sale_id ? 'Sale' : transaction.category}
                 </Text>
               </View>
             )}
