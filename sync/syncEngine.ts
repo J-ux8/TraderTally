@@ -123,25 +123,17 @@ export class SyncEngine {
    * Parallelizes independent tables to speed up sync
    */
   private static async push(): Promise<void> {
-    // 1. Independent tables can sync in parallel
-    await Promise.all([
-      this.pushTable('profiles'),
-      this.pushTable('categories'),
-      this.pushTable('customers'),
-      this.pushTable('transaction_templates')
-    ]);
-
-    // 2. Dependent tables (order matters)
+    // Fully sequential to avoid expo-sqlite v16 concurrency crashes
+    await this.pushTable('profiles');
+    await this.pushTable('categories');
+    await this.pushTable('customers');
+    await this.pushTable('transaction_templates');
     await this.pushTable('products');
-    await this.pushTable('stock_batches'); // depends on products
+    await this.pushTable('stock_batches');
     await this.pushTable('sales');
-    await this.pushTable('sale_items'); // depends on sales & products
-    
-    // 3. Transactions and debts (depend on customers/sales)
-    await Promise.all([
-      this.pushTable('transactions'),
-      this.pushTable('debts')
-    ]);
+    await this.pushTable('sale_items');
+    await this.pushTable('transactions');
+    await this.pushTable('debts');
   }
 
   /**
@@ -183,25 +175,17 @@ export class SyncEngine {
     const lastSyncTime = await LocalDB.getLastSyncTime();
     const now = new Date().toISOString();
 
-    // 1. Independent tables can sync in parallel
-    await Promise.all([
-      this.pullTable('profiles', lastSyncTime),
-      this.pullTable('categories', lastSyncTime),
-      this.pullTable('customers', lastSyncTime),
-      this.pullTable('transaction_templates', lastSyncTime)
-    ]);
-
-    // 2. Dependent tables (order matters)
+    // Fully sequential to avoid expo-sqlite v16 concurrency crashes
+    await this.pullTable('profiles', lastSyncTime);
+    await this.pullTable('categories', lastSyncTime);
+    await this.pullTable('customers', lastSyncTime);
+    await this.pullTable('transaction_templates', lastSyncTime);
     await this.pullTable('products', lastSyncTime);
-    await this.pullTable('stock_batches', lastSyncTime); // depends on products
+    await this.pullTable('stock_batches', lastSyncTime);
     await this.pullTable('sales', lastSyncTime);
-    await this.pullTable('sale_items', lastSyncTime); // depends on sales & products
-    
-    // 3. Transactions and debts (depend on customers/sales)
-    await Promise.all([
-      this.pullTable('transactions', lastSyncTime),
-      this.pullTable('debts', lastSyncTime)
-    ]);
+    await this.pullTable('sale_items', lastSyncTime);
+    await this.pullTable('transactions', lastSyncTime);
+    await this.pullTable('debts', lastSyncTime);
 
     // Update last sync time on success
     await LocalDB.updateLastSyncTime(now);

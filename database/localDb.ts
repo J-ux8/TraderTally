@@ -344,10 +344,9 @@ export class LocalDB {
   static async recoverSyncStatus(): Promise<void> {
     const db = await getDatabase();
     const tables = ['profiles', 'transactions', 'categories', 'debts', 'transaction_templates', 'products', 'sales', 'sale_items', 'stock_batches'];
-    for (const table of tables) {
-      await db.runAsync(
-        `UPDATE ${table} SET sync_status = 'pending' WHERE sync_status = 'syncing'`
-      );
+    const sql = tables.map(t => `UPDATE ${t} SET sync_status = 'pending' WHERE sync_status = 'syncing'`).join('; ');
+    if (sql) {
+      await db.execAsync(sql);
     }
   }
 
@@ -355,77 +354,79 @@ export class LocalDB {
    * Batch upsert from server
    */
   static async upsertFromServer(table: string, records: any[]): Promise<void> {
+    if (records.length === 0) return;
     const db = await getDatabase();
 
-    // Use cached schema — avoids PRAGMA table_info on every sync pull
     const validColumns = await this.getValidColumns(db, table);
 
-    // Process in a single transaction for performance
-    await db.withTransactionAsync(async () => {
-      for (const record of records) {
-        // Map 'deleted' to 'is_deleted' if necessary
-        if (record.deleted !== undefined && !record.is_deleted && validColumns.includes('is_deleted')) {
-          record.is_deleted = record.deleted ? 1 : 0;
-        }
+    // Pre-fetch all local records in one query to avoid
+    // getFirstAsync inside execAsync (which triggers the NativeStatement GC bug)
+    const ids = records.filter(r => r.id).map(r => r.id);
+    const existing = ids.length > 0
+      ? await db.getAllAsync<{ id: string; updated_at: string }>(
+          `SELECT id, updated_at FROM ${table} WHERE id IN (${ids.map(() => '?').join(',')})`,
+          ...ids
+        )
+      : [];
+    const existingMap = new Map(existing.map(r => [r.id, r]));
 
-        // Filter record to only contain columns that exist locally
-        const filteredRecord: any = {};
-        for (const col of validColumns) {
-          if (record[col] !== undefined) {
-            filteredRecord[col] = record[col];
-          }
-        }
+    // Build batch SQL with explicit transaction
+    const statements: string[] = ['BEGIN TRANSACTION;'];
 
-        // Special handling for categories: infer type if missing from server
-        if (table === 'categories' && filteredRecord.type === undefined) {
-          const name = (filteredRecord.name || '').toLowerCase();
-          if (
-            name.includes('sale') || 
-            name.includes('income') || 
-            name.includes('revenue') || 
-            name.includes('profit')
-          ) {
-            filteredRecord.type = 'income';
-          } else {
-            filteredRecord.type = 'expense';
-          }
-        }
+    for (const record of records) {
+      if (record.deleted !== undefined && !record.is_deleted && validColumns.includes('is_deleted')) {
+        record.is_deleted = record.deleted ? 1 : 0;
+      }
 
-        // Use filteredRecord for the rest of the logic
-        const local = await db.getFirstAsync<LocalBaseModel>(
-          `SELECT updated_at, sync_status FROM ${table} WHERE id = ?`,
-          record.id
-        );
-
-        if (local) {
-          // Conflict resolution: Latest updated_at wins
-          const localTime = new Date(local.updated_at).getTime();
-          const serverTime = new Date(record.updated_at).getTime();
-
-          if (serverTime > localTime) {
-            // Server version is newer
-            const columns = Object.keys(filteredRecord);
-            const setClause = columns.map(col => `${col} = ?`).join(', ');
-            const values = this.mapValues([...Object.values(filteredRecord), record.id]);
-            
-            await db.runAsync(
-              `UPDATE ${table} SET ${setClause}, sync_status = 'synced' WHERE id = ?`,
-              ...values
-            );
-          }
-        } else {
-          // New record from server
-          filteredRecord.sync_status = 'synced';
-          const columns = Object.keys(filteredRecord);
-          const placeholders = columns.map(() => '?').join(', ');
-          const values = this.mapValues(Object.values(filteredRecord));
-
-          await db.runAsync(
-            `INSERT OR REPLACE INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`,
-            ...values
-          );
+      const filteredRecord: any = {};
+      for (const col of validColumns) {
+        if (record[col] !== undefined) {
+          filteredRecord[col] = record[col];
         }
       }
-    });
+
+      if (table === 'categories' && filteredRecord.type === undefined) {
+        const name = (filteredRecord.name || '').toLowerCase();
+        if (
+          name.includes('sale') ||
+          name.includes('income') ||
+          name.includes('revenue') ||
+          name.includes('profit')
+        ) {
+          filteredRecord.type = 'income';
+        } else {
+          filteredRecord.type = 'expense';
+        }
+      }
+
+      const existing = existingMap.get(record.id);
+      if (existing) {
+        const localTime = new Date(existing.updated_at).getTime();
+        const serverTime = new Date(record.updated_at).getTime();
+        if (serverTime > localTime) {
+          filteredRecord.sync_status = 'synced';
+          const setClause = Object.keys(filteredRecord).map(c => {
+            const val = filteredRecord[c];
+            if (val === null || val === undefined) return `${c} = NULL`;
+            if (typeof val === 'number') return `${c} = ${val}`;
+            return `${c} = '${String(val).replace(/'/g, "''")}'`;
+          }).join(', ');
+          statements.push(`UPDATE ${table} SET ${setClause} WHERE id = '${record.id.replace(/'/g, "''")}';`);
+        }
+      } else {
+        filteredRecord.sync_status = 'synced';
+        const cols = Object.keys(filteredRecord);
+        const vals = cols.map(c => {
+          const val = filteredRecord[c];
+          if (val === null || val === undefined) return 'NULL';
+          if (typeof val === 'number') return String(val);
+          return `'${String(val).replace(/'/g, "''")}'`;
+        });
+        statements.push(`INSERT OR REPLACE INTO ${table} (${cols.join(', ')}) VALUES (${vals.join(', ')});`);
+      }
+    }
+
+    statements.push('COMMIT;');
+    await db.execAsync(statements.join('\n'));
   }
 }
