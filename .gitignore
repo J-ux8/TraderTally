@@ -38,6 +38,11 @@ yarn-error.*
 
 app-example
 
+# AI coding agent config
+.gemini/
+.kiro/
+.qodo/
+
 # generated native folders
 /ios
 /android
