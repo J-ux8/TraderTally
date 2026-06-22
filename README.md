@@ -1,244 +1,107 @@
-# 📱 MobiBooks - Business Accounting App
+# 📱 TraderTally — Offline-First Point of Sale
 
-A modern, offline-first mobile accounting app built with React Native and Expo.
+An offline-first mobile POS app built with React Native and Expo. Tracks per-product cost and profit, supports split payments (cash + credit), and syncs to Supabase when online.
 
 ## ✨ Features
 
-- 💰 Record expenses and sales
-- 📊 Track customer debts
-- 📈 Generate financial reports
-- 🏷️ Custom categories
-- 📴 Full offline support
-- ☁️ Cloud sync with Supabase
-- 🔐 Secure authentication
-- ⚡ Lightning fast performance
-
----
+- 💰 **Sales** — Category-first product browsing, add to cart, complete sale with cash/credit/partial payment
+- 📊 **Profit tracking** — Per-product cost price set during stock ordering; profit computed per sale as (selling_price − cost_price) × quantity
+- 💳 **Three payment paths** — Full cash (transaction only), full credit (debt only), or partial (transaction + debt)
+- 🧾 **Expenses** — Record operating costs; all outflows count as expenses
+- 📈 **Reports** — Performance overview, category performance, product profitability, credit & debt, business health
+- 🏷️ **Categories** — Required for every product, category-first browsing
+- 📴 **Offline-first** — Local SQLite is the primary store; UI updates instantly, syncs to cloud in background
+- ☁️ **Cloud sync** — Supabase for authentication and cloud backup
+- 👥 **Customer debts** — Track receivables, settle against original sale without double-counting profit
+- 📁 **Stock orders** — Set both cost price and selling price in one screen, date-pickable
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
 ```bash
+# Install dependencies
 npm install
-```
 
-### 2. Set Up Environment
-Create a `.env` file with your Supabase credentials:
-```
+# Set up environment — create .env with:
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
 
-### 3. Start the App
-```bash
+# Start the app
 npx expo start
 ```
 
-### 4. Enable Cloud Sync (Optional)
-See `QUICK_START.md` for 5-minute setup guide.
-
----
-
-## 📖 Documentation
-
-### Getting Started
-- **[QUICK_START.md](QUICK_START.md)** - Get up and running in 5 minutes
-- **[CHECKLIST.md](CHECKLIST.md)** - Complete setup checklist
-
-### Setup Guides
-- **[SUPABASE_FINAL_SETUP.md](SUPABASE_FINAL_SETUP.md)** - Complete Supabase setup
-- **[HOW_TO_FIX_SYNC.md](HOW_TO_FIX_SYNC.md)** - Visual guide to fix sync errors
-
-### Status & Analysis
-- **[FINAL_STATUS.md](FINAL_STATUS.md)** - Current app status
-- **[COMPREHENSIVE_APP_ANALYSIS.md](COMPREHENSIVE_APP_ANALYSIS.md)** - Full app analysis
-
-### Technical Details
-- **[SYNC_STATUS_INDICATOR.md](SYNC_STATUS_INDICATOR.md)** - Sync indicator implementation
-- **[SYNC_NOTIFICATION_COMPLETE.md](SYNC_NOTIFICATION_COMPLETE.md)** - Toast notifications
-- **[INSTANT_SAVE_FIX.md](INSTANT_SAVE_FIX.md)** - How instant saves work
-- **[PERFORMANCE_OPTIMIZATION.md](PERFORMANCE_OPTIMIZATION.md)** - Performance improvements
-
----
-
-## 🎯 Current Status
-
-✅ **Production Ready** - App is fully functional and ready to use
-
-### Working Features:
-- ✅ All core features (expenses, sales, debts, reports)
-- ✅ Offline mode (bulletproof)
-- ✅ Fast performance (70-80% faster than before)
-- ✅ Sync status indicators
-- ✅ Toast notifications
-
-### Optional Setup:
-- ⚠️ Cloud sync (requires running one SQL script in Supabase)
-
----
-
 ## 🏗️ Architecture
 
-### Tech Stack:
+### Tech Stack
 - **Frontend:** React Native + Expo
-- **Routing:** Expo Router
+- **Routing:** Expo Router (file-based)
 - **Database:** SQLite (local) + Supabase (cloud)
 - **Authentication:** Supabase Auth
-- **State Management:** React Context
-- **Styling:** React Native StyleSheet
+- **State Management:** React Context + custom hooks
 
-### Data Flow:
+### Data Flow
 ```
-User Action → Local DB (instant) → UI Update → Background Sync → Cloud Backup
+User Action → Local SQLite (instant) → UI Update → Background Sync → Supabase
 ```
 
-### Offline-First Strategy:
-1. Save locally first (always)
+### Offline-First Strategy
+1. Save to SQLite first (always)
 2. Update UI immediately
-3. Sync to cloud in background
-4. Handle conflicts gracefully
-5. Retry failed syncs automatically
-
----
+3. Sync to Supabase in background
+4. Conflict resolution: latest `updated_at` wins
 
 ## 📁 Project Structure
 
 ```
-├── app/                    # Screens and navigation
-│   ├── (tabs)/            # Main app screens
-│   ├── Authentication/    # Login/register screens
-│   └── _layout.tsx        # Root layout
+├── app/                    # Screens and navigation (Expo Router)
+│   ├── (tabs)/            # Main tab screens (dashboard, records, reports, debts, settings)
+│   ├── modals/            # Modal screens (new sale, record sale, orders, expenses, debt)
+│   ├── Authentication/    # Login, register, verify email
+│   └── _layout.tsx        # Root layout with Stack navigator
 ├── components/            # Reusable components
-│   ├── dashboard/         # Dashboard components
-│   ├── debts/            # Debt management components
-│   └── ui/               # UI components
-├── contexts/             # React contexts
-├── hooks/                # Custom hooks
-├── lib/                  # Core logic
-│   ├── offline/          # Offline sync engine
-│   └── *.ts             # Business logic
-├── database/             # SQLite schema
-├── supabase_migrations/  # Supabase SQL scripts
-└── assets/              # Images and static files
+│   ├── dashboard/         # SummaryCard, QuickActions, RecentTransactions
+│   ├── debts/             # Debt list, settlement sheet
+│   ├── transactions/      # TransactionGroupDetail
+│   └── ui/                # Collapsible, OfflineIndicator
+├── contexts/              # React contexts (Cart, Categories, Theme, Toast, Transactions)
+├── context/               # SyncContext, ErrorMonitoringContext
+├── hooks/                 # Custom hooks (useSummary, useDebts, useTransactions, etc.)
+├── lib/                   # Core business logic (sales, orders, debts, grouping, profit calc)
+├── database/              # SQLite schema and migrations
+├── sync/                  # Sync engine + NetworkMonitor
+├── supabase_migrations/   # SQL migration scripts for Supabase
+├── supabase_functions/    # Edge functions (send-otp-email)
+└── types/                 # TypeScript type definitions
 ```
-
----
 
 ## 🔧 Development
 
-### Run on Different Platforms:
 ```bash
-# iOS Simulator
+# Start on different platforms
 npx expo start --ios
-
-# Android Emulator
 npx expo start --android
 
-# Web Browser
-npx expo start --web
-```
-
-### Clear Cache:
-```bash
+# Clear cache
 npx expo start --clear
-```
 
-### Build for Production:
-```bash
-# iOS
-eas build --platform ios
-
-# Android
+# Build for production
 eas build --platform android
+eas build --platform ios
 ```
-
----
 
 ## 🧪 Testing
 
-### Test Offline Mode:
-1. Turn off WiFi/data
-2. Record expenses
-3. Verify no errors
-4. Turn WiFi back on
-5. Verify sync happens
-
-### Test Sync:
-1. Record expense
-2. Watch sync indicator
-3. Check for toast notification
-4. Verify data in Supabase
-
----
-
-## 🚨 Troubleshooting
-
-### Sync Not Working?
-→ See `HOW_TO_FIX_SYNC.md`
-
-### Slow Loading?
-→ Clear app cache and restart
-
-### Login Issues?
-→ Check email verification
-
-### Missing Data?
-→ Verify you're logged in with correct account
-
----
-
-## 📊 Performance
-
-### Loading Times:
-- Home screen: < 1 second
-- Records screen: < 1.5 seconds
-- Debts screen: < 1 second
-- Settings screen: < 0.5 seconds
-
-### Optimizations:
-- Data caching (5 min for transactions, 3 min for debts)
-- Memoized components
-- Efficient list rendering
-- Optimized database queries
-- Background sync (non-blocking)
-
----
+- **Offline:** Turn off WiFi → record sales/expenses → verify no errors → reconnect → verify sync
+- **Payment paths:** Test full cash, full credit, and partial cash+credit
+- **Profit accuracy:** Verify profit displays correctly in Records and Reports
+- **Sync:** Record data, watch sync indicator, verify data in Supabase dashboard
 
 ## 🔐 Security
 
 - Row Level Security (RLS) in Supabase
 - Secure session management
-- Encrypted local storage
 - User data isolation
-- No data sharing
 
 ---
 
-## 📝 License
-
-This project is private and proprietary.
-
----
-
-## 🤝 Support
-
-For issues or questions:
-1. Check the documentation files
-2. Review the troubleshooting guides
-3. Check console logs for errors
-
----
-
-## 🎉 Credits
-
-Built with ❤️ using:
-- [Expo](https://expo.dev)
-- [React Native](https://reactnative.dev)
-- [Supabase](https://supabase.com)
-- [SQLite](https://www.sqlite.org)
-
----
-
-**Version:** 1.0  
-**Status:** Production Ready ✅  
-**Last Updated:** March 8, 2026
+**Version:** 2.0  
+**Last Updated:** June 2026
