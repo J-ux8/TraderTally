@@ -290,6 +290,9 @@ export default function NewSaleScreen() {
           numColumns={2}
           columnWrapperStyle={styles.categoryRow}
           contentContainerStyle={styles.categoryList}
+          windowSize={5}
+          maxToRenderPerBatch={8}
+          removeClippedSubviews={true}
         />
       )}
     </View>
@@ -356,6 +359,9 @@ export default function NewSaleScreen() {
                 )}
               </View>
             }
+            windowSize={5}
+            maxToRenderPerBatch={10}
+            removeClippedSubviews={true}
           />
         )}
       </View>

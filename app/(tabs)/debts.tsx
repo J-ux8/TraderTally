@@ -11,7 +11,7 @@ import React, { useCallback, useState, useMemo } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-export default function DebtsScreen() {
+export default React.memo(function DebtsScreen() {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const { debts, updateDebt, settleDebt, deleteDebt, refresh, loading, error } = useDebts();
@@ -202,7 +202,7 @@ export default function DebtsScreen() {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   safeArea: {

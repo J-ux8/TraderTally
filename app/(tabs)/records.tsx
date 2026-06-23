@@ -156,7 +156,7 @@ const TransactionItem = React.memo(({
 
 import { useCustomAlert } from '@/components/ui/CustomAlertContext';
 
-export default function RecordsScreen() {
+export default React.memo(function RecordsScreen() {
   const { showAlert } = useCustomAlert();
   const Alert = { alert: showAlert };
   const insets = useSafeAreaInsets();
@@ -386,6 +386,10 @@ export default function RecordsScreen() {
               <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#1e3a8a" />
             }
             showsVerticalScrollIndicator={false}
+            windowSize={5}
+            maxToRenderPerBatch={10}
+            removeClippedSubviews={true}
+            initialNumToRender={10}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Text style={[styles.emptyText, { color: colors.textSecondary }]}>No transactions yet</Text>
@@ -530,9 +534,9 @@ export default function RecordsScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
-    </View >
+    </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: { flex: 1 },

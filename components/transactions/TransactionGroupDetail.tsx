@@ -359,6 +359,9 @@ export const TransactionGroupDetail = memo<TransactionGroupDetailProps>(({
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        windowSize={5}
+        maxToRenderPerBatch={10}
+        removeClippedSubviews={true}
       />
     </View>
   );

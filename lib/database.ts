@@ -3,7 +3,7 @@ import { SCHEMA } from '../database/schema';
 import { supabase } from './supabase';
 import { randomUUID } from 'expo-crypto';
 
-console.log('>>> [DB] MODULE LOADED - STACK VERSION: 5.0 <<<');
+
 
 let db: SQLite.SQLiteDatabase | null = null;
 let initPromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -15,11 +15,8 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 
   initPromise = (async () => {
     try {
-      console.log('[Database] Opening database: mobibooks.db');
       const _db = await SQLite.openDatabaseAsync('mobibooks.db');
-      console.log('[Database] Setting up tables...');
       await setupDatabase(_db);
-      console.log('[Database] Database ready');
       db = _db;
       return db;
     } catch (error) {
@@ -32,24 +29,16 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 }
 
 async function setupDatabase(database: SQLite.SQLiteDatabase) {
-  // 1. Create all tables first
-  console.log('[Database] Phase 1: Creating tables...');
-  for (const [tableName, tableSql] of Object.entries(SCHEMA.TABLES)) {
-    console.log(`[Database] Ensuring table exists: ${tableName}`);
+  for (const [, tableSql] of Object.entries(SCHEMA.TABLES)) {
     await database.execAsync(tableSql);
   }
 
-  // 2. Migration: Add missing sync columns to existing tables
-  console.log('[Database] Phase 2: Running migrations...');
-
-  // Migration for sync_metadata to handle old schemas missing user_id
   try {
     const info = await database.getAllAsync<{ name: string }>('PRAGMA table_info(sync_metadata)');
     const columns = info.map(col => col.name);
     const needsRecreate = !columns.includes('user_id') || columns.includes('device_id');
     
     if (needsRecreate) {
-      console.log('[Database] Migrating sync_metadata: dropping and recreating table');
       await database.execAsync('DROP TABLE IF EXISTS sync_metadata');
       await database.execAsync(SCHEMA.TABLES.sync_metadata);
     } else {
@@ -60,48 +49,39 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
     await database.execAsync(SCHEMA.TABLES.sync_metadata);
   }
 
-  const tablesToSync = ['transactions', 'categories', 'debts', 'transaction_templates', 'customers', 'products', 'sales', 'sale_items', 'stock_batches'];
+  const tablesToSync = ['transactions', 'categories', 'debts', 'customers', 'products', 'sales', 'sale_items'];
   
   for (const table of tablesToSync) {
     try {
       const info = await database.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
       const columns = info.map(col => col.name);
-      console.log(`[Database] Columns for ${table}:`, columns.join(', '));
 
       if (!columns.includes('user_id')) {
-        console.log(`[Database] Migrating ${table}: adding user_id column`);
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN user_id TEXT`);
       }
 
       if (!columns.includes('is_deleted')) {
-        console.log(`[Database] Migrating ${table}: adding is_deleted column`);
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN is_deleted INTEGER DEFAULT 0`);
       }
 
       if (!columns.includes('updated_at')) {
-        console.log(`[Database] Migrating ${table}: adding updated_at column`);
         const now = new Date().toISOString();
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN updated_at TEXT DEFAULT '${now}'`);
       }
 
       if (!columns.includes('sync_status')) {
-        console.log(`[Database] Migrating ${table}: adding sync_status column`);
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN sync_status TEXT DEFAULT 'pending'`);
       }
       
       if (!columns.includes('retry_count')) {
-        console.log(`[Database] Migrating ${table}: adding retry_count column`);
         await database.execAsync(`ALTER TABLE ${table} ADD COLUMN retry_count INTEGER DEFAULT 0`);
       }
 
       if (table === 'categories') {
         if (!columns.includes('type')) {
-          console.log(`[Database] Migrating categories: adding type column`);
           await database.execAsync(`ALTER TABLE categories ADD COLUMN type TEXT DEFAULT 'expense'`);
         }
         
-        // Ensure custom categories are correctly typed as income if they aren't standard expenses
-        // This fix runs every time to catch any mis-categorized local records
         await database.execAsync(`
           UPDATE categories 
           SET type = 'income' 
@@ -119,113 +99,84 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
           )
         `);
 
-        // Explicitly ensure 'sale' is always income
         await database.execAsync(`UPDATE categories SET type = 'income' WHERE normalized_name = 'sale'`);
       }
       
       if (table === 'transactions') {
         if (!columns.includes('customer_id')) {
-          console.log(`[Database] Migrating transactions: adding customer_id`);
           await database.execAsync(`ALTER TABLE transactions ADD COLUMN customer_id TEXT`);
         }
         if (!columns.includes('linked_sale_id')) {
-          console.log(`[Database] Migrating transactions: adding linked_sale_id`);
           await database.execAsync(`ALTER TABLE transactions ADD COLUMN linked_sale_id TEXT`);
         }
       }
 
       if (table === 'debts') {
         if (!columns.includes('customer_id')) {
-          console.log(`[Database] Migrating debts: adding customer_id`);
           await database.execAsync(`ALTER TABLE debts ADD COLUMN customer_id TEXT`);
         }
         if (!columns.includes('customer_phone')) {
-          console.log(`[Database] Migrating debts: adding customer_phone`);
           await database.execAsync(`ALTER TABLE debts ADD COLUMN customer_phone TEXT`);
         }
         if (!columns.includes('type')) {
-          console.log(`[Database] Migrating debts: adding type column`);
           await database.execAsync(`ALTER TABLE debts ADD COLUMN type TEXT DEFAULT 'receivable'`);
         }
         if (!columns.includes('linked_sale_id')) {
-          console.log(`[Database] Migrating debts: adding linked_sale_id`);
           await database.execAsync(`ALTER TABLE debts ADD COLUMN linked_sale_id TEXT`);
         }
         if (!columns.includes('amount_paid_at_sale')) {
-          console.log(`[Database] Migrating debts: adding amount_paid_at_sale`);
           await database.execAsync(`ALTER TABLE debts ADD COLUMN amount_paid_at_sale REAL DEFAULT 0`);
         }
       }
 
       if (table === 'products') {
         if (!columns.includes('display_name')) {
-          console.log(`[Database] Migrating products: adding display_name column`);
           await database.execAsync(`ALTER TABLE products ADD COLUMN display_name TEXT`);
-          // Set display_name to name initially
           await database.execAsync(`UPDATE products SET display_name = name WHERE display_name IS NULL`);
         }
         if (!columns.includes('usage_count')) {
-          console.log(`[Database] Migrating products: adding usage_count column`);
           await database.execAsync(`ALTER TABLE products ADD COLUMN usage_count INTEGER DEFAULT 0`);
         }
         if (!columns.includes('stock_quantity')) {
-          console.log(`[Database] Migrating products: adding stock_quantity column`);
           await database.execAsync(`ALTER TABLE products ADD COLUMN stock_quantity REAL`);
         }
         if (!columns.includes('cost_price')) {
-          console.log(`[Database] Migrating products: adding cost_price column`);
           await database.execAsync(`ALTER TABLE products ADD COLUMN cost_price REAL`);
         }
       }
 
       if (table === 'sale_items') {
         if (!columns.includes('unit_cost')) {
-          console.log(`[Database] Migrating sale_items: adding unit_cost column`);
           await database.execAsync(`ALTER TABLE sale_items ADD COLUMN unit_cost REAL`);
-        }
-      }
-
-      if (table === 'stock_batches') {
-        if (!columns.includes('user_id')) {
-          console.log(`[Database] Migrating stock_batches: adding user_id column`);
-          await database.execAsync(`ALTER TABLE stock_batches ADD COLUMN user_id TEXT`);
         }
       }
     } catch (e) {
       console.error(`[Database] Migration failed for ${table}:`, e);
-      throw e; // Re-throw to prevent index creation on broken state
+      throw e;
     }
   }
 
-  // 2.5 Dynamic Cleanup: Remove previous example products to ensure a clean slate
   try {
     const examples = ['bread', 'eggs', 'drinks', 'sugar', 'airtime', 'general'];
     for (const name of examples) {
       await database.execAsync(`DELETE FROM products WHERE LOWER(name) = '${name}' AND usage_count = 0`);
       await database.execAsync(`DELETE FROM products WHERE LOWER(display_name) = '${name}' AND usage_count = 0`);
     }
-    console.log('[Database] Scoped cleanup of examples completed');
   } catch (e) {
     console.warn('[Database] Scoped cleanup failed:', e);
   }
 
-  // 3. Create all indexes AFTER tables exist and columns are migrated
-  console.log('[Database] Phase 3: Creating indexes...');
-  for (const [name, indexSql] of Object.entries(SCHEMA.INDEXES)) {
-    console.log(`[Database] Ensuring indexes exist for: ${name}`);
+  for (const [, indexSql] of Object.entries(SCHEMA.INDEXES)) {
     await database.execAsync(indexSql);
   }
 }
 
 export async function wipeDatabase() {
   try {
-    console.log('[Database] Starting database wipe...');
-    
     if (!db) {
       db = await SQLite.openDatabaseAsync('mobibooks.db');
     }
     
-    // Drop all tables
     for (const tableName of Object.keys(SCHEMA.TABLES)) {
       await db.execAsync(`DROP TABLE IF EXISTS ${tableName};`);
     }
@@ -233,7 +184,6 @@ export async function wipeDatabase() {
     
     await db.closeAsync();
     db = null;
-    console.log('[Database] Database wiped successfully');
   } catch (error: any) {
     console.error('[Database] Error wiping database:', error);
     db = null;

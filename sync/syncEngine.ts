@@ -17,10 +17,8 @@ export class SyncEngine {
     'products', 
     'customers',
     'debts', 
-    'transaction_templates', 
     'sales',
     'sale_items',
-    'stock_batches',
     'transactions'
   ];
 
@@ -127,9 +125,7 @@ export class SyncEngine {
     await this.pushTable('profiles');
     await this.pushTable('categories');
     await this.pushTable('customers');
-    await this.pushTable('transaction_templates');
     await this.pushTable('products');
-    await this.pushTable('stock_batches');
     await this.pushTable('sales');
     await this.pushTable('sale_items');
     await this.pushTable('transactions');
@@ -179,9 +175,7 @@ export class SyncEngine {
     await this.pullTable('profiles', lastSyncTime);
     await this.pullTable('categories', lastSyncTime);
     await this.pullTable('customers', lastSyncTime);
-    await this.pullTable('transaction_templates', lastSyncTime);
     await this.pullTable('products', lastSyncTime);
-    await this.pullTable('stock_batches', lastSyncTime);
     await this.pullTable('sales', lastSyncTime);
     await this.pullTable('sale_items', lastSyncTime);
     await this.pullTable('transactions', lastSyncTime);

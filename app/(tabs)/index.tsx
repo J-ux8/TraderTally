@@ -21,7 +21,7 @@ import { TransactionGroup } from '@/types/grouping';
 
 import { useCustomAlert } from '@/components/ui/CustomAlertContext';
 
-export default function HomeScreen() {
+export default React.memo(function HomeScreen() {
   const { showAlert } = useCustomAlert();
   const Alert = { alert: showAlert };
   const insets = useSafeAreaInsets();
@@ -60,16 +60,6 @@ export default function HomeScreen() {
     return () => clearTimeout(midnightTimer);
   }, [refresh]);
 
-  // Force refresh when component mounts to ensure current day calculation
-  useEffect(() => {
-    // Small delay to ensure transactions are loaded first
-    const mountTimer = setTimeout(() => {
-      refresh();
-    }, 100);
-    
-    return () => clearTimeout(mountTimer);
-  }, []);
-
   // Load top profitable product
   useEffect(() => {
     let mounted = true;
@@ -77,7 +67,7 @@ export default function HomeScreen() {
       if (mounted && prods.length > 0) setTopProduct(prods[0]);
     }).catch(() => {});
     return () => { mounted = false; };
-  }, [transactions]);
+  }, []);
 
   // Listen for app state changes to detect day changes
   useEffect(() => {
@@ -362,7 +352,7 @@ export default function HomeScreen() {
       </ScrollView>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   safeArea: {

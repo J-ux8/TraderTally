@@ -60,7 +60,7 @@ interface FinancialMetrics {
 }
 
 
-export default function ReportsScreen() {
+export default React.memo(function ReportsScreen() {
   const insets = useSafeAreaInsets();
   const colors = useThemeColors();
   const { 
@@ -1031,8 +1031,7 @@ export default function ReportsScreen() {
       </Modal>
     </View>
   );
-}
-
+});
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },

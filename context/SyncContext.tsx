@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { SyncEngine } from '../sync/syncEngine';
 import { NetworkMonitor } from '../sync/NetworkMonitor';
 import { LocalDB } from '../database/localDb';
@@ -63,7 +63,6 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const unsubscribe = NetworkMonitor.subscribe((online) => {
       setIsOnline(online);
       if (online) {
-        // Automatically sync on reconnection
         triggerSync();
       } else {
         console.log('[SyncContext] Network went offline, updating status');
@@ -71,8 +70,12 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       }
     });
 
-    // 4. Initial sync on app start
-    triggerSync();
+    // 4. Debounced initial sync — single call after 2s delay
+    const startupTimer = setTimeout(() => {
+      if (NetworkMonitor.getStatus()) {
+        triggerSync();
+      }
+    }, 2000);
 
     // 5. Periodic sync (every 60 seconds)
     const interval = setInterval(() => {
@@ -91,6 +94,7 @@ export const SyncProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => {
       unsubscribe();
+      clearTimeout(startupTimer);
       clearInterval(interval);
       authSub.unsubscribe();
     };

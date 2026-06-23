@@ -136,7 +136,6 @@ function RootLayoutContent() {
             gestureEnabled: false // Prevent swipe back from verify
           }} 
         />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         <Stack.Screen 
           name="modals/record-sale" 
           options={{ 
