@@ -9,7 +9,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { Plus, Store } from 'lucide-react-native';
 import React, { useCallback, useState, useMemo } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default React.memo(function DebtsScreen() {
   const insets = useSafeAreaInsets();

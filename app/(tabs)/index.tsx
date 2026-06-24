@@ -11,7 +11,7 @@ import { signOut } from '@/lib/auth';
 import { getTopProductsByProfit, ProductProfit } from '@/lib/profitCalculations';
 import { router } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
-import { Activity, LogOut, Store, TrendingUp as TrendUp } from 'lucide-react-native';
+import { Activity, LogOut, TrendingUp as TrendUp } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View, AppState } from "react-native";
 import { Image } from 'expo-image';
@@ -145,8 +145,6 @@ export default React.memo(function HomeScreen() {
       return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
     };
 
-    const startIdx = 0;
-    
     // Check up to 30 days back for consecutive daily tracking
     for (let i = 0; i < 30; i++) {
       const checkDate = new Date(today);

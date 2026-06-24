@@ -2,14 +2,15 @@ import { getLocalISOString } from '@/lib/dateUtils';
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { useThemeColors } from '@/hooks/useThemeColors';
-import { supabase } from "@/lib/supabase";
 import { deleteTransaction, updateTransaction } from "@/lib/transactions";
+import { SaleItem } from "@/lib/sales";
 import { useFocusEffect } from "expo-router";
 import { Calendar as CalendarIcon, Edit2, ShoppingBag, Trash2, TrendingDown, TrendingUp } from "lucide-react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { Calendar } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCustomAlert } from '@/components/ui/CustomAlertContext';
 
 interface Transaction {
   id: string;
@@ -39,19 +40,19 @@ const CATEGORY_OPTIONS = [
   'Other'
 ];
 
-function ProfitDisplay({ saleItems }: { saleItems: any[] }) {
-  const itemsWithCost = saleItems.filter((i: any) => i.unit_cost != null);
+function ProfitDisplay({ saleItems }: { saleItems: SaleItem[] }) {
+  const itemsWithCost = saleItems.filter((i) => i.unit_cost != null);
   if (itemsWithCost.length === 0) return null;
 
   const totalProfit = itemsWithCost.reduce(
-    (s: number, i: any) => s + (i.unit_price - i.unit_cost) * i.quantity,
+    (s, i) => s + (i.unit_price - (i.unit_cost ?? 0)) * i.quantity,
     0
   );
 
   return (
     <View style={{ marginTop: 4 }}>
-      {itemsWithCost.map((item: any) => {
-        const itemProfit = (item.unit_price - item.unit_cost) * item.quantity;
+      {itemsWithCost.map((item) => {
+        const itemProfit = (item.unit_price - (item.unit_cost ?? 0)) * item.quantity;
         return (
           <View key={item.id || item.product_name} style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
             <Text style={{ fontSize: 12, fontWeight: '700', color: itemProfit >= 0 ? '#10b981' : '#ef4444' }}>
@@ -72,7 +73,7 @@ function ProfitDisplay({ saleItems }: { saleItems: any[] }) {
   );
 }
 
-const TransactionItem = React.memo(({
+const TransactionItem = React.memo(function TransactionItem({
   transaction,
   onEdit,
   onDelete,
@@ -88,7 +89,7 @@ const TransactionItem = React.memo(({
   dynamicStyles: any,
   formatDate: (d: string) => string,
   formatTime: (d: string) => string
-}) => {
+}) {
   const sale = transaction.amount > 0;
   return (
     <View style={[dynamicStyles.card, styles.listItem]}>
@@ -154,8 +155,6 @@ const TransactionItem = React.memo(({
   );
 });
 
-import { useCustomAlert } from '@/components/ui/CustomAlertContext';
-
 export default React.memo(function RecordsScreen() {
   const { showAlert } = useCustomAlert();
   const Alert = { alert: showAlert };
@@ -168,7 +167,6 @@ export default React.memo(function RecordsScreen() {
     updateTransaction: updateTransactionInContext,
     removeTransaction: removeTransactionFromContext
   } = useTransactionsContext();
-  const [user, setUser] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   // Edit modal state
@@ -181,21 +179,6 @@ export default React.memo(function RecordsScreen() {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const initUser = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-        }
-      } catch (error) {
-        console.error('[records] Failed to get session:', error);
-      }
-    };
-
-    initUser();
-  }, []);
 
   // Only refresh if needed, not on every focus
   useFocusEffect(
@@ -315,8 +298,6 @@ export default React.memo(function RecordsScreen() {
       minute: '2-digit'
     });
   }, []);
-
-  const isSale = useCallback((amount: number) => amount > 0, []);
 
   const dynamicStyles = {
     container: { ...styles.container, backgroundColor: colors.backgroundColor },
@@ -518,7 +499,6 @@ export default React.memo(function RecordsScreen() {
               current={editDate.toISOString().split("T")[0]}
               onDayPress={(day) => {
                 const [year, month, d] = day.dateString.split('-').map(Number);
-                const now = new Date();
                 setEditDate(new Date(year, month - 1, d, editDate.getHours(), editDate.getMinutes(), editDate.getSeconds()));
                 setDatePickerOpen(false);
               }}

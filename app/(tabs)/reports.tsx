@@ -10,11 +10,10 @@ import {
   EyeOff,
   TrendingUp,
   TrendingDown,
-  AlertCircle,
 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Linking, RefreshControl, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View, Modal, Alert } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 
 interface DailyData {
@@ -360,8 +359,6 @@ export default React.memo(function ReportsScreen() {
   const categoryMetrics = useMemo(() => {
     const categoryMap = new Map<string, CategoryMetrics>();
 
-    const totalAmount = filteredTransactions.reduce((sum, t) => sum + Math.abs(Number(t.amount)), 0);
-
     if (groupingEnabled) {
       groupedTransactions.forEach(group => {
         const category = group.category || 'Uncategorized';
@@ -551,7 +548,7 @@ export default React.memo(function ReportsScreen() {
         await Share.share({ message });
       }
       setShareModalVisible(false);
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'Failed to share report');
     }
   };

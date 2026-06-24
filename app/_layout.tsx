@@ -78,7 +78,7 @@ function RootLayoutContent() {
 
       appState.current = nextAppState;
     } catch (error) {
-      console.log('[RootLayout] App state change error handled:', error);
+      if (__DEV__) console.log('[RootLayout] App state change error handled:', error);
     }
   };
 

@@ -6,7 +6,7 @@
  */
 
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Alert, Text } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { Stack, useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { TransactionGroupDetail } from '@/components/transactions/TransactionGroupDetail';
@@ -45,36 +45,30 @@ export default function TransactionGroupDetailModal() {
   // Handle transaction press - navigate to transaction detail
   const handleTransactionPress = (transaction: Transaction) => {
     try {
-      // TODO: Navigate to transaction detail modal
-      // For now, we'll show an alert with transaction info
-      Alert.alert(
-        'Transaction Details',
-        `Amount: K${Math.abs(transaction.amount)}\nDescription: ${transaction.description || 'No description'}\nCategory: ${transaction.linked_sale_id ? 'Sale' : transaction.category || 'No category'}\nDate: ${new Date(transaction.transaction_date).toLocaleString()}`,
-        [
-          { text: 'OK', style: 'default' },
-          { 
-            text: 'Edit', 
-            style: 'default',
-            onPress: () => {
-              // TODO: Navigate to edit transaction screen
-              console.log('Edit transaction:', transaction.id);
-            }
-          }
-        ]
-      );
-    } catch (error) {
-      console.error('Error handling transaction press:', error);
-      Alert.alert('Error', 'Unable to view transaction details');
-    }
-  };
+      const isSale = transaction.amount > 0;
+      const absAmount = Math.abs(transaction.amount);
 
-  // Handle back navigation
-  const handleBack = () => {
-    try {
-      router.back();
+      if (isSale) {
+        router.push({
+          pathname: '/modals/record-sale',
+          params: {
+            existingTransactionId: transaction.id,
+            preset_amount: absAmount.toString(),
+            preset_description: transaction.description || '',
+          },
+        });
+      } else {
+        router.push({
+          pathname: '/modals/record-expense',
+          params: {
+            existingTransactionId: transaction.id,
+            preset_amount: absAmount.toString(),
+            preset_description: transaction.description || '',
+          },
+        });
+      }
     } catch (error) {
-      console.error('Error navigating back:', error);
-      router.replace('/');
+      if (__DEV__) console.error('Error navigating to transaction:', error);
     }
   };
 

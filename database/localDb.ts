@@ -301,7 +301,7 @@ export class LocalDB {
 
   private static async getValidColumns(db: any, table: string): Promise<string[]> {
     if (this._schemaCache[table]) return this._schemaCache[table];
-    const tableInfo = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(${table})`);
+    const tableInfo = await db.getAllAsync(`PRAGMA table_info(${table})`) as { name: string }[];
     const columns = tableInfo.map((c: { name: string }) => c.name);
     this._schemaCache[table] = columns;
     return columns;

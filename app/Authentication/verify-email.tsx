@@ -231,7 +231,7 @@ export default function VerifyEmailScreen() {
             );
             
             if (createdProfile) {
-              console.log('[VerifyEmail] Profile created successfully');
+              if (__DEV__) console.log('[VerifyEmail] Profile created successfully');
             }
           } catch (profileError: any) {
             console.error("Non-blocking profile creation error:", profileError);
@@ -324,7 +324,7 @@ export default function VerifyEmailScreen() {
 
           {/* Content */}
           <View style={styles.content}>
-            <View style={styles.iconContainer}>
+            <View style={styles.iconContainerContent}>
               <View style={styles.iconCircle}>
                 <Mail size={48} color="#1e3a8a" />
               </View>
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 32,
   },
-  iconContainer: {
+  iconContainerContent: {
     alignItems: "center",
     marginBottom: 24,
   },

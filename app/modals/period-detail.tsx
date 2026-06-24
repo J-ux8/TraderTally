@@ -1,25 +1,31 @@
 import { useTransactionsContext } from '@/contexts/TransactionsContext';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { startOfDay, startOfWeek, startOfMonth } from '@/lib/dateUtils';
-import { router, Stack, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Calendar, DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { TransactionItem } from '@/components/transactions/TransactionGroupDetail';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, InteractionManager, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DAY_MS = 86400000;
+const profitCache = new Map<string, number>();
 
 const computeSaleProfit = (t: any): number => {
+  const cached = profitCache.get(t.id);
+  if (cached !== undefined) return cached;
   if (t.sale_items && t.sale_items.length > 0) {
     let total = 0;
-    for (const item of t.sale_items) {
+    for (let i = 0; i < t.sale_items.length; i++) {
+      const item = t.sale_items[i];
       if (item.unit_cost != null) {
         total += (item.unit_price - item.unit_cost) * item.quantity;
       }
     }
+    profitCache.set(t.id, total);
     return total;
   }
+  profitCache.set(t.id, 0);
   return 0;
 };
 
@@ -33,10 +39,109 @@ function formatDate(date: Date): string {
   return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
 }
 
+interface DayBucket {
+  dateMs: number;
+  revenue: number;
+  expenses: number;
+  profit: number;
+  count: number;
+  transactions: any[];
+}
+
+interface Stats {
+  revenue: number;
+  expenses: number;
+  profit: number;
+  count: number;
+  dailyBreakdown: (DayBucket & { date: Date })[];
+}
+
+const EMPTY_STATS: Stats = { revenue: 0, expenses: 0, profit: 0, count: 0, dailyBreakdown: [] };
+
+function computeStats(
+  periodRange: { startMs: number; endMs: number },
+  transactions: any[]
+): Stats {
+  const { startMs, endMs } = periodRange;
+  const tzOffsetMs = -new Date(endMs).getTimezoneOffset() * 60000;
+
+  const filtered: { t: any; createdAtMs: number }[] = [];
+  for (let i = 0; i < transactions.length; i++) {
+    const t = transactions[i];
+    const createdAtMs = new Date(t.created_at).getTime();
+    if (createdAtMs >= startMs && createdAtMs <= endMs) {
+      filtered.push({ t, createdAtMs });
+    }
+  }
+
+  const dayBuckets = new Map<number, DayBucket>();
+
+  let revenue = 0;
+  let expenses = 0;
+  let profit = 0;
+  let count = 0;
+
+  for (let i = 0; i < filtered.length; i++) {
+    const { t, createdAtMs } = filtered[i];
+
+    const localMs = createdAtMs + tzOffsetMs;
+    const dayKey = Math.floor(localMs / DAY_MS);
+    const dateMs = dayKey * DAY_MS - tzOffsetMs;
+
+    let bucket = dayBuckets.get(dayKey);
+    if (!bucket) {
+      bucket = { dateMs, revenue: 0, expenses: 0, profit: 0, count: 0, transactions: [] };
+      dayBuckets.set(dayKey, bucket);
+    }
+
+    const amt = Number(t.amount);
+    if (amt > 0) {
+      revenue += amt;
+      bucket.revenue += amt;
+      const itemProfit = computeSaleProfit(t);
+      profit += itemProfit;
+      bucket.profit += itemProfit;
+    } else if (amt < 0) {
+      const absAmt = Math.abs(amt);
+      expenses += absAmt;
+      bucket.expenses += absAmt;
+    }
+
+    count++;
+    bucket.count++;
+    bucket.transactions.push(t);
+  }
+
+  // Build a lookup for cached timestamps to avoid re-parsing dates during sort
+  const txnTimeLookup = new Map<string, number>();
+  for (let i = 0; i < filtered.length; i++) {
+    const { t, createdAtMs } = filtered[i];
+    txnTimeLookup.set(t.id, createdAtMs);
+  }
+
+  // Sort each day's transactions newest first using cached timestamps
+  for (const bucket of dayBuckets.values()) {
+    bucket.transactions.sort((a, b) =>
+      (txnTimeLookup.get(b.id) ?? 0) - (txnTimeLookup.get(a.id) ?? 0)
+    );
+  }
+
+  // Convert to array sorted descending by date
+  const dailyBreakdown = Array.from(dayBuckets.values())
+    .sort((a, b) => b.dateMs - a.dateMs)
+    .map(b => ({ ...b, date: new Date(b.dateMs) }));
+
+  return { revenue, expenses, profit, count, dailyBreakdown };
+}
+
 export default function PeriodDetailScreen() {
   const { period } = useLocalSearchParams<{ period: 'today' | 'week' | 'month' }>();
   const { transactions } = useTransactionsContext();
   const colors = useThemeColors();
+
+  const [stats, setStats] = useState<Stats>(EMPTY_STATS);
+  const [loading, setLoading] = useState(true);
+  const mountKey = useRef(0);
 
   const periodLabel = useMemo(() => {
     switch (period) {
@@ -67,11 +172,10 @@ export default function PeriodDetailScreen() {
     }
   }, [period]);
 
-  const stats = useMemo(() => {
+  const periodRange = useMemo(() => {
     const nowMs = Date.now();
     const now = new Date(nowMs);
     let startMs: number;
-
     switch (period) {
       case 'today':
         startMs = startOfDay(now).getTime();
@@ -85,76 +189,28 @@ export default function PeriodDetailScreen() {
       default:
         startMs = startOfDay(now).getTime();
     }
+    return { startMs, endMs: nowMs };
+  }, [period]);
 
-    // Local timezone offset in ms (used for day bucketing)
-    const tzOffsetMs = -now.getTimezoneOffset() * 60000;
+  useEffect(() => {
+    mountKey.current++;
+    const key = mountKey.current;
+    setLoading(true);
+    profitCache.clear();
 
-    const dayBuckets = new Map<number, {
-      dateMs: number;
-      revenue: number;
-      expenses: number;
-      profit: number;
-      count: number;
-      transactions: any[];
-    }>();
+    const task = InteractionManager.runAfterInteractions(() => {
+      if (key !== mountKey.current) return;
+      const result = computeStats(periodRange, transactions);
+      if (key !== mountKey.current) return;
+      setStats(result);
+      setLoading(false);
+    });
 
-    let revenue = 0;
-    let expenses = 0;
-    let profit = 0;
-    let count = 0;
-
-    for (let i = 0; i < transactions.length; i++) {
-      const t = transactions[i];
-      const createdAtMs = new Date(t.created_at).getTime();
-      if (createdAtMs < startMs || createdAtMs > nowMs) continue;
-
-      const localMs = createdAtMs + tzOffsetMs;
-      const dayKey = Math.floor(localMs / DAY_MS);
-      const dateMs = dayKey * DAY_MS - tzOffsetMs;
-
-      let bucket = dayBuckets.get(dayKey);
-      if (!bucket) {
-        bucket = { dateMs, revenue: 0, expenses: 0, profit: 0, count: 0, transactions: [] };
-        dayBuckets.set(dayKey, bucket);
-      }
-
-      const amt = Number(t.amount);
-      if (amt > 0) {
-        revenue += amt;
-        bucket.revenue += amt;
-        const itemProfit = computeSaleProfit(t);
-        profit += itemProfit;
-        bucket.profit += itemProfit;
-      } else if (amt < 0) {
-        const absAmt = Math.abs(amt);
-        expenses += absAmt;
-        bucket.expenses += absAmt;
-      }
-
-      count++;
-      bucket.count++;
-      bucket.transactions.push(t);
-    }
-
-    // Sort each day's transactions newest first
-    for (const bucket of dayBuckets.values()) {
-      bucket.transactions.sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
-    }
-
-    // Convert to array sorted descending by date
-    const dailyBreakdown = Array.from(dayBuckets.values())
-      .sort((a, b) => b.dateMs - a.dateMs)
-      .map(b => ({ ...b, date: new Date(b.dateMs) }));
-
-    return { revenue, expenses, profit, count, dailyBreakdown };
-  }, [period, transactions]);
+    return () => task.cancel();
+  }, [periodRange, transactions]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
-      <Stack.Screen options={{ headerShown: false }} />
-
       <View style={[styles.header, { backgroundColor: '#1e3a8a' }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
           <ArrowLeft size={24} color="#fff" />
@@ -167,8 +223,14 @@ export default function PeriodDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Summary Card */}
-        <View style={[styles.summaryCard, { backgroundColor: colors.cardBackground }]}>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#1e3a8a" />
+          </View>
+        ) : (
+          <>
+          {/* Summary Card */}
+          <View style={[styles.summaryCard, { backgroundColor: colors.cardBackground }]}>
           <Text style={[styles.summaryTitle, { color: colors.textSecondary }]}>
             {periodLabel} Overview
           </Text>
@@ -239,7 +301,7 @@ export default function PeriodDetailScreen() {
               )}
               {period === 'today' && (
                 <Text style={[styles.sectionTitle, { color: colors.textColor }]}>
-                  Today's Transactions
+                  Today&apos;s Transactions
                 </Text>
               )}
               <View style={{ gap: 12, marginTop: period === 'today' ? 0 : 12 }}>
@@ -255,6 +317,8 @@ export default function PeriodDetailScreen() {
             </View>
           );
         })}
+          </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -263,6 +327,12 @@ export default function PeriodDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 120,
   },
   header: {
     flexDirection: 'row',
