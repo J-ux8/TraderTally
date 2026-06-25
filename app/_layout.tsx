@@ -1,6 +1,6 @@
 import 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
@@ -15,17 +15,14 @@ import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SyncProvider } from '@/context/SyncContext';
 import { ErrorMonitoringProvider } from '@/context/ErrorMonitoringContext';
-import React from 'react';
+import { getSecuritySettings } from '@/lib/security';
+import { supabase } from '@/lib/supabase';
+import React, { useEffect, useRef, useState } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 
 export const unstable_settings = {
   initialRouteName: 'index',
 };
-
-import { getSecuritySettings } from '@/lib/security';
-import { supabase } from '@/lib/supabase';
-import { router, usePathname } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
 
 function RootLayoutContent() {
   const { theme } = useTheme();
@@ -43,11 +40,6 @@ function RootLayoutContent() {
   // Add navigation guard
   useNavigationGuard();
 
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription.remove();
-  }, []); // Only subscribe once on mount
-
   const handleAppStateChange = async (nextAppState: AppStateStatus) => {
     try {
       if (
@@ -62,7 +54,7 @@ function RootLayoutContent() {
         if (!user) return;
 
         const settings = await getSecuritySettings(user.id);
-        if (settings.appLockEnabled) {
+        if (settings?.appLockEnabled) {
           const now = Date.now();
           const inactiveTime = lastBackgroundTimeRef.current ? now - lastBackgroundTimeRef.current : 0;
 
@@ -83,6 +75,11 @@ function RootLayoutContent() {
       if (__DEV__) console.log('[RootLayout] App state change error handled:', error);
     }
   };
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, []);
 
   return (
     <NavigationThemeProvider value={theme === 'dark' ? DarkTheme : DefaultTheme}>

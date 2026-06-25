@@ -8,7 +8,6 @@ import { Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function UnlockScreen() {
     const [pin, setPin] = useState("");
-    const [showPin, setShowPin] = useState(false);
     const [failedAttempts, setFailedAttempts] = useState(0);
 
     useEffect(() => {
