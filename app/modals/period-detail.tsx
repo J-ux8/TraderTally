@@ -3,17 +3,14 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { startOfDay, startOfWeek, startOfMonth } from '@/lib/dateUtils';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ArrowLeft, Calendar, DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { TransactionItem } from '@/components/transactions/TransactionGroupDetail';
-import { ActivityIndicator, InteractionManager, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DAY_MS = 86400000;
-const profitCache = new Map<string, number>();
 
 const computeSaleProfit = (t: any): number => {
-  const cached = profitCache.get(t.id);
-  if (cached !== undefined) return cached;
   if (t.sale_items && t.sale_items.length > 0) {
     let total = 0;
     for (let i = 0; i < t.sale_items.length; i++) {
@@ -22,10 +19,8 @@ const computeSaleProfit = (t: any): number => {
         total += (item.unit_price - item.unit_cost) * item.quantity;
       }
     }
-    profitCache.set(t.id, total);
     return total;
   }
-  profitCache.set(t.id, 0);
   return 0;
 };
 
@@ -58,21 +53,9 @@ interface Stats {
 
 const EMPTY_STATS: Stats = { revenue: 0, expenses: 0, profit: 0, count: 0, dailyBreakdown: [] };
 
-function computeStats(
-  periodRange: { startMs: number; endMs: number },
-  transactions: any[]
-): Stats {
-  const { startMs, endMs } = periodRange;
-  const tzOffsetMs = -new Date(endMs).getTimezoneOffset() * 60000;
-
-  const filtered: { t: any; createdAtMs: number }[] = [];
-  for (let i = 0; i < transactions.length; i++) {
-    const t = transactions[i];
-    const createdAtMs = new Date(t.created_at).getTime();
-    if (createdAtMs >= startMs && createdAtMs <= endMs) {
-      filtered.push({ t, createdAtMs });
-    }
-  }
+function computeStats(transactions: any[]): Stats {
+  const now = new Date();
+  const tzOffsetMs = -now.getTimezoneOffset() * 60000;
 
   const dayBuckets = new Map<number, DayBucket>();
 
@@ -81,8 +64,9 @@ function computeStats(
   let profit = 0;
   let count = 0;
 
-  for (let i = 0; i < filtered.length; i++) {
-    const { t, createdAtMs } = filtered[i];
+  for (let i = 0; i < transactions.length; i++) {
+    const t = transactions[i];
+    const createdAtMs = new Date(t.created_at).getTime();
 
     const localMs = createdAtMs + tzOffsetMs;
     const dayKey = Math.floor(localMs / DAY_MS);
@@ -112,17 +96,10 @@ function computeStats(
     bucket.transactions.push(t);
   }
 
-  // Build a lookup for cached timestamps to avoid re-parsing dates during sort
-  const txnTimeLookup = new Map<string, number>();
-  for (let i = 0; i < filtered.length; i++) {
-    const { t, createdAtMs } = filtered[i];
-    txnTimeLookup.set(t.id, createdAtMs);
-  }
-
-  // Sort each day's transactions newest first using cached timestamps
+  // Sort each day's transactions newest first
   for (const bucket of dayBuckets.values()) {
     bucket.transactions.sort((a, b) =>
-      (txnTimeLookup.get(b.id) ?? 0) - (txnTimeLookup.get(a.id) ?? 0)
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
   }
 
@@ -136,12 +113,11 @@ function computeStats(
 
 export default function PeriodDetailScreen() {
   const { period } = useLocalSearchParams<{ period: 'today' | 'week' | 'month' }>();
-  const { transactions } = useTransactionsContext();
+  const { loadTransactionsInRange } = useTransactionsContext();
   const colors = useThemeColors();
 
-  const [stats, setStats] = useState<Stats>(EMPTY_STATS);
+  const [rangeTransactions, setRangeTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const mountKey = useRef(0);
 
   const periodLabel = useMemo(() => {
     switch (period) {
@@ -193,21 +169,20 @@ export default function PeriodDetailScreen() {
   }, [period]);
 
   useEffect(() => {
-    mountKey.current++;
-    const key = mountKey.current;
+    let cancelled = false;
     setLoading(true);
-    profitCache.clear();
-
-    const task = InteractionManager.runAfterInteractions(() => {
-      if (key !== mountKey.current) return;
-      const result = computeStats(periodRange, transactions);
-      if (key !== mountKey.current) return;
-      setStats(result);
+    loadTransactionsInRange(periodRange.startMs, periodRange.endMs).then((data) => {
+      if (cancelled) return;
+      setRangeTransactions(data);
       setLoading(false);
     });
+    return () => { cancelled = true; };
+  }, [periodRange, loadTransactionsInRange]);
 
-    return () => task.cancel();
-  }, [periodRange, transactions]);
+  const stats = useMemo(() => {
+    if (rangeTransactions.length === 0) return EMPTY_STATS;
+    return computeStats(rangeTransactions);
+  }, [rangeTransactions]);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundColor }]} edges={['top']}>

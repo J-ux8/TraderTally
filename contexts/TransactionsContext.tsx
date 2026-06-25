@@ -1,4 +1,4 @@
-import { deleteTransaction as deleteTxLib, getUserTransactions, recordExpense, recordSale, updateTransaction as updateTxLib, batchUpdateTransactions, batchDeleteTransactions, getSaleItemsBatch } from '@/lib/transactions';
+import { deleteTransaction as deleteTxLib, getUserTransactions, getTransactionsInRange, recordExpense, recordSale, updateTransaction as updateTxLib, batchUpdateTransactions, batchDeleteTransactions, getSaleItemsBatch } from '@/lib/transactions';
 import { getUserDebts } from '@/lib/debts';
 import { TransactionGroup, Transaction as GroupingTransaction } from '@/types/grouping';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
@@ -24,6 +24,7 @@ interface TransactionsContextType {
   transactions: Transaction[];
   loading: boolean;
   refresh: () => Promise<void>;
+  loadTransactionsInRange: (startMs: number, endMs: number) => Promise<Transaction[]>;
   updateTransaction: (id: string, amount: number, category: string | null, description: string | null, date?: string, customerId?: string) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
   recordSale: (amount: number, category: string | null, description: string | null, transaction_date?: string, customerId?: string, linkedSaleId?: string) => Promise<any>;
@@ -143,6 +144,54 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     }
   }, []);
 
+  const loadTransactionsInRange = useCallback(async (startMs: number, endMs: number): Promise<Transaction[]> => {
+    try {
+      const data = await getTransactionsInRange(startMs, endMs);
+
+      const linkedSaleIds = (data as Transaction[])
+        .map(tx => tx.linked_sale_id)
+        .filter((id): id is string => !!id);
+
+      const saleItemsMap = await getSaleItemsBatch(linkedSaleIds);
+
+      let unsettledSaleIds = new Set<string>();
+      try {
+        const debts = await getUserDebts();
+        debts
+          .filter(d => !d.is_settled && d.linked_sale_id)
+          .forEach(d => unsettledSaleIds.add(d.linked_sale_id!));
+      } catch (e) {
+        console.warn('[Transactions] Failed to fetch debts for outstanding flag:', e);
+      }
+
+      const usedSaleIds = new Set<string>();
+      const sorted = [...(data as Transaction[])].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+
+      const enrichedMap = new Map<string, Transaction>();
+      for (const tx of sorted) {
+        let sale_items: any[] | undefined;
+        if (tx.linked_sale_id) {
+          if (!usedSaleIds.has(tx.linked_sale_id)) {
+            sale_items = saleItemsMap[tx.linked_sale_id] || undefined;
+            usedSaleIds.add(tx.linked_sale_id);
+          }
+        }
+        enrichedMap.set(tx.id, {
+          ...tx,
+          sale_items,
+          has_outstanding_debt: tx.linked_sale_id ? unsettledSaleIds.has(tx.linked_sale_id) : false,
+        });
+      }
+
+      return sorted.map(tx => enrichedMap.get(tx.id)!).reverse();
+    } catch (error) {
+      console.error('Error loading transactions in range:', error);
+      return [];
+    }
+  }, []);
+
   useEffect(() => {
     // 1. Initial load
     if (!hasInitializedRef.current) {
@@ -246,6 +295,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         transactions,
         loading: loading || groupingLoading,
         refresh,
+        loadTransactionsInRange,
         updateTransaction: handleUpdateTransaction,
         removeTransaction: handleRemoveTransaction,
         recordSale: handleRecordSale,

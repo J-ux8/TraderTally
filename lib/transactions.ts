@@ -131,6 +131,24 @@ export async function getUserTransactions(limit: number = 150, offset: number = 
 }
 
 /**
+ * Get transactions within a date range (optimized for period summaries)
+ */
+export async function getTransactionsInRange(startMs: number, endMs: number): Promise<Transaction[]> {
+  const db = await getDatabase();
+  const userId = await LocalDB.getUserId();
+  if (!userId) return [];
+  const startIso = new Date(startMs).toISOString();
+  const endIso = new Date(endMs).toISOString();
+  return db.getAllAsync<Transaction>(
+    `SELECT * FROM transactions
+     WHERE user_id = ? AND is_deleted = 0
+       AND created_at >= ? AND created_at <= ?
+     ORDER BY created_at DESC`,
+    userId, startIso, endIso
+  );
+}
+
+/**
  * Update transaction
  */
 export async function updateTransaction(
