@@ -16,39 +16,46 @@ export default function UnlockScreen() {
     }, []);
 
     async function checkBiometrics() {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-        const settings = await getSecuritySettings(user.id);
-        if (settings.biometricEnabled) {
-            const success = await authenticateBiometric();
-            if (success) {
-                router.replace("/(tabs)");
+            const settings = await getSecuritySettings(user.id);
+            if (settings?.biometricEnabled) {
+                const success = await authenticateBiometric();
+                if (success) {
+                    router.replace("/(tabs)");
+                }
             }
+        } catch (e) {
+            if (__DEV__) console.log('[Unlock] checkBiometrics error:', e);
         }
     }
 
     async function handlePinSubmit() {
-        if (pin.length < 4) return;
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-
-        const success = await verifyPin(user.id, pin);
-        if (success) {
-            router.replace("/(tabs)");
-        } else {
-            const newAttempts = failedAttempts + 1;
-            setFailedAttempts(newAttempts);
-            setPin("");
-
-            if (newAttempts >= 5) {
-                Alert.alert("Too Many Attempts", "For security, you have been logged out.");
-                await signOut();
-                router.replace("/welcome");
+            const success = await verifyPin(user.id, pin);
+            if (success) {
+                router.replace("/(tabs)");
             } else {
-                Alert.alert("Incorrect PIN", `You have ${5 - newAttempts} attempts left.`);
+                const newAttempts = failedAttempts + 1;
+                setFailedAttempts(newAttempts);
+                setPin("");
+
+                if (newAttempts >= 5) {
+                    Alert.alert("Too Many Attempts", "For security, you have been logged out.");
+                    await signOut();
+                    router.replace("/welcome");
+                } else {
+                    Alert.alert("Incorrect PIN", `You have ${5 - newAttempts} attempts left.`);
+                }
             }
+        } catch (e) {
+            if (__DEV__) console.log('[Unlock] handlePinSubmit error:', e);
+            setPin("");
         }
     }
 
@@ -69,13 +76,11 @@ export default function UnlockScreen() {
     };
 
     const pressDigit = (digit: string) => {
-        if (pin.length < 4) {
-            setPin(pin + digit);
-        }
+        setPin(prev => prev.length < 4 ? prev + digit : prev);
     };
 
     const deleteDigit = () => {
-        setPin(pin.slice(0, -1));
+        setPin(prev => prev.slice(0, -1));
     };
 
     useEffect(() => {

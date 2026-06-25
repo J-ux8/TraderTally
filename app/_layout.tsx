@@ -13,6 +13,8 @@ import { CartProvider } from '@/contexts/CartContext';
 import { CustomAlertProvider } from '@/components/ui/CustomAlertContext';
 import { useNavigationGuard } from '@/hooks/useNavigationGuard';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SyncProvider } from '@/context/SyncContext';
+import { ErrorMonitoringProvider } from '@/context/ErrorMonitoringContext';
 import React from 'react';
 
 export const unstable_settings = {
@@ -191,9 +193,6 @@ function RootLayoutContent() {
     </NavigationThemeProvider>
   );
 }
-
-import { SyncProvider } from '@/context/SyncContext';
-import { ErrorMonitoringProvider } from '@/context/ErrorMonitoringContext';
 
 export default function RootLayout() {
   return (

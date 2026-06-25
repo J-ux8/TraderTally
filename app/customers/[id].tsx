@@ -86,7 +86,7 @@ export default function CustomerProfileScreen() {
     return (
       <View style={[styles.errorContainer, { backgroundColor: colors.backgroundColor }]}>
         <Text style={{ color: colors.textColor }}>Customer not found</Text>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")} style={styles.backButton}>
           <Text style={{ color: '#fff' }}>Go Back</Text>
         </TouchableOpacity>
       </View>
@@ -96,7 +96,7 @@ export default function CustomerProfileScreen() {
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: colors.headerBackground }]}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBack}>
+        <TouchableOpacity onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)")} style={styles.headerBack}>
           <ArrowLeft color="#fff" size={24} />
         </TouchableOpacity>
         <View style={styles.headerInfo}>
@@ -123,7 +123,14 @@ export default function CustomerProfileScreen() {
         <View style={styles.actionRow}>
           <TouchableOpacity 
             style={[styles.actionBtn, { backgroundColor: '#25D366' }]}
-            onPress={() => customer.phone && Linking.openURL(`whatsapp://send?phone=${customer.phone.replace(/[^0-9]/g, '')}`)}
+            onPress={async () => {
+              if (!customer.phone) return;
+              try {
+                await Linking.openURL(`whatsapp://send?phone=${customer.phone.replace(/[^0-9]/g, '')}`);
+              } catch (e) {
+                console.warn('WhatsApp not available:', e);
+              }
+            }}
             disabled={!customer.phone}
           >
             <MessageSquare color="#fff" size={20} />
@@ -131,7 +138,14 @@ export default function CustomerProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.actionBtn, { backgroundColor: '#1e3a8a' }]}
-            onPress={() => customer.phone && Linking.openURL(`tel:${customer.phone}`)}
+            onPress={async () => {
+              if (!customer.phone) return;
+              try {
+                await Linking.openURL(`tel:${customer.phone}`);
+              } catch (e) {
+                console.warn('Phone dial not available:', e);
+              }
+            }}
             disabled={!customer.phone}
           >
             <Phone color="#fff" size={20} />
@@ -170,8 +184,7 @@ export default function CustomerProfileScreen() {
 
         {timeline.length === 0 && (
           <View style={styles.emptyTimeline}>
-            <ActivityIndicator size="small" color="#999" />
-            <Text style={{ color: colors.textSecondary, marginTop: 12 }}>No activity recorded yet</Text>
+            <Text style={{ color: colors.textSecondary }}>No activity recorded yet</Text>
           </View>
         )}
       </ScrollView>
