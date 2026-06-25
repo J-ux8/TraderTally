@@ -1,7 +1,8 @@
-import { useTransactionsContext } from '@/contexts/TransactionsContext';
+import { getTransactionsInRange } from '@/lib/transactions';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { startOfDay, startOfWeek, startOfMonth } from '@/lib/dateUtils';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Calendar, DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
 import React, { useMemo, useState, useEffect } from 'react';
 import { TransactionItem } from '@/components/transactions/TransactionGroupDetail';
@@ -9,20 +10,6 @@ import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const DAY_MS = 86400000;
-
-const computeSaleProfit = (t: any): number => {
-  if (t.sale_items && t.sale_items.length > 0) {
-    let total = 0;
-    for (let i = 0; i < t.sale_items.length; i++) {
-      const item = t.sale_items[i];
-      if (item.unit_cost != null) {
-        total += (item.unit_price - item.unit_cost) * item.quantity;
-      }
-    }
-    return total;
-  }
-  return 0;
-};
 
 function formatCurrency(amount: number): string {
   return `K ${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -82,13 +69,14 @@ function computeStats(transactions: any[]): Stats {
     if (amt > 0) {
       revenue += amt;
       bucket.revenue += amt;
-      const itemProfit = computeSaleProfit(t);
-      profit += itemProfit;
-      bucket.profit += itemProfit;
+      profit += amt;
+      bucket.profit += amt;
     } else if (amt < 0) {
       const absAmt = Math.abs(amt);
       expenses += absAmt;
       bucket.expenses += absAmt;
+      profit -= absAmt;
+      bucket.profit -= absAmt;
     }
 
     count++;
@@ -113,7 +101,7 @@ function computeStats(transactions: any[]): Stats {
 
 export default function PeriodDetailScreen() {
   const { period } = useLocalSearchParams<{ period: 'today' | 'week' | 'month' }>();
-  const { loadTransactionsInRange } = useTransactionsContext();
+  const navigation = useNavigation();
   const colors = useThemeColors();
 
   const [rangeTransactions, setRangeTransactions] = useState<any[]>([]);
@@ -171,13 +159,13 @@ export default function PeriodDetailScreen() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    loadTransactionsInRange(periodRange.startMs, periodRange.endMs).then((data) => {
+    getTransactionsInRange(periodRange.startMs, periodRange.endMs).then((data) => {
       if (cancelled) return;
       setRangeTransactions(data);
       setLoading(false);
     });
     return () => { cancelled = true; };
-  }, [periodRange, loadTransactionsInRange]);
+  }, [periodRange]);
 
   const stats = useMemo(() => {
     if (rangeTransactions.length === 0) return EMPTY_STATS;
@@ -187,7 +175,13 @@ export default function PeriodDetailScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
       <View style={[styles.header, { backgroundColor: '#1e3a8a' }]}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => {
+          if (navigation.canGoBack()) {
+            router.back();
+          } else {
+            router.replace('/');
+          }
+        }}>
           <ArrowLeft size={24} color="#fff" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
