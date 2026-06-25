@@ -94,7 +94,12 @@ export default React.memo(function HomeScreen() {
     };
   }, [refresh]);
 
-  // Pre-warm stats cache so period-detail opens instantly
+  // Preload the period-detail route so navigation is instant
+  useEffect(() => {
+    router.prefetch('/modals/period-detail');
+  }, []);
+
+  // Pre-warm stats cache so period-detail data loads instantly
   useEffect(() => {
     const task = InteractionManager.runAfterInteractions(() => {
       const nowMs = Date.now();
