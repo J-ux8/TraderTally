@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getTransactionsInRange } from '@/lib/transactions';
 import { getCachedStats, setCachedStats } from '@/lib/statsCache';
 
@@ -79,41 +79,40 @@ export function computeStats(transactions: any[]): Stats {
 }
 
 export function usePeriodStats(cacheKey: string, startMs: number, endMs: number) {
-  const [rangeTransactions, setRangeTransactions] = useState<any[]>(() => {
-    const cached = getCachedStats(cacheKey);
-    return cached?.transactions ?? [];
+  const initialCached = getCachedStats(cacheKey);
+  const [stats, setStats] = useState<Stats>(() => {
+    if (initialCached?.stats) return initialCached.stats as Stats;
+    return EMPTY_STATS;
   });
-  const [loading, setLoading] = useState(() => {
-    const cached = getCachedStats(cacheKey);
-    return !cached;
-  });
+  const [loading, setLoading] = useState(() => !initialCached);
   const mountRef = useRef(true);
 
   useEffect(() => {
     mountRef.current = true;
     const cached = getCachedStats(cacheKey);
-    if (cached) {
-      setRangeTransactions(cached.transactions);
+
+    // If we have a fully valid cache entry (transactions + pre-computed stats), use it immediately
+    // and skip the DB fetch entirely — this is the fast path on re-open.
+    if (cached?.stats) {
+      setStats(cached.stats as Stats);
       setLoading(false);
-    } else {
-      setLoading(true);
+      return () => { mountRef.current = false; };
     }
 
+    // No valid cache — fetch from DB and compute
+    setLoading(true);
     getTransactionsInRange(startMs, endMs).then((data) => {
       if (!mountRef.current) return;
-      const stats = computeStats(data);
-      setCachedStats(cacheKey, data, stats);
-      setRangeTransactions(data);
+      const computed = computeStats(data);
+      setCachedStats(cacheKey, data, computed);
+      setStats(computed);
       setLoading(false);
+    }).catch(() => {
+      if (mountRef.current) setLoading(false);
     });
 
     return () => { mountRef.current = false; };
   }, [cacheKey, startMs, endMs]);
 
-  const stats = useMemo(() => {
-    if (rangeTransactions.length === 0) return EMPTY_STATS;
-    return computeStats(rangeTransactions);
-  }, [rangeTransactions]);
-
-  return { stats, loading, transactions: rangeTransactions };
+  return { stats, loading };
 }

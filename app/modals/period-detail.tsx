@@ -4,7 +4,7 @@ import { usePeriodStats } from '@/hooks/usePeriodStats';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Calendar, DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { TransactionItem } from '@/components/transactions/TransactionGroupDetail';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -41,10 +41,13 @@ function SummarySkeleton() {
   );
 }
 
+const INITIAL_DAYS_VISIBLE = 7;
+
 export default function PeriodDetailScreen() {
   const { period } = useLocalSearchParams<{ period: 'today' | 'week' | 'month' }>();
   const navigation = useNavigation();
   const colors = useThemeColors();
+  const [showAllDays, setShowAllDays] = useState(false);
 
   const periodLabel = useMemo(() => {
     switch (period) {
@@ -164,7 +167,15 @@ export default function PeriodDetailScreen() {
           )}
         </View>
 
-        {stats.dailyBreakdown.map((day: any) => {
+        {(() => {
+          const visibleDays = showAllDays
+            ? stats.dailyBreakdown
+            : stats.dailyBreakdown.slice(0, INITIAL_DAYS_VISIBLE);
+          const hiddenCount = stats.dailyBreakdown.length - INITIAL_DAYS_VISIBLE;
+
+          return (
+            <>
+              {visibleDays.map((day: any) => {
           if (day.count === 0) return null;
 
           return (
@@ -207,7 +218,27 @@ export default function PeriodDetailScreen() {
               </View>
             </View>
           );
-        })}
+              })}
+              {!showAllDays && hiddenCount > 0 && (
+                <TouchableOpacity
+                  onPress={() => setShowAllDays(true)}
+                  style={{
+                    alignItems: 'center',
+                    paddingVertical: 14,
+                    borderRadius: 16,
+                    backgroundColor: colors.cardBackground,
+                    marginTop: 4,
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={{ color: colors.primaryColor ?? '#1e3a8a', fontWeight: '700', fontSize: 14 }}>
+                    Show {hiddenCount} more day{hiddenCount !== 1 ? 's' : ''}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </>
+          );
+        })()}
       </ScrollView>
     </SafeAreaView>
   );

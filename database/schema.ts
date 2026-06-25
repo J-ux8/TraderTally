@@ -171,6 +171,7 @@ export const SCHEMA = {
       CREATE INDEX IF NOT EXISTS idx_transactions_updated_at ON transactions(updated_at);
       CREATE INDEX IF NOT EXISTS idx_transactions_sync ON transactions(sync_status);
       CREATE INDEX IF NOT EXISTS idx_transactions_user_created ON transactions(user_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_transactions_range ON transactions(user_id, is_deleted, created_at DESC);
     `,
     categories: `
       CREATE INDEX IF NOT EXISTS idx_categories_user_id ON categories(user_id);
