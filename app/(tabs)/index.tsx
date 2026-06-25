@@ -9,6 +9,11 @@ import { useThemeColors } from '@/hooks/useThemeColors';
 import { useGroupNavigation } from '@/hooks/useGroupNavigation';
 import { signOut } from '@/lib/auth';
 import { getTopProductsByProfit, ProductProfit } from '@/lib/profitCalculations';
+import { getTransactionsInRange } from '@/lib/transactions';
+import { setCachedStats } from '@/lib/statsCache';
+import { computeStats } from '@/hooks/usePeriodStats';
+import { startOfMonth } from '@/lib/dateUtils';
+import { InteractionManager } from 'react-native';
 import { router } from "expo-router";
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { Activity, LogOut, TrendingUp as TrendUp } from 'lucide-react-native';
@@ -88,6 +93,22 @@ export default React.memo(function HomeScreen() {
       subscription?.remove();
     };
   }, [refresh]);
+
+  // Pre-warm stats cache so period-detail opens instantly
+  useEffect(() => {
+    const task = InteractionManager.runAfterInteractions(() => {
+      const nowMs = Date.now();
+      const now = new Date(nowMs);
+      const startMonth = startOfMonth(now).getTime();
+
+      const cacheKey = `month-${startMonth}`;
+      getTransactionsInRange(startMonth, nowMs).then((data) => {
+        if (data.length === 0) return;
+        setCachedStats(cacheKey, data, computeStats(data));
+      }).catch(() => {});
+    });
+    return () => task.cancel();
+  }, []);
 
   const handleLogout = async () => {
     Alert.alert(

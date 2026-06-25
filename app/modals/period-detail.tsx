@@ -1,15 +1,13 @@
-import { getTransactionsInRange } from '@/lib/transactions';
 import { useThemeColors } from '@/hooks/useThemeColors';
 import { startOfDay, startOfWeek, startOfMonth } from '@/lib/dateUtils';
+import { usePeriodStats } from '@/hooks/usePeriodStats';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, Calendar, DollarSign, TrendingDown, TrendingUp } from 'lucide-react-native';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { TransactionItem } from '@/components/transactions/TransactionGroupDetail';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
-const DAY_MS = 86400000;
 
 function formatCurrency(amount: number): string {
   return `K ${Math.abs(amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}`;
@@ -21,91 +19,32 @@ function formatDate(date: Date): string {
   return `${days[date.getDay()]}, ${date.getDate()} ${months[date.getMonth()]}`;
 }
 
-interface DayBucket {
-  dateMs: number;
-  revenue: number;
-  expenses: number;
-  profit: number;
-  count: number;
-  transactions: any[];
+function ShimmerBlock({ width, height, style }: { width: number | string; height: number; style?: any }) {
+  return (
+    <View
+      style={[{ width, height, borderRadius: 6, backgroundColor: 'rgba(150,150,150,0.15)' }, style]}
+    />
+  );
 }
 
-interface Stats {
-  revenue: number;
-  expenses: number;
-  profit: number;
-  count: number;
-  dailyBreakdown: (DayBucket & { date: Date })[];
-}
-
-const EMPTY_STATS: Stats = { revenue: 0, expenses: 0, profit: 0, count: 0, dailyBreakdown: [] };
-
-function computeStats(transactions: any[]): Stats {
-  const now = new Date();
-  const tzOffsetMs = -now.getTimezoneOffset() * 60000;
-
-  const dayBuckets = new Map<number, DayBucket>();
-
-  let revenue = 0;
-  let expenses = 0;
-  let profit = 0;
-  let count = 0;
-
-  for (let i = 0; i < transactions.length; i++) {
-    const t = transactions[i];
-    const createdAtMs = new Date(t.created_at).getTime();
-
-    const localMs = createdAtMs + tzOffsetMs;
-    const dayKey = Math.floor(localMs / DAY_MS);
-    const dateMs = dayKey * DAY_MS - tzOffsetMs;
-
-    let bucket = dayBuckets.get(dayKey);
-    if (!bucket) {
-      bucket = { dateMs, revenue: 0, expenses: 0, profit: 0, count: 0, transactions: [] };
-      dayBuckets.set(dayKey, bucket);
-    }
-
-    const amt = Number(t.amount);
-    if (amt > 0) {
-      revenue += amt;
-      bucket.revenue += amt;
-      profit += amt;
-      bucket.profit += amt;
-    } else if (amt < 0) {
-      const absAmt = Math.abs(amt);
-      expenses += absAmt;
-      bucket.expenses += absAmt;
-      profit -= absAmt;
-      bucket.profit -= absAmt;
-    }
-
-    count++;
-    bucket.count++;
-    bucket.transactions.push(t);
-  }
-
-  // Sort each day's transactions newest first
-  for (const bucket of dayBuckets.values()) {
-    bucket.transactions.sort((a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
-  }
-
-  // Convert to array sorted descending by date
-  const dailyBreakdown = Array.from(dayBuckets.values())
-    .sort((a, b) => b.dateMs - a.dateMs)
-    .map(b => ({ ...b, date: new Date(b.dateMs) }));
-
-  return { revenue, expenses, profit, count, dailyBreakdown };
+function SummarySkeleton() {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <ShimmerBlock width={48} height={48} style={{ borderRadius: 24, marginBottom: 8 }} />
+      <ShimmerBlock width={80} height={14} style={{ marginBottom: 8 }} />
+      <ShimmerBlock width={180} height={40} style={{ marginBottom: 24 }} />
+      <View style={{ flexDirection: 'row', gap: 12, width: '100%' }}>
+        <ShimmerBlock width="48%" height={80} style={{ borderRadius: 16 }} />
+        <ShimmerBlock width="48%" height={80} style={{ borderRadius: 16 }} />
+      </View>
+    </View>
+  );
 }
 
 export default function PeriodDetailScreen() {
   const { period } = useLocalSearchParams<{ period: 'today' | 'week' | 'month' }>();
   const navigation = useNavigation();
   const colors = useThemeColors();
-
-  const [rangeTransactions, setRangeTransactions] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const periodLabel = useMemo(() => {
     switch (period) {
@@ -156,21 +95,8 @@ export default function PeriodDetailScreen() {
     return { startMs, endMs: nowMs };
   }, [period]);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    getTransactionsInRange(periodRange.startMs, periodRange.endMs).then((data) => {
-      if (cancelled) return;
-      setRangeTransactions(data);
-      setLoading(false);
-    });
-    return () => { cancelled = true; };
-  }, [periodRange]);
-
-  const stats = useMemo(() => {
-    if (rangeTransactions.length === 0) return EMPTY_STATS;
-    return computeStats(rangeTransactions);
-  }, [rangeTransactions]);
+  const cacheKey = `${period}-${periodRange.startMs}`;
+  const { stats, loading } = usePeriodStats(cacheKey, periodRange.startMs, periodRange.endMs);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.backgroundColor }]} edges={['top']}>
@@ -192,56 +118,52 @@ export default function PeriodDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#1e3a8a" />
-          </View>
-        ) : (
-          <>
-          {/* Summary Card */}
-          <View style={[styles.summaryCard, { backgroundColor: colors.cardBackground }]}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.cardBackground }]}>
           <Text style={[styles.summaryTitle, { color: colors.textSecondary }]}>
             {periodLabel} Overview
           </Text>
 
-          {/* Total Profits — hero metric */}
-          <View style={styles.profitHero}>
-            <View style={[styles.profitIconContainer, { backgroundColor: stats.profit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
-              <TrendingUp size={24} color={stats.profit >= 0 ? '#10b981' : '#ef4444'} />
-            </View>
-            <Text style={[styles.profitHeroLabel, { color: colors.textSecondary }]}>Total Profits</Text>
-            <Text style={[styles.profitHeroValue, { color: stats.profit >= 0 ? '#10b981' : '#ef4444' }]}>
-              {stats.profit < 0 ? '-' : ''}{formatCurrency(stats.profit)}
-            </Text>
-          </View>
-
-          {/* Revenue & Expenses row */}
-          <View style={styles.statsRow}>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(59, 130, 246, 0.06)' }]}>
-              <View style={styles.statHeader}>
-                <DollarSign size={16} color="#3b82f6" />
-                <Text style={styles.statLabel}>Revenue</Text>
+          {loading && stats.count === 0 ? (
+            <SummarySkeleton />
+          ) : (
+            <>
+              <View style={styles.profitHero}>
+                <View style={[styles.profitIconContainer, { backgroundColor: stats.profit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)' }]}>
+                  <TrendingUp size={24} color={stats.profit >= 0 ? '#10b981' : '#ef4444'} />
+                </View>
+                <Text style={[styles.profitHeroLabel, { color: colors.textSecondary }]}>Total Profits</Text>
+                <Text style={[styles.profitHeroValue, { color: stats.profit >= 0 ? '#10b981' : '#ef4444' }]}>
+                  {stats.profit < 0 ? '-' : ''}{formatCurrency(stats.profit)}
+                </Text>
               </View>
-              <Text style={[styles.statValue, { color: '#0f172a' }]}>{formatCurrency(stats.revenue)}</Text>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: 'rgba(239, 68, 68, 0.06)' }]}>
-              <View style={styles.statHeader}>
-                <TrendingDown size={16} color="#ef4444" />
-                <Text style={styles.statLabel}>Expenses</Text>
-              </View>
-              <Text style={[styles.statValue, { color: '#ef4444' }]}>{formatCurrency(stats.expenses)}</Text>
-            </View>
-          </View>
 
-          <View style={[styles.transactionCount, { borderTopColor: colors.borderColor }]}>
-            <Calendar size={14} color={colors.textSecondary} />
-            <Text style={[styles.countText, { color: colors.textSecondary }]}>
-              {stats.count} transaction{stats.count === 1 ? '' : 's'} in this period
-            </Text>
-          </View>
+              <View style={styles.statsRow}>
+                <View style={[styles.statCard, { backgroundColor: 'rgba(59, 130, 246, 0.06)' }]}>
+                  <View style={styles.statHeader}>
+                    <DollarSign size={16} color="#3b82f6" />
+                    <Text style={styles.statLabel}>Revenue</Text>
+                  </View>
+                  <Text style={[styles.statValue, { color: '#0f172a' }]}>{formatCurrency(stats.revenue)}</Text>
+                </View>
+                <View style={[styles.statCard, { backgroundColor: 'rgba(239, 68, 68, 0.06)' }]}>
+                  <View style={styles.statHeader}>
+                    <TrendingDown size={16} color="#ef4444" />
+                    <Text style={styles.statLabel}>Expenses</Text>
+                  </View>
+                  <Text style={[styles.statValue, { color: '#ef4444' }]}>{formatCurrency(stats.expenses)}</Text>
+                </View>
+              </View>
+
+              <View style={[styles.transactionCount, { borderTopColor: colors.borderColor }]}>
+                <Calendar size={14} color={colors.textSecondary} />
+                <Text style={[styles.countText, { color: colors.textSecondary }]}>
+                  {stats.count} transaction{stats.count === 1 ? '' : 's'} in this period
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
-        {/* Daily Breakdown */}
         {stats.dailyBreakdown.map((day: any) => {
           if (day.count === 0) return null;
 
@@ -286,8 +208,6 @@ export default function PeriodDetailScreen() {
             </View>
           );
         })}
-          </>
-        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -296,12 +216,6 @@ export default function PeriodDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 120,
   },
   header: {
     flexDirection: 'row',

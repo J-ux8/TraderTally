@@ -1,4 +1,5 @@
 import { deleteTransaction as deleteTxLib, getUserTransactions, getTransactionsInRange, recordExpense, recordSale, updateTransaction as updateTxLib, batchUpdateTransactions, batchDeleteTransactions, getSaleItemsBatch } from '@/lib/transactions';
+import { invalidateStatsCache } from '@/lib/statsCache';
 import { getUserDebts } from '@/lib/debts';
 import { TransactionGroup, Transaction as GroupingTransaction } from '@/types/grouping';
 import { useTransactionGroups } from '@/hooks/useTransactionGroups';
@@ -136,6 +137,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
         .reverse();
 
       setTransactions(enrichedData);
+      invalidateStatsCache();
     } catch (error) {
       console.error('Error loading transactions:', error);
     } finally {
@@ -223,6 +225,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     const result = await recordSale(amount, category, description, date, customerId, linkedSaleId);
     // Optimistic UI update
     setTransactions(prev => [result as Transaction, ...prev]);
+    invalidateStatsCache();
     // Trigger background sync push
     triggerSync().catch(console.error);
     return result;
@@ -232,6 +235,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     const result = await recordExpense(amount, category, description, date, customerId, linkedSaleId);
     // Optimistic UI update
     setTransactions(prev => [result as Transaction, ...prev]);
+    invalidateStatsCache();
     // Trigger background sync push
     triggerSync().catch(console.error);
     return result;
@@ -253,6 +257,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
     debounceTimerRef.current = setTimeout(async () => {
       try {
         await updateTxLib(id, amount, category, description, date, customerId);
+        invalidateStatsCache();
         // Trigger background sync push
         triggerSync().catch(console.error);
       } catch (error) {
@@ -267,6 +272,7 @@ export function TransactionsProvider({ children }: { children: React.ReactNode }
 
     try {
       await deleteTxLib(id);
+      invalidateStatsCache();
       // Trigger background sync push
       triggerSync().catch(console.error);
     } catch (error) {
