@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSync } from '@/context/SyncContext';
 
@@ -8,10 +8,10 @@ interface OfflineIndicatorProps {
 }
 
 export function OfflineIndicator({ alwaysShow = false, compact = false }: OfflineIndicatorProps) {
-  const { syncStatus, lastSyncedAt } = useSync();
+  const { syncStatus, lastSyncedAt, failedCount, retryFailed } = useSync();
 
   // If synced and not forced to show, stay hidden
-  if (!alwaysShow && syncStatus === 'synced') return null;
+  if (!alwaysShow && syncStatus === 'synced' && failedCount === 0) return null;
 
   const getStatusConfig = () => {
     switch (syncStatus) {
@@ -30,7 +30,7 @@ export function OfflineIndicator({ alwaysShow = false, compact = false }: Offlin
       case 'failed':
         return {
           icon: 'alert-circle-outline' as any,
-          label: 'Not Synced',
+          label: failedCount > 0 ? `${failedCount} Failed` : 'Not Synced',
           color: '#f59e0b', // Amber-500
         };
       default:
@@ -58,14 +58,20 @@ export function OfflineIndicator({ alwaysShow = false, compact = false }: Offlin
         color="#fff" 
         style={syncStatus === 'syncing' ? styles.rotating : undefined} 
       />
-      <View>
+      <View style={styles.labelContainer}>
         <Text style={[styles.text, compact && styles.compactText]}>
           {config.label}
         </Text>
-        {!compact && lastSyncedAt && syncStatus === 'synced' && (
+        {!compact && syncStatus === 'synced' && lastSyncedAt && (
           <Text style={styles.timeText}>
             Updated {formatTime(lastSyncedAt)}
           </Text>
+        )}
+        {!compact && syncStatus === 'failed' && failedCount > 0 && (
+          <TouchableOpacity onPress={retryFailed} style={styles.retryButton}>
+            <Ionicons name="refresh-outline" size={12} color="#fff" />
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
         )}
       </View>
     </View>
@@ -86,6 +92,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
+  labelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   text: { 
     color: '#fff', 
     fontSize: 12, 
@@ -99,6 +110,20 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
     fontSize: 10,
     fontWeight: '400',
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  retryText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   rotating: {
     // Rotation animation would be nice here if we add Reanimated, 

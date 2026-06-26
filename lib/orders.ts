@@ -45,8 +45,26 @@ export async function placeOrder(params: {
         'pending',
         existing.id
       );
+      await LocalDB.enqueue('products', existing.id, 'update');
     } else {
       const productId = randomUUID();
+      const productRecord = {
+        id: productId,
+        user_id: userId,
+        name: normalizedName,
+        display_name: displayName,
+        price: params.sellingPrice,
+        cost_price: costPricePerUnit,
+        category_id: params.categoryId,
+        stock_quantity: params.quantity,
+        usage_count: 0,
+        is_deleted: 0,
+        sync_status: 'pending',
+        retry_count: 0,
+        created_at: now,
+        updated_at: now
+      };
+
       await db.runAsync(
         `INSERT INTO products
          (id, user_id, name, display_name, price, cost_price, category_id, stock_quantity, usage_count, is_deleted, sync_status, retry_count, created_at, updated_at)
@@ -66,13 +84,29 @@ export async function placeOrder(params: {
         now,
         now
       );
+      await LocalDB.enqueue('products', productId, 'create', productRecord);
     }
+
+    const txId = randomUUID();
+    const txRecord = {
+      id: txId,
+      user_id: userId,
+      amount: -totalCost,
+      category: params.categoryName,
+      description: `Order: ${params.quantity}x ${displayName}`,
+      transaction_date: params.purchasedAt,
+      is_deleted: 0,
+      sync_status: 'pending',
+      retry_count: 0,
+      created_at: now,
+      updated_at: now
+    };
 
     await db.runAsync(
       `INSERT INTO transactions
        (id, user_id, amount, category, description, transaction_date, is_deleted, sync_status, retry_count, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      randomUUID(),
+      txId,
       userId,
       -totalCost,
        params.categoryName,
@@ -84,6 +118,7 @@ export async function placeOrder(params: {
       now,
       now
     );
+    await LocalDB.enqueue('transactions', txId, 'create', txRecord);
   });
 
   SyncEngine.syncAll().catch(console.error);

@@ -89,6 +89,7 @@ export async function completeSale(
         now,
         now
       );
+      await LocalDB.enqueue('sales', saleRecord.id, 'create', saleRecord);
 
       // 2. Insert Sale Items, snapshot cost, decrement stock
       const itemNames = items.map(i => `${i.quantity}x ${i.name}`).join(', ');
@@ -96,10 +97,26 @@ export async function completeSale(
 
       for (const item of items) {
         const stockInfo = stockInfoMap.get(item.product_id)!;
-        // unit_cost = product's cost_price at time of sale (NULL if legacy product with no cost tracking)
         const unitCost = stockInfo.costPrice;
         const itemId = randomUUID();
         const itemTotal = item.price * item.quantity;
+
+        const saleItemRecord = {
+          id: itemId,
+          sale_id: saleId,
+          product_id: item.product_id,
+          product_name: item.name,
+          quantity: item.quantity,
+          unit_price: item.price,
+          unit_cost: unitCost,
+          total_price: itemTotal,
+          is_deleted: 0,
+          sync_status: 'pending',
+          retry_count: 0,
+          created_at: now,
+          updated_at: now,
+          user_id: userId
+        };
 
         await db.runAsync(
           `INSERT INTO sale_items (id, sale_id, product_id, product_name, quantity, unit_price, unit_cost, total_price, is_deleted, sync_status, retry_count, created_at, updated_at) 
@@ -118,6 +135,7 @@ export async function completeSale(
           now,
           now
         );
+        await LocalDB.enqueue('sale_items', itemId, 'create', saleItemRecord);
 
         // Decrement product stock_quantity
         await db.runAsync(
@@ -133,6 +151,7 @@ export async function completeSale(
           'pending',
           item.product_id
         );
+        await LocalDB.enqueue('products', item.product_id, 'update');
       }
 
       // 3. Handle Payment — three cases based on amountPaidNow
@@ -142,8 +161,23 @@ export async function completeSale(
       const isPartial = !isFullCash && !isFullCredit;
 
       if (amountPaidNow > 0) {
-        // Record the cash received as a transaction
         const transactionId = randomUUID();
+        const txRecord = {
+          id: transactionId,
+          user_id: userId,
+          amount: amountPaidNow,
+          category: primaryCategory,
+          description: `Sale: ${itemNames}`,
+          transaction_date: now,
+          is_deleted: 0,
+          sync_status: 'pending',
+          retry_count: 0,
+          created_at: now,
+          updated_at: now,
+          customer_id: customerId || null,
+          linked_sale_id: saleId
+        };
+
         await db.runAsync(
           `INSERT INTO transactions (id, user_id, amount, category, description, transaction_date, is_deleted, sync_status, retry_count, created_at, updated_at, customer_id, linked_sale_id) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -161,11 +195,31 @@ export async function completeSale(
           customerId || null,
           saleId
         );
+        await LocalDB.enqueue('transactions', transactionId, 'create', txRecord);
       }
 
       if (debtAmount > 0) {
-        // Record the unpaid balance as a debt
         const debtId = randomUUID();
+        const debtRecord = {
+          id: debtId,
+          user_id: userId,
+          customer_name: customerName || 'Unknown Customer',
+          customer_phone: customerPhone || null,
+          customer_id: customerId || null,
+          amount: debtAmount,
+          due_date: null,
+          note: `Credit Sale: ${itemNames}`,
+          type: 'receivable',
+          is_settled: 0,
+          created_at: now,
+          updated_at: now,
+          is_deleted: 0,
+          sync_status: 'pending',
+          retry_count: 0,
+          linked_sale_id: saleId,
+          amount_paid_at_sale: amountPaidNow > 0 ? amountPaidNow : 0
+        };
+
         await db.runAsync(
           `INSERT INTO debts (id, user_id, customer_name, customer_phone, customer_id, amount, due_date, note, type, is_settled, created_at, updated_at, is_deleted, sync_status, retry_count, linked_sale_id, amount_paid_at_sale)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -176,7 +230,7 @@ export async function completeSale(
           customerId || null,
           debtAmount,
           null,
-          isPartial ? `Credit Sale: ${itemNames}` : `Credit Sale: ${itemNames}`,
+          `Credit Sale: ${itemNames}`,
           'receivable',
           0,
           now,
@@ -187,6 +241,7 @@ export async function completeSale(
           saleId,
           amountPaidNow > 0 ? amountPaidNow : 0
         );
+        await LocalDB.enqueue('debts', debtId, 'create', debtRecord);
       }
     });
 

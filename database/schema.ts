@@ -164,6 +164,22 @@ export const SCHEMA = {
         FOREIGN KEY (product_id) REFERENCES products(id)
       );
     `,
+    sync_queue: `
+      CREATE TABLE IF NOT EXISTS sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        table_name TEXT NOT NULL,
+        record_id TEXT NOT NULL,
+        operation TEXT NOT NULL CHECK(operation IN ('create', 'update', 'delete')),
+        payload TEXT,
+        status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'processing', 'failed', 'completed')),
+        retry_count INTEGER DEFAULT 0,
+        last_error TEXT,
+        locked_until TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+    `,
   },
   INDEXES: {
     transactions: `
@@ -210,6 +226,10 @@ export const SCHEMA = {
     sale_items: `
       CREATE INDEX IF NOT EXISTS idx_sale_items_sale_id ON sale_items(sale_id);
       CREATE INDEX IF NOT EXISTS idx_sale_items_sync ON sale_items(sync_status);
+    `,
+    sync_queue: `
+      CREATE INDEX IF NOT EXISTS idx_sync_queue_user_status ON sync_queue(user_id, status);
+      CREATE INDEX IF NOT EXISTS idx_sync_queue_locked ON sync_queue(locked_until);
     `,
   }
 };

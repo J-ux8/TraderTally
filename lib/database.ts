@@ -169,6 +169,62 @@ async function setupDatabase(database: SQLite.SQLiteDatabase) {
   for (const [, indexSql] of Object.entries(SCHEMA.INDEXES)) {
     await database.execAsync(indexSql);
   }
+
+  await backfillSyncQueue(database);
+}
+
+/**
+ * One-time backfill: copy all existing pending/failed records into the sync_queue.
+ * Runs at most once, tracked via a sentinel row in sync_metadata.
+ */
+async function backfillSyncQueue(database: SQLite.SQLiteDatabase) {
+  try {
+    const flag = await database.getFirstAsync<{ last_sync_time: string }>(
+      "SELECT last_sync_time FROM sync_metadata WHERE user_id = ?",
+      '__sync_queue_backfill__'
+    );
+    if (flag) return;
+
+    const dataTables = ['profiles', 'transactions', 'categories', 'debts', 'customers', 'products', 'sales', 'sale_items'];
+    const now = new Date().toISOString();
+    let totalBackfilled = 0;
+
+    for (const table of dataTables) {
+      try {
+        const records = await database.getAllAsync<any>(
+          `SELECT * FROM ${table} WHERE sync_status IN ('pending', 'failed') AND retry_count < 5`
+        );
+        if (records.length === 0) continue;
+
+        const statements: string[] = ['BEGIN TRANSACTION;'];
+        for (const record of records) {
+          const payload = JSON.stringify(record);
+          const userId = record.user_id || record.id || '';
+          const esc = (s: string) => s.replace(/'/g, "''");
+          statements.push(
+            `INSERT INTO sync_queue (user_id, table_name, record_id, operation, payload, status, retry_count, created_at, updated_at) ` +
+            `VALUES ('${esc(userId)}', '${esc(table)}', '${esc(record.id)}', 'create', '${esc(payload)}', 'pending', 0, '${now}', '${now}');`
+          );
+        }
+        statements.push('COMMIT;');
+        await database.execAsync(statements.join('\n'));
+        totalBackfilled += records.length;
+        console.log(`[Database] Backfilled ${records.length} ${table} records into sync_queue`);
+      } catch (e) {
+        console.error(`[Database] Backfill failed for ${table}:`, e);
+      }
+    }
+
+    await database.runAsync(
+      "INSERT OR REPLACE INTO sync_metadata (user_id, last_sync_time) VALUES (?, ?)",
+      '__sync_queue_backfill__',
+      now
+    );
+
+    console.log(`[Database] Sync queue backfill complete — ${totalBackfilled} total records enqueued`);
+  } catch (e) {
+    console.error('[Database] Sync queue backfill failed:', e);
+  }
 }
 
 export async function wipeDatabase() {

@@ -72,23 +72,34 @@ export class NetworkMonitor {
   }
 
   /**
-   * Verify actual internet connection by pinging Supabase
+   * Verify actual internet connection with a real HTTP probe to Supabase.
+   * Uses `head: true` + `count` for minimum data transfer (no rows returned).
+   * Distinguishes "server reached" (online) from "fetch failed" (offline).
    */
   static async verifyInternet(): Promise<boolean> {
     try {
-      // Lightweight request - just get user info from cache/local or tiny check
-      const { error } = await supabase.auth.getSession();
-      
+      // Real HTTP request — lightweight: headers only, no rows returned
+      const { error } = await supabase
+        .from('profiles')
+        .select('count', { count: 'exact', head: true });
+
       const wasOnline = this.isOnline;
-      this.isOnline = !error; // Error usually means network issues or auth issues
+      // Any server response (including 401/403) proves internet is reachable.
+      // Only a network-level failure throws into the catch block.
+      this.isOnline = true;
 
       if (wasOnline !== this.isOnline) {
         this.notifyListeners();
       }
-      return this.isOnline;
-    } catch (e) {
+      return true;
+    } catch {
+      // Network failure — definitely offline
+      const wasOnline = this.isOnline;
       this.isOnline = false;
-      this.notifyListeners();
+
+      if (wasOnline !== this.isOnline) {
+        this.notifyListeners();
+      }
       return false;
     }
   }
